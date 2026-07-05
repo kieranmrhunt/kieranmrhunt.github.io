@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Extra Omnes — October 1978</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+:root{
+	/* Conclave palette: Sistine shadow, cardinal oxblood, papal gilt, candle paper, lead smoke */
+	--void:#0d0d12;--void2:#15121b;--void3:#100f16;
+	--surface:#16141d;--surface2:#1d1a26;--raised:#221f2c;
+	--paper:#ece2cf;--paper-dim:#c9bda6;--smoke:#8d8474;
+	--line:rgba(236,226,207,.10);--line2:rgba(236,226,207,.18);
+	--gold:#cda85f;--gold-bright:#e7c982;--gold-soft:rgba(205,168,95,.12);
+	--ox:#8f1d2c;--ox-bright:#d6485a;--ox-soft:rgba(143,29,44,.16);
+	--blue:#5277a0;--blue-bright:#8fb4cf;--green:#5c8a60;--green-bright:#9cd39f;
+	--amber:#b0712f;
+	--mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Consolas,monospace;
+	--serif:"EB Garamond","Iowan Old Style",Georgia,"Times New Roman",serif;
+	--display:"Fraunces","EB Garamond",Georgia,serif;
+	--sans:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;background:var(--void)}
+body{
+	margin:0;color:var(--paper);font-family:var(--sans);line-height:1.5;font-size:16px;min-height:100vh;
+	background:
+		radial-gradient(1200px 700px at 78% -8%,rgba(143,29,44,.16),transparent 60%),
+		radial-gradient(900px 600px at 8% 4%,rgba(205,168,95,.06),transparent 55%),
+		linear-gradient(168deg,var(--void),var(--void2) 55%,var(--void3));
+	background-attachment:fixed;
+	background-color:var(--void);
+}
+::selection{background:rgba(205,168,95,.28);color:#fff}
+.hidden{display:none!important}
+.mono{font-family:var(--mono)}
+.smallcaps{font-variant:small-caps;letter-spacing:.08em}
+.dim,small{color:var(--paper-dim)}
+.goldtx{color:var(--gold-bright)}.redtx{color:var(--ox-bright)}.greentx{color:var(--green-bright)}
+
+/* ---- Controls ---- */
+button,input,select{font:inherit}
+button{
+	border:1px solid var(--line2);background:var(--raised);color:var(--paper);
+	padding:.58rem .85rem;border-radius:8px;cursor:pointer;letter-spacing:.01em;
+	transition:background .16s ease,border-color .16s ease,transform .08s ease,box-shadow .16s ease;
+}
+button:hover{background:#2a2735;border-color:rgba(236,226,207,.34)}
+button:active{transform:translateY(1px)}
+button:disabled{opacity:.4;cursor:not-allowed;transform:none}
+button.primary{background:linear-gradient(180deg,var(--ox-bright),var(--ox));border-color:#e0606f;color:#fff5f0;font-weight:600;box-shadow:0 1px 0 rgba(255,255,255,.12) inset}
+button.primary:hover{background:linear-gradient(180deg,#e15a6b,#9a2231)}
+button.ghost{background:transparent;border-color:var(--line2)}
+button.ghost:hover{background:rgba(236,226,207,.06)}
+button.gold{border-color:rgba(205,168,95,.6);color:var(--gold-bright);background:var(--gold-soft)}
+button.gold:hover{background:rgba(205,168,95,.2);border-color:var(--gold)}
+input,select{
+	background:var(--void3);color:var(--paper);border:1px solid var(--line2);
+	border-radius:8px;padding:.55rem .6rem;transition:border-color .16s ease,box-shadow .16s ease;
+}
+input::placeholder{color:var(--smoke)}
+input:focus,select:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(205,168,95,.16)}
+:focus-visible{outline:2px solid var(--gold-bright);outline-offset:2px}
+
+/* ---- Header ---- */
+header{
+	padding:.95rem 1.25rem;border-bottom:1px solid var(--line);display:flex;gap:.9rem;align-items:center;
+	background:rgba(13,13,18,.86);position:sticky;top:0;z-index:20;backdrop-filter:blur(10px) saturate(1.1);
+}
+header h1{font-family:var(--display);font-size:1.32rem;margin:0;color:var(--gold-bright);font-weight:600;letter-spacing:.01em;font-optical-sizing:auto}
+header .date{margin-left:auto;text-align:right;font-family:var(--mono);font-size:.72rem;color:var(--paper-dim);line-height:1.4}
+
+/* ---- Title block (select / end) ---- */
+.titleblock{text-align:center;margin:2.6rem auto 1rem;max-width:920px;padding:0 1rem}
+.titleblock .over{font-family:var(--mono);font-size:.7rem;letter-spacing:.38em;color:var(--gold);text-transform:uppercase}
+.titleblock h1{font-family:var(--display);font-weight:600;font-optical-sizing:auto;font-size:clamp(2.6rem,8vw,5.2rem);line-height:.96;margin:.5rem 0 .2rem;letter-spacing:-.01em}
+.titleblock h1 em{color:var(--ox-bright);font-style:italic}
+.titleblock .sub{font-family:var(--serif);font-size:1.12rem;color:var(--paper-dim);font-style:italic;max-width:64ch;margin:.4rem auto 0}
+
+/* ---- Select screen ---- */
+#screen-select{max-width:1280px;margin:0 auto;padding:0 1rem 4rem}
+.selbar{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:.6rem;position:sticky;top:0;background:linear-gradient(var(--void2),rgba(21,18,27,.86));padding:.8rem 0;z-index:10;backdrop-filter:blur(6px)}
+.grid-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(264px,1fr));gap:.8rem}
+.ccard{
+	position:relative;background:linear-gradient(165deg,var(--surface2),var(--surface));
+	border:1px solid var(--line);border-radius:12px;padding:.95rem;cursor:pointer;min-height:176px;
+	transition:border-color .18s ease,box-shadow .18s ease,transform .12s ease;
+}
+.ccard:hover{transform:translateY(-2px);border-color:rgba(205,168,95,.45);box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.ccard.sel{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold),0 10px 30px rgba(143,29,44,.25)}
+.ccard .nm{font-family:var(--display);font-weight:600;font-size:1.12rem;color:#fff;margin:.15rem 0 .1rem;line-height:1.15}
+.ccard .office{font-family:var(--serif);font-size:.92rem;color:var(--paper-dim);min-height:2.6em;line-height:1.3}
+.ccard .meta{font-family:var(--mono);font-size:.68rem;color:var(--gold);display:flex;justify-content:space-between;gap:.5rem;letter-spacing:.02em}
+.chips{display:flex;flex-wrap:wrap;gap:.28rem;margin:.5rem 0}
+.chip{font-family:var(--mono);font-size:.6rem;text-transform:uppercase;letter-spacing:.07em;border:1px solid var(--line2);border-radius:999px;padding:.14rem .42rem;color:var(--paper-dim)}
+.explain{font-family:var(--serif);font-size:.95rem;color:var(--paper-dim);line-height:1.35;margin:.35rem 0 .65rem}
+.badgeword{font-family:var(--mono);font-size:.58rem;text-transform:uppercase;letter-spacing:.06em;border:1px solid var(--line2);border-radius:999px;padding:.12rem .34rem;color:var(--paper-dim);white-space:nowrap}
+.hook{font-family:var(--serif);font-size:.95rem;color:var(--paper-dim);font-style:italic;border-top:1px solid var(--line);padding-top:.5rem;margin-top:.5rem;line-height:1.3}
+.startbar{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;justify-content:center;text-align:center;position:sticky;bottom:0;background:linear-gradient(transparent,var(--void2) 36%);padding:1.4rem 0 .4rem}
+.startbar .primary{font-size:1.02rem;padding:.7rem 1.4rem}
+.seedrow{flex-basis:100%;margin-top:.4rem;font-family:var(--mono);font-size:.74rem;color:var(--smoke)}
+.seedrow input{padding:.4rem .5rem;width:11rem}
+
+/* ---- Game layout ---- */
+#screen-game{display:grid;grid-template-columns:330px 1fr 372px;min-height:calc(100vh - 60px)}
+#screen-game header{grid-column:1/-1}
+.col{padding:1rem;border-right:1px solid var(--line);min-width:0}
+.col:last-child{border-right:0}
+.colhead{
+	font-family:var(--mono);text-transform:uppercase;letter-spacing:.18em;color:var(--gold);font-size:.66rem;
+	margin-bottom:.6rem;padding-bottom:.5rem;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:end;
+}
+.colhead span:last-child{color:var(--paper-dim);letter-spacing:.06em}
+.tabs{display:flex;flex-wrap:wrap;gap:.32rem;margin-bottom:.65rem}
+.tabs button{font-family:var(--mono);font-size:.68rem;padding:.3rem .5rem;letter-spacing:.04em;border-radius:6px}
+.tabs button.active{background:var(--gold);color:#1a140a;border-color:var(--gold);font-weight:600}
+
+/* Roster */
+.roster{max-height:calc(100vh - 250px);overflow:auto;padding-right:.3rem}
+.crow{display:grid;grid-template-columns:34px 1fr 72px;gap:.5rem;align-items:center;padding:.4rem .45rem;border:1px solid transparent;border-radius:7px;cursor:pointer;transition:background .14s ease,border-color .14s ease}
+.crow:hover{background:rgba(236,226,207,.05);border-color:var(--line2)}
+.crow.player{background:var(--ox-soft);border-color:rgba(214,72,90,.45)}
+.crow .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--serif);font-size:1.02rem}
+.crow .nm small{display:block;font-family:var(--mono);font-size:.66rem;color:var(--smoke);margin-top:1px}
+.crow .vt{font-family:var(--mono);font-size:.78rem;color:var(--gold-bright);text-align:center}
+.crow .vt:last-child{color:var(--smoke)}
+.crow .vt .badgeword{display:inline-block;max-width:68px;overflow:hidden;text-overflow:ellipsis}
+
+/* Networks (right rail + summary) */
+.network-card{background:rgba(236,226,207,.04);border:1px solid var(--line);border-radius:9px;padding:.6rem;margin:.5rem 0}
+.network-card b{color:var(--gold-bright);font-family:var(--sans);font-size:.84rem}
+.network-card .dim{font-family:var(--serif);font-size:.9rem}
+.network-card .nbar{height:5px;background:var(--void3);border-radius:999px;overflow:hidden;margin-top:.4rem}
+.network-card .nbar span{display:block;height:100%;background:linear-gradient(90deg,var(--smoke),var(--ox-bright))}
+
+/* ---- Centre: chronicle log ---- */
+#log{height:48vh;overflow:auto;padding-right:.45rem}
+.le{border-left:3px solid var(--line2);padding:.45rem .65rem;margin-bottom:.5rem;background:rgba(236,226,207,.025);border-radius:0 7px 7px 0;font-family:var(--serif);font-size:1.04rem;line-height:1.42}
+.le .stamp{display:block;font-family:var(--mono);font-size:.62rem;color:var(--smoke);text-transform:uppercase;letter-spacing:.12em;margin-bottom:.2rem}
+.le b{font-weight:600}
+.le.scrut{border-left-color:var(--ox-bright);background:var(--ox-soft)}
+.le.event{border-left-color:var(--blue);background:rgba(82,119,160,.14)}
+.le.holy{border-left-color:var(--gold);background:var(--gold-soft)}
+.le.deal{border-left-color:var(--green);background:rgba(92,138,96,.12)}
+
+/* Actions */
+.actions{border-top:1px solid var(--line);margin-top:.8rem;padding-top:.8rem;display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem}
+.actions button{min-height:48px;font-size:.92rem}
+.actions button.primary{grid-column:1/-1}
+.ap{font-family:var(--mono);font-size:.74rem;color:var(--paper-dim);letter-spacing:.04em}
+.pip{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--gold);margin-left:4px;box-shadow:0 0 6px rgba(205,168,95,.5)}
+.pip.spent{background:#3a3744;box-shadow:none}
+
+/* Meters */
+#meters{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.45rem .8rem}
+.meter{margin:.1rem 0 .35rem}
+.meter .lb{display:flex;justify-content:space-between;gap:.4rem;font-family:var(--mono);font-size:.64rem;text-transform:uppercase;letter-spacing:.06em;color:var(--paper-dim);margin-bottom:.18rem}
+.meter .lb span:last-child{color:var(--paper)}
+.meter .help{font-family:var(--serif);font-size:.78rem;color:var(--smoke);line-height:1.2;margin-top:.18rem}
+.bar{height:6px;border-radius:999px;background:var(--void3);overflow:hidden}
+.fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--green),var(--gold));transition:width .5s cubic-bezier(.2,.7,.2,1)}
+.fill.bad{background:linear-gradient(90deg,var(--amber),var(--ox-bright))}
+.fill.blue{background:linear-gradient(90deg,var(--blue),var(--blue-bright))}
+
+/* ---- Scrutiny board: the race to 75 ---- */
+.threshold{font-family:var(--mono);font-size:.72rem;color:var(--paper-dim);letter-spacing:.02em;margin-bottom:.3rem}
+.threshold b{color:var(--ox-bright)}
+.race{display:flex;flex-direction:column;gap:.34rem;margin:.55rem 0 .2rem}
+.racerow{display:grid;grid-template-columns:84px 1fr 28px;gap:.5rem;align-items:center}
+.racerow .rname{font-family:var(--mono);font-size:.74rem;color:var(--paper);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.racerow .rname em{font-style:normal;color:var(--ox-bright);font-size:.66rem}
+.racerow.lead .rname{color:var(--gold-bright)}
+.rtrack{position:relative;height:10px;background:var(--void3);border-radius:999px;overflow:hidden;box-shadow:inset 0 0 0 1px var(--line)}
+.rtrack::after{content:"";position:absolute;right:0;top:0;bottom:0;width:2px;background:var(--gold);opacity:.55}
+.rfill{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--ox),var(--gold));transition:width .55s cubic-bezier(.2,.7,.2,1)}
+.rfill.win{background:linear-gradient(90deg,var(--gold),#fff1cf);box-shadow:0 0 10px rgba(231,201,130,.7)}
+.rnum{font-family:var(--mono);font-size:.78rem;color:var(--gold-bright);text-align:right}
+.rollbtn{width:100%;margin-top:.55rem;font-family:var(--mono);font-size:.7rem;letter-spacing:.06em;color:var(--paper-dim)}
+.rollbtn:hover{color:var(--paper)}
+.board-note{font-family:var(--serif);font-size:.92rem;color:var(--paper-dim);line-height:1.35;margin:.35rem 0 .55rem}
+.modal.scrutinybook{width:min(1040px,100%);border-color:rgba(231,201,130,.7)}
+.scrutiny-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:1rem;margin-top:.7rem}
+.scrutiny-hero{display:grid;grid-template-columns:repeat(3,1fr);gap:.55rem;margin:.55rem 0 .8rem}
+.scard{background:rgba(236,226,207,.045);border:1px solid var(--line);border-radius:10px;padding:.65rem .75rem}
+.scard b{display:block;font-family:var(--display);font-size:1.45rem;color:var(--gold-bright);line-height:1.05}
+.scard span{font-family:var(--mono);font-size:.62rem;text-transform:uppercase;letter-spacing:.09em;color:var(--paper-dim)}
+.scrutiny-list{display:flex;flex-direction:column;gap:.38rem}
+.srow{display:grid;grid-template-columns:112px 1fr 44px 42px;gap:.5rem;align-items:center;padding:.28rem 0;border-bottom:1px solid var(--line)}
+.srow .sname{font-family:var(--mono);font-size:.78rem;color:var(--paper);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.srow.leader .sname{color:var(--gold-bright)}
+.srow .delta{font-family:var(--mono);font-size:.7rem;text-align:right;color:var(--paper-dim)}
+.srow .delta.up{color:var(--green-bright)}.srow .delta.down{color:var(--ox-bright)}
+.smini{font-family:var(--serif);font-size:.95rem;color:var(--paper-dim);line-height:1.35}
+.exact-roll{max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:8px;margin-top:.55rem}
+.exact-roll table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.76rem}
+.exact-roll td,.exact-roll th{border-bottom:1px solid var(--line);padding:.28rem .35rem;text-align:left}
+.exact-roll th{color:var(--gold);font-size:.64rem;text-transform:uppercase;letter-spacing:.08em;position:sticky;top:0;background:var(--surface2)}
+@media(max-width:760px){.scrutiny-grid,.scrutiny-hero{grid-template-columns:1fr}.srow{grid-template-columns:94px 1fr 36px 38px}}
+
+/* Status boxes */
+.statusbox{background:rgba(236,226,207,.04);border:1px solid var(--line);border-radius:9px;padding:.65rem .7rem;margin:.5rem 0;font-family:var(--serif);font-size:1rem;line-height:1.4}
+.statusbox b{font-family:var(--sans);font-size:.86rem}
+.objective{border-color:rgba(205,168,95,.4);background:var(--gold-soft)}
+
+/* ---- Tables (exact roll / history) ---- */
+#board table,#history table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.8rem}
+#board td,#board th,#history td,#history th{border-bottom:1px solid var(--line);padding:.28rem .25rem;text-align:left}
+#board td.n,#history td.n{text-align:right;color:var(--gold-bright)}
+#history th{color:var(--gold);text-transform:uppercase;letter-spacing:.08em;font-size:.68rem}
+.rank1 td{color:#fff;font-weight:600}
+
+/* ---- Overlay / modal ---- */
+.overlay{position:fixed;inset:0;background:rgba(6,6,9,.82);z-index:90;display:flex;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(4px);animation:fade .18s ease}
+.modal{background:linear-gradient(165deg,var(--surface2),var(--surface));border:1px solid rgba(205,168,95,.5);border-radius:14px;width:min(760px,100%);max-height:90vh;overflow:auto;padding:1.3rem;box-shadow:0 30px 90px rgba(0,0,0,.6);animation:rise .22s cubic-bezier(.2,.7,.2,1)}
+.modal h3{font-family:var(--display);font-weight:600;color:var(--gold-bright);font-size:1.5rem;margin:.1rem 0 .8rem;letter-spacing:-.01em}
+.modal h4{font-family:var(--mono);text-transform:uppercase;letter-spacing:.12em;font-size:.7rem;color:var(--gold);margin:1.1rem 0 .4rem}
+.mclose{float:right;background:transparent;border:0;font-size:1.2rem;color:var(--paper-dim);padding:.1rem .35rem;line-height:1}
+.mclose:hover{background:transparent;color:var(--paper)}
+.choices{display:flex;flex-direction:column;gap:.5rem;margin-top:.85rem}
+.choices button{text-align:left;font-family:var(--serif);font-size:1.04rem;padding:.65rem .8rem}
+.choices button small{display:block;font-family:var(--sans);font-size:.78rem;color:var(--paper-dim);margin-top:.15rem}
+.pickgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(216px,1fr));gap:.5rem;max-height:54vh;overflow:auto;padding:.1rem}
+.pickgrid button{min-height:50px;text-align:left;font-family:var(--serif);font-size:1.02rem}
+.pickgrid button small{display:block;font-family:var(--mono);font-size:.68rem;color:var(--paper-dim);margin-top:.15rem}
+
+/* Dossier */
+.dossier-head{display:flex;gap:.9rem;align-items:flex-start;margin-bottom:.3rem}
+.dossier-head b{font-family:var(--mono);font-size:.74rem;text-transform:uppercase;letter-spacing:.08em;color:var(--gold)}
+.badge{flex:none;width:46px;height:46px;border-radius:50%;background:radial-gradient(circle at 38% 32%,#f0dcab,var(--ox) 78%);box-shadow:inset 0 0 0 5px rgba(255,255,255,.1),0 4px 14px rgba(143,29,44,.4)}
+.axis{display:grid;grid-template-columns:128px 1fr 74px;gap:.45rem;align-items:center;font-family:var(--mono);font-size:.72rem;color:var(--paper-dim);margin:.16rem 0}
+.axis .axbar{height:5px;background:var(--void3);border-radius:999px;overflow:hidden;position:relative}
+.axis .axbar::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--line2)}
+.axis .axbar span{display:block;height:100%;background:linear-gradient(90deg,var(--blue),var(--blue-bright))}
+.axis>span:last-child{text-align:right;color:var(--paper)}
+
+/* Prose blocks */
+.manual p{font-family:var(--serif);font-size:1.06rem;color:var(--paper);line-height:1.5;margin:.5rem 0}
+.manual h4{font-family:var(--display);font-weight:600;color:var(--gold-bright);font-size:1.15rem;margin:1.1rem 0 .2rem;text-transform:none;letter-spacing:0}
+.manual b{color:var(--gold-bright)}
+.callout{font-family:var(--serif);font-size:1rem;border-left:3px solid var(--gold);background:var(--gold-soft);padding:.6rem .75rem;border-radius:0 8px 8px 0;color:var(--paper);margin:.3rem 0}
+.callout.warning{border-left-color:var(--ox-bright);background:var(--ox-soft)}
+
+/* ---- End screen ---- */
+#screen-end{max-width:880px;margin:0 auto;padding:2.6rem 1rem 5rem}
+.endtitle{text-align:center;font-family:var(--display);font-weight:600;font-optical-sizing:auto;font-size:clamp(2.6rem,8vw,4.4rem);color:var(--gold-bright);margin:.3rem 0;letter-spacing:.06em;font-variant:small-caps}
+.endsub{text-align:center;font-family:var(--serif);color:var(--paper-dim);font-style:italic;font-size:1.2rem}
+.endbody{font-family:var(--serif);max-width:62ch;margin:1.6rem auto;font-size:1.18rem;line-height:1.6}
+.endbody b{color:var(--gold-bright);font-weight:600}
+.ach{display:flex;flex-wrap:wrap;gap:.45rem;justify-content:center;margin-top:1.2rem}
+.ach span{font-family:var(--mono);font-size:.68rem;border:1px solid rgba(205,168,95,.5);color:var(--gold-bright);border-radius:999px;padding:.28rem .6rem;text-transform:uppercase;letter-spacing:.07em}
+.endbar{display:flex;gap:.6rem;justify-content:center;margin:1.8rem 0}
+.source-note{font-family:var(--mono);font-size:.72rem;color:var(--smoke);text-align:center;max-width:70ch;margin:1.2rem auto 0;line-height:1.5}
+
+/* ---- Toast ---- */
+#toast{position:fixed;left:50%;bottom:1.3rem;transform:translate(-50%,10px);z-index:120;max-width:min(92vw,440px);text-align:center;background:var(--surface2);border:1px solid var(--gold);color:var(--paper);padding:.62rem .95rem;border-radius:10px;font-family:var(--mono);font-size:.78rem;letter-spacing:.01em;box-shadow:0 14px 44px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .26s ease,transform .26s ease}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* Scrollbars */
+.roster::-webkit-scrollbar,#log::-webkit-scrollbar,.modal::-webkit-scrollbar,.pickgrid::-webkit-scrollbar{width:9px}
+.roster::-webkit-scrollbar-thumb,#log::-webkit-scrollbar-thumb,.modal::-webkit-scrollbar-thumb,.pickgrid::-webkit-scrollbar-thumb{background:rgba(236,226,207,.16);border-radius:999px;border:2px solid transparent;background-clip:padding-box}
+.roster::-webkit-scrollbar-thumb:hover,#log::-webkit-scrollbar-thumb:hover{background:rgba(236,226,207,.28);background-clip:padding-box}
+
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+
+@media(max-width:1050px){
+	#screen-game{display:flex;flex-direction:column}
+	.col{border-right:0;border-bottom:1px solid var(--line)}
+	.roster{max-height:380px}
+	.actions{grid-template-columns:1fr 1fr}
+	.selbar{grid-template-columns:1fr 1fr}
+	#log{height:42vh}
+}
+@media(max-width:580px){
+	.grid-cards{grid-template-columns:1fr}
+	.selbar{grid-template-columns:1fr}
+	.actions{grid-template-columns:1fr}
+	.actions button.primary{grid-column:auto}
+	header{flex-wrap:wrap}
+	header .date{width:100%;text-align:left;margin-left:0}
+	#meters{grid-template-columns:1fr 1fr}
+}
+@media(prefers-reduced-motion:reduce){
+	*{animation-duration:.001ms!important;transition-duration:.001ms!important;scroll-behavior:auto}
+}
+</style>
+</head>
+<body>
+<div id="toast" class="hidden"></div>
+<section id="screen-select">
+	<div class="titleblock">
+		<div class="over">ROME · OCTOBER MCMLXXVIII · SEDE VACANTE</div>
+		<h1>EXTRA <em>OMNES</em></h1>
+		<div class="sub">The second conclave of 1978. One hundred and eleven electors, eight ballots in history, and a College trying to imagine the Church after Paul VI, John Paul I, Vatican II and the Cold War.</div>
+	</div>
+	<div class="selbar">
+		<input id="search" placeholder="Search cardinals, countries, networks…">
+		<select id="networkFilter"></select>
+		<select id="regionFilter"><option value="">All regions</option></select>
+		<button id="helpSelect">Rules</button>
+	</div>
+	<div class="grid-cards" id="selgrid"></div>
+	<div class="startbar">
+		<button id="startbtn" class="primary" disabled>Choose a cardinal</button>
+		<button id="resumeBtn" class="gold hidden">Resume sealed conclave</button>
+		<div class="seedrow">seed <input id="seedin" placeholder="providence"> · all 111 October electors are playable</div>
+	</div>
+</section>
+<section id="screen-game" class="hidden">
+	<header>
+		<h1>Extra Omnes — October 1978</h1>
+		<button id="manualBtn" class="ghost">Rules</button>
+		<button id="saveBtn" class="ghost">Seal</button>
+		<div class="date" id="dateLabel"></div>
+	</header>
+	<div class="col" id="leftcol">
+		<div class="colhead"><span>The College</span><span id="rosterCount"></span></div>
+		<div class="tabs" id="networkTabs"></div>
+		<input id="rosterSearch" placeholder="Filter roster…" style="width:100%;margin-bottom:.55rem;background:#11131a;color:var(--paper);border:1px solid rgba(255,255,255,.16);border-radius:7px;padding:.5rem">
+		<div class="roster" id="roster"></div>
+	</div>
+	<div class="col" id="centercol">
+		<div class="colhead"><span>The Sistine Chapel</span><span id="apwrap"></span></div>
+		<div id="log"></div>
+		<div class="actions">
+			<button id="actSound">Soundings</button>
+			<button id="actNetwork">Work a network</button>
+			<button id="actAssure">Give assurance</button>
+			<button id="actFloat">Float a name</button>
+			<button id="actDiscourage">Discourage rival</button>
+			<button id="actRest">Pray / rest</button>
+			<button id="actTransfer">Transfer support</button>
+			<button id="worldBtn">World outside</button>
+			<button id="ballotBtn" class="primary">Proceed to scrutiny</button>
+		</div>
+	</div>
+	<div class="col" id="rightcol">
+		<div class="colhead"><span>Your standing</span></div>
+		<div id="playerBox" class="statusbox objective"></div>
+		<div id="meters"></div>
+		<div class="colhead" style="margin-top:.8rem"><span>Exact scrutiny board</span></div>
+		<div id="board"></div>
+		<div class="colhead" style="margin-top:.8rem"><span>Networks</span></div>
+		<div id="networkSummary"></div>
+	</div>
+</section>
+<section id="screen-end" class="hidden">
+	<div class="titleblock"><div class="over">THE CONCLAVE IS ENDED</div></div>
+	<h1 class="endtitle" id="endTitle"></h1>
+	<div class="endsub" id="endSub"></div>
+	<div class="endbody" id="endBody"></div>
+	<div id="endStats"></div>
+	<div class="ach" id="achievements"></div>
+	<div class="endbar"><button id="again" class="primary">Another conclave</button><button id="exportLog">Export chronicle</button></div>
+	<div class="source-note">This is a historically researched simulation, not a claim to know secret 1978 ballot papers. The scrutiny counts shown inside the game are exact counts produced by the model.</div>
+</section>
+<script>
+"use strict";
+const ELECTORS = [{"rank":1,"id":"villot","short":"Villot","name":"Jean-Marie Villot","country":"France","region":"Europe","age":73,"order":"B","office":"Secretary of State; Camerlengo of the Holy Roman Church; Cor Unum","role":"Procedural chair; continuity and Curia reassurance.","tags":["Curia","Montinian","French","Continuity","Governance","Procedure"],"papabile":4,"profile":{"doctrine":0.0,"vatican2":0.55,"curial":1.35,"collegiality":0.25,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.0,"governance":2.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":2,"id":"samore","short":"Samorè","name":"Antonio Samorè","country":"Italy","region":"Europe","age":72,"order":"B","office":"Archivist and Librarian of the Holy Roman Church","role":"Elder diplomat and cautious Roman administrator.","tags":["Italian","Curia","Diplomat","Continuity","Elder"],"papabile":3,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":1.35,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.0,"governance":0.9,"italianAcceptability":1.25,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":3,"id":"carpino","short":"Carpino","name":"Francesco Carpino","country":"Italy","region":"Europe","age":73,"order":"B","office":"Archbishop emeritus of Palermo","role":"Italian elder; dignified pastoral respect vote.","tags":["Italian","Pastor","Elder","Continuity"],"papabile":3,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.9,"governance":0.0,"italianAcceptability":1.25,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":4,"id":"baggio","short":"Baggio","name":"Sebastiano Baggio","country":"Italy","region":"Europe","age":65,"order":"B","office":"Prefect of the Sacred Congregation for Bishops","role":"Appointments network; crucial curial broker.","tags":["Italian","Curia","Governance","Bishops","Montinian","Broker"],"papabile":6,"profile":{"doctrine":0.0,"vatican2":0.55,"curial":1.35,"collegiality":0.25,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.0,"governance":2.0,"italianAcceptability":1.25,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":3},{"rank":5,"id":"sidarouss","short":"Sidarouss","name":"Stéphanos I Sidarouss","country":"Egypt","region":"Africa","age":74,"order":"B","office":"Coptic Catholic Patriarch of Alexandria","role":"Eastern Catholic and non-Latin world-Church signal.","tags":["Eastern","Africa","GlobalSouth","Elder","Bridge"],"papabile":2,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.7,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.55,"pastoral":0.0,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":6,"id":"siri","short":"Siri","name":"Giuseppe Siri","country":"Italy","region":"Europe","age":72,"order":"P","office":"Archbishop of Genoa","role":"Conservative Italian papabile with a strong opening and hard opposition.","tags":["Italian","Doctrine","SiriCamp","Pastor","Elder","Papabile"],"papabile":9,"profile":{"doctrine":1.9,"vatican2":-0.55,"curial":0.15,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.9,"governance":0.0,"italianAcceptability":1.85,"ecumenism":0.0,"media":0.1,"health":-0.55},"difficulty":2},{"rank":7,"id":"wyszynski","short":"Wyszyński","name":"Stefan Wyszyński","country":"Poland","region":"Europe","age":77,"order":"P","office":"Archbishop of Gniezno and Warsaw; Primate of Poland","role":"Moral authority of the Church under Communism; Wojtyła legitimacy.","tags":["Polish","SufferingChurch","AntiCommunist","Doctrine","Pastor","Elder","Bridge"],"papabile":5,"profile":{"doctrine":1.35,"vatican2":0.0,"curial":0.0,"collegiality":0.7,"ostpolitik":-0.25,"antiCommunism":1.25,"globalChurch":0.45,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":8,"id":"leger","short":"Léger","name":"Paul-Émile Léger","country":"Canada","region":"North America","age":74,"order":"P","office":"Archbishop emeritus of Montréal","role":"Missionary elder; independent conscience.","tags":["Canada","French","Mission","Conciliar","Elder","Pastor"],"papabile":3,"profile":{"doctrine":0.0,"vatican2":1.2,"curial":0.0,"collegiality":0.8,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.45,"pastoral":1.15,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":9,"id":"bueno","short":"Bueno y Monreal","name":"José María Bueno y Monreal","country":"Spain","region":"Europe","age":74,"order":"P","office":"Archbishop of Seville","role":"Spanish elder; cautious hierarchy vote.","tags":["Spain","Doctrine","Elder","Pastor"],"papabile":3,"profile":{"doctrine":1.35,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":10,"id":"konig","short":"König","name":"Franz König","country":"Austria","region":"Europe","age":73,"order":"P","office":"Archbishop of Vienna; Secretariat for Non-Believers","role":"Central European bridge; makes a non-Italian solution thinkable.","tags":["Germanic","Conciliar","Bridge","Ecumenism","NonBelievers","AntiCommunist","Papabile"],"papabile":7,"profile":{"doctrine":0.0,"vatican2":1.55,"curial":0.0,"collegiality":1.5,"ostpolitik":-0.25,"antiCommunism":1.25,"globalChurch":0.45,"pastoral":0.0,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":1.0,"media":0.0,"health":0.0},"difficulty":2},{"rank":11,"id":"alfrink","short":"Alfrink","name":"Bernardus Johannes Alfrink","country":"Netherlands","region":"Europe","age":78,"order":"P","office":"Archbishop emeritus of Utrecht","role":"Dutch reform elder; Vatican II memory.","tags":["Dutch","Conciliar","Ecumenism","Elder","Reform"],"papabile":3,"profile":{"doctrine":0.0,"vatican2":1.55,"curial":0.0,"collegiality":0.8,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.0,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":1.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":12,"id":"rugambwa","short":"Rugambwa","name":"Laurean Rugambwa","country":"Tanzania","region":"Africa","age":66,"order":"P","office":"Archbishop of Dar-es-Salaam","role":"African pioneer; mission Church.","tags":["Africa","GlobalSouth","Mission","Pastor"],"papabile":3,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.55,"pastoral":1.15,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":13,"id":"quintero","short":"Quintero","name":"José Humberto Quintero Parra","country":"Venezuela","region":"South America","age":76,"order":"P","office":"Archbishop of Caracas","role":"Latin American elder; cautious conservative.","tags":["LatinAmerica","Doctrine","Elder","Pastor"],"papabile":3,"profile":{"doctrine":1.35,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.1,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":14,"id":"landazuri","short":"Landázuri","name":"Juan Landázuri Ricketts","country":"Peru","region":"South America","age":64,"order":"P","office":"Archbishop of Lima","role":"Franciscan; Latin American social concern.","tags":["LatinAmerica","GlobalSouth","Conciliar","Religious","HumanRights","Pastor"],"papabile":4,"profile":{"doctrine":0.15,"vatican2":1.65,"curial":0.0,"collegiality":1.15,"ostpolitik":0.0,"antiCommunism":0.35,"globalChurch":1.1,"pastoral":1.25,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":15,"id":"silva","short":"Silva Henríquez","name":"Raúl Silva Henríquez","country":"Chile","region":"South America","age":71,"order":"P","office":"Archbishop of Santiago de Chile","role":"Human-rights pastor under authoritarian pressure.","tags":["LatinAmerica","HumanRights","Conciliar","Pastor","GlobalSouth"],"papabile":4,"profile":{"doctrine":0.0,"vatican2":1.65,"curial":0.0,"collegiality":1.15,"ostpolitik":0.0,"antiCommunism":0.35,"globalChurch":1.1,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":16,"id":"suenens","short":"Suenens","name":"Leo-Jozef Suenens","country":"Belgium","region":"Europe","age":74,"order":"P","office":"Archbishop of Mechelen-Brussels","role":"Vatican II reform symbol; charismatic renewal.","tags":["Conciliar","Reform","Ecumenism","Charismatic","Elder","Bridge"],"papabile":5,"profile":{"doctrine":0.0,"vatican2":1.55,"curial":0.0,"collegiality":1.5,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.45,"pastoral":0.0,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":1.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":17,"id":"cooray","short":"Cooray","name":"Thomas Cooray","country":"Sri Lanka","region":"Asia","age":77,"order":"P","office":"Archbishop emeritus of Colombo","role":"Asian elder; conservative pastoral.","tags":["Asia","GlobalSouth","Doctrine","Elder","Pastor"],"papabile":2,"profile":{"doctrine":1.35,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.1,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":18,"id":"roy","short":"Roy","name":"Maurice Roy","country":"Canada","region":"North America","age":73,"order":"P","office":"Archbishop of Québec","role":"Paul VI social teaching and synod respect.","tags":["Canada","French","Montinian","Conciliar","SocialTeaching","Elder"],"papabile":4,"profile":{"doctrine":0.25,"vatican2":1.75,"curial":0.0,"collegiality":1.05,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.0,"governance":0.8,"italianAcceptability":-0.45,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":19,"id":"mccann","short":"McCann","name":"Owen McCann","country":"South Africa","region":"Africa","age":71,"order":"P","office":"Archbishop of Cape Town","role":"English-speaking Africa; cautious.","tags":["Africa","English","GlobalSouth","Pastor"],"papabile":2,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.1,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":5},{"rank":20,"id":"duval","short":"Duval","name":"Léon-Étienne Duval","country":"Algeria","region":"Africa","age":74,"order":"P","office":"Archbishop of Algiers","role":"Postcolonial and interreligious sensitivity.","tags":["Africa","French","Interreligious","Conciliar","Elder","GlobalSouth"],"papabile":3,"profile":{"doctrine":0.0,"vatican2":1.55,"curial":0.0,"collegiality":0.8,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.1,"pastoral":0.0,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":1.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":21,"id":"florit","short":"Florit","name":"Ermenegildo Florit","country":"Italy","region":"Europe","age":77,"order":"P","office":"Archbishop emeritus of Florence","role":"Italian elder; context around Benelli’s see.","tags":["Italian","Pastor","Elder","Continuity"],"papabile":2,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.9,"governance":0.0,"italianAcceptability":1.25,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":22,"id":"seper","short":"Šeper","name":"Franjo Šeper","country":"Yugoslavia","region":"Europe","age":73,"order":"P","office":"Prefect of the Sacred Congregation for the Doctrine of the Faith","role":"Doctrinal Curia; Communist-world experience.","tags":["Curia","Doctrine","Ostpolitik","AntiCommunist","Governance","Elder"],"papabile":5,"profile":{"doctrine":1.35,"vatican2":0.0,"curial":1.35,"collegiality":0.0,"ostpolitik":1.0,"antiCommunism":1.05,"globalChurch":0.0,"pastoral":0.0,"governance":1.55,"italianAcceptability":-0.45,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":23,"id":"zoungrana","short":"Zoungrana","name":"Paul Zoungrana","country":"Upper Volta","region":"Africa","age":61,"order":"P","office":"Archbishop of Ouagadougou","role":"Francophone African mission Church.","tags":["Africa","French","GlobalSouth","Mission","Pastor"],"papabile":3,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.55,"pastoral":1.15,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":24,"id":"agnelo_rossi","short":"A. Rossi","name":"Agnelo Rossi","country":"Brazil","region":"South America","age":65,"order":"P","office":"Prefect of the Congregation for the Evangelisation of Peoples","role":"Brazilian curialist; global mission network.","tags":["LatinAmerica","Curia","GlobalSouth","Mission","Governance","Brazil"],"papabile":5,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":1.35,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.55,"pastoral":0.25,"governance":1.55,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":25,"id":"colombo","short":"Colombo","name":"Giovanni Colombo","country":"Italy","region":"Europe","age":75,"order":"P","office":"Archbishop of Milan","role":"Reluctant Italian compromise; viable if he will accept.","tags":["Italian","Montinian","Bridge","Reluctant","Pastor","Papabile","Elder"],"papabile":8,"profile":{"doctrine":0.0,"vatican2":0.55,"curial":0.0,"collegiality":0.95,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.45,"pastoral":1.45,"governance":0.95,"italianAcceptability":1.25,"ecumenism":0.0,"media":-0.05,"health":-0.85},"difficulty":2},{"rank":26,"id":"garrone","short":"Garrone","name":"Gabriel-Marie Garrone","country":"France","region":"Europe","age":77,"order":"P","office":"Prefect of Catholic Education; Camerlengo of the College","role":"Education Curia; intellectual continuity.","tags":["French","Curia","Education","Conciliar","Elder","Governance"],"papabile":4,"profile":{"doctrine":0.25,"vatican2":1.2,"curial":1.35,"collegiality":0.8,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.0,"governance":1.8,"italianAcceptability":-0.45,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":27,"id":"vagnozzi","short":"Vagnozzi","name":"Egidio Vagnozzi","country":"Italy","region":"Europe","age":72,"order":"P","office":"Prefect for the Economic Affairs of the Holy See","role":"Administrative Curia and finance.","tags":["Italian","Curia","Governance","Finance","Elder"],"papabile":3,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":1.35,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.0,"governance":1.55,"italianAcceptability":1.25,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":28,"id":"furstenberg","short":"de Fürstenberg","name":"Maximilien de Fürstenberg","country":"Belgium","region":"Europe","age":74,"order":"P","office":"Grand Master of the Order of the Holy Sepulchre","role":"Belgian-Roman bridge; old-world diplomacy.","tags":["Belgian","Curia","Diplomat","Bridge","Elder"],"papabile":3,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":1.35,"collegiality":0.7,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.45,"pastoral":0.0,"governance":0.9,"italianAcceptability":-0.45,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":29,"id":"maurer","short":"Maurer","name":"José Clemente Maurer","country":"Bolivia","region":"South America","age":78,"order":"P","office":"Archbishop of Sucre","role":"Redemptorist Latin American elder.","tags":["LatinAmerica","Religious","Elder","Pastor","GlobalSouth"],"papabile":2,"profile":{"doctrine":0.15,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.1,"pastoral":1.25,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":30,"id":"krol","short":"Krol","name":"John Krol","country":"United States","region":"North America","age":67,"order":"P","office":"Archbishop of Philadelphia","role":"American organiser; Polish-American anti-communist bridge.","tags":["America","English","Polish","AntiCommunist","Governance","Broker","Bridge"],"papabile":6,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.7,"ostpolitik":-0.25,"antiCommunism":1.25,"globalChurch":0.45,"pastoral":0.0,"governance":0.65,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":2},{"rank":31,"id":"cody","short":"Cody","name":"John Cody","country":"United States","region":"North America","age":70,"order":"P","office":"Archbishop of Chicago","role":"US metropolitan; administrative conservative.","tags":["America","English","Doctrine","Governance","Pastor"],"papabile":3,"profile":{"doctrine":1.35,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.9,"governance":0.65,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":32,"id":"ursi","short":"Ursi","name":"Corrado Ursi","country":"Italy","region":"Europe","age":70,"order":"P","office":"Archbishop of Naples","role":"Italian pastoral compromise possibility.","tags":["Italian","Pastor","Bridge","Papabile"],"papabile":5,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.7,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.45,"pastoral":0.9,"governance":0.0,"italianAcceptability":1.25,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":33,"id":"bengsch","short":"Bengsch","name":"Alfred Bengsch","country":"East Germany","region":"Europe","age":57,"order":"P","office":"Bishop of Berlin","role":"Divided Germany; Communist-state caution.","tags":["Germanic","SufferingChurch","Ostpolitik","AntiCommunist","Pastor"],"papabile":4,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":1.0,"antiCommunism":1.05,"globalChurch":0.0,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":34,"id":"darmojuwono","short":"Darmojuwono","name":"Justinus Darmojuwono","country":"Indonesia","region":"Asia","age":63,"order":"P","office":"Archbishop of Semarang","role":"Asian minority Church.","tags":["Asia","GlobalSouth","Pastor","Mission"],"papabile":2,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.55,"pastoral":1.15,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":5},{"rank":35,"id":"wojtyla","short":"Wojtyła","name":"Karol Józef Wojtyła","country":"Poland","region":"Europe","age":58,"order":"P","office":"Archbishop of Kraków","role":"Hidden compromise; final historical winner.","tags":["Polish","SufferingChurch","AntiCommunist","Conciliar","Doctrine","Pastor","Bridge","Papabile"],"papabile":7,"profile":{"doctrine":1.45,"vatican2":1.2,"curial":-0.65,"collegiality":0.85,"ostpolitik":-0.25,"antiCommunism":1.75,"globalChurch":1.15,"pastoral":1.75,"governance":0.85,"italianAcceptability":0.05,"ecumenism":0.45,"media":0.9,"health":0.75},"difficulty":2},{"rank":36,"id":"pellegrino","short":"Pellegrino","name":"Michele Pellegrino","country":"Italy","region":"Europe","age":75,"order":"P","office":"Archbishop emeritus of Turin","role":"Progressive Italian pastoral voice.","tags":["Italian","Conciliar","Reform","Pastor","Elder"],"papabile":4,"profile":{"doctrine":0.0,"vatican2":1.2,"curial":0.0,"collegiality":0.8,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.9,"governance":0.0,"italianAcceptability":1.25,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":37,"id":"renard","short":"Renard","name":"Alexandre-Charles Renard","country":"France","region":"Europe","age":72,"order":"P","office":"Archbishop of Lyon","role":"French pastoral moderate.","tags":["French","Pastor","Conciliar","Elder"],"papabile":3,"profile":{"doctrine":0.0,"vatican2":1.2,"curial":0.0,"collegiality":0.8,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":38,"id":"scherer","short":"Scherer","name":"Alfredo Vicente Scherer","country":"Brazil","region":"South America","age":75,"order":"P","office":"Archbishop of Porto Alegre","role":"Brazilian conservative elder.","tags":["LatinAmerica","Brazil","Doctrine","Elder","Pastor"],"papabile":3,"profile":{"doctrine":1.35,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.1,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":39,"id":"rosales","short":"Rosales","name":"Julio Rosales","country":"Philippines","region":"Asia","age":72,"order":"P","office":"Archbishop of Cebu","role":"Filipino elder.","tags":["Asia","GlobalSouth","Pastor","Elder"],"papabile":2,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.1,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":40,"id":"gray","short":"Gray","name":"Gordon Gray","country":"Scotland","region":"Europe","age":68,"order":"P","office":"Archbishop of St Andrews and Edinburgh","role":"English-speaking bridge.","tags":["UK","English","Bridge","Pastor"],"papabile":3,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.7,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.45,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":41,"id":"bertoli","short":"Bertoli","name":"Paolo Bertoli","country":"Italy","region":"Europe","age":70,"order":"P","office":"Prefect emeritus of the Congregation for the Causes of Saints","role":"Diplomatic Curia.","tags":["Italian","Curia","Diplomat","Governance"],"papabile":3,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":1.35,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.0,"governance":1.55,"italianAcceptability":1.25,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":42,"id":"parecattil","short":"Parecattil","name":"Joseph Parecattil","country":"India","region":"Asia","age":66,"order":"P","office":"Major Archbishop of Ernakulam","role":"Syro-Malabar Eastern Catholic bridge.","tags":["Asia","India","Eastern","GlobalSouth","Bridge","Pastor"],"papabile":3,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.7,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.55,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":43,"id":"dearden","short":"Dearden","name":"John Dearden","country":"United States","region":"North America","age":70,"order":"P","office":"Archbishop of Detroit","role":"US progressive/conciliar bishop.","tags":["America","English","Conciliar","Collegiality","Pastor","Reform"],"papabile":4,"profile":{"doctrine":0.0,"vatican2":1.2,"curial":0.0,"collegiality":0.8,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":44,"id":"marty","short":"Marty","name":"François Marty","country":"France","region":"Europe","age":74,"order":"P","office":"Archbishop of Paris","role":"French metropolitan; pastoral.","tags":["French","Pastor","Conciliar","Elder"],"papabile":4,"profile":{"doctrine":0.0,"vatican2":1.2,"curial":0.0,"collegiality":0.8,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":45,"id":"flahiff","short":"Flahiff","name":"George Flahiff","country":"Canada","region":"North America","age":73,"order":"P","office":"Archbishop of Winnipeg","role":"Canadian Basilian moderate.","tags":["Canada","English","Religious","Bridge","Elder"],"papabile":2,"profile":{"doctrine":0.15,"vatican2":0.0,"curial":0.0,"collegiality":0.7,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.45,"pastoral":0.35,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":46,"id":"gouyon","short":"Gouyon","name":"Paul Gouyon","country":"France","region":"Europe","age":68,"order":"P","office":"Archbishop of Rennes","role":"French pastoral elder.","tags":["French","Pastor","Elder"],"papabile":2,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":47,"id":"casariego","short":"Casariego","name":"Mario Casariego y Acevedo","country":"Guatemala","region":"North America","age":69,"order":"P","office":"Archbishop of Guatemala","role":"Central American conservative.","tags":["LatinAmerica","Doctrine","Pastor"],"papabile":2,"profile":{"doctrine":1.35,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":5},{"rank":48,"id":"tarancon","short":"Tarancón","name":"Vicente Enrique y Tarancón","country":"Spain","region":"Europe","age":71,"order":"P","office":"Archbishop of Madrid","role":"Post-Franco transition; reform-minded Spain.","tags":["Spain","Conciliar","HumanRights","Bridge","Pastor"],"papabile":4,"profile":{"doctrine":0.0,"vatican2":1.65,"curial":0.0,"collegiality":1.85,"ostpolitik":0.0,"antiCommunism":0.35,"globalChurch":0.45,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":49,"id":"malula","short":"Malula","name":"Joseph Malula","country":"Zaire","region":"Africa","age":60,"order":"P","office":"Archbishop of Kinshasa","role":"Africanisation and inculturation.","tags":["Africa","GlobalSouth","Inculturation","Conciliar","Pastor"],"papabile":4,"profile":{"doctrine":0.0,"vatican2":1.2,"curial":0.0,"collegiality":0.8,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.1,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":50,"id":"munoz_vega","short":"Muñoz Vega","name":"Pablo Muñoz Vega","country":"Ecuador","region":"South America","age":75,"order":"P","office":"Archbishop of Quito","role":"Jesuit Latin American intellectual.","tags":["LatinAmerica","Religious","Education","Elder","Pastor"],"papabile":3,"profile":{"doctrine":0.4,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.1,"pastoral":1.25,"governance":0.25,"italianAcceptability":-0.45,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":51,"id":"poma","short":"Poma","name":"Antonio Poma","country":"Italy","region":"Europe","age":68,"order":"P","office":"Archbishop of Bologna","role":"Italian episcopal establishment.","tags":["Italian","Montinian","Pastor","Governance"],"papabile":4,"profile":{"doctrine":0.0,"vatican2":0.55,"curial":0.0,"collegiality":0.25,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.9,"governance":1.2,"italianAcceptability":1.25,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":52,"id":"carberry","short":"Carberry","name":"John Carberry","country":"United States","region":"North America","age":74,"order":"P","office":"Archbishop of St. Louis","role":"US conservative/moderate.","tags":["America","English","Doctrine","Pastor","Elder"],"papabile":3,"profile":{"doctrine":1.35,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":53,"id":"cooke","short":"Cooke","name":"Terence Cooke","country":"United States","region":"North America","age":57,"order":"P","office":"Archbishop of New York","role":"US metropolitan moderate.","tags":["America","English","Pastor","Bridge","Governance"],"papabile":4,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.7,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.45,"pastoral":0.9,"governance":0.65,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":54,"id":"kim","short":"Kim","name":"Stephen Kim Sou-hwan","country":"South Korea","region":"Asia","age":56,"order":"P","office":"Archbishop of Seoul","role":"Asian human-rights credibility.","tags":["Asia","GlobalSouth","HumanRights","AntiCommunist","Pastor","Young"],"papabile":4,"profile":{"doctrine":0.0,"vatican2":0.45,"curial":0.0,"collegiality":0.35,"ostpolitik":-0.25,"antiCommunism":1.6,"globalChurch":1.1,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.2,"health":0.45},"difficulty":5},{"rank":55,"id":"sales","short":"Sales","name":"Eugênio de Araújo Sales","country":"Brazil","region":"South America","age":57,"order":"P","office":"Archbishop of São Sebastião do Rio de Janeiro","role":"Brazilian conservative administrator.","tags":["LatinAmerica","Brazil","Doctrine","Governance","Pastor"],"papabile":4,"profile":{"doctrine":1.35,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.1,"pastoral":0.9,"governance":0.65,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":56,"id":"hoffner","short":"Höffner","name":"Joseph Höffner","country":"West Germany","region":"Europe","age":71,"order":"P","office":"Archbishop of Cologne","role":"Social doctrine and German conservative intellectual.","tags":["Germanic","Doctrine","SocialTeaching","Governance","Pastor"],"papabile":5,"profile":{"doctrine":1.6,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.9,"governance":0.9,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":57,"id":"wright","short":"Wright","name":"John Joseph Wright","country":"United States","region":"North America","age":69,"order":"P","office":"Prefect of the Sacred Congregation for the Clergy","role":"US curialist; frail but influential.","tags":["America","English","Curia","Doctrine","Governance","HealthRisk"],"papabile":4,"profile":{"doctrine":1.35,"vatican2":0.0,"curial":1.35,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.0,"governance":1.55,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":-0.9},"difficulty":4},{"rank":58,"id":"willebrands","short":"Willebrands","name":"Johannes Willebrands","country":"Netherlands","region":"Europe","age":69,"order":"P","office":"Archbishop of Utrecht; President of Christian Unity","role":"Ecumenical bridge; transfer node towards Wojtyła.","tags":["Dutch","Curia","Ecumenism","Conciliar","Bridge","Papabile"],"papabile":7,"profile":{"doctrine":0.0,"vatican2":1.55,"curial":1.35,"collegiality":1.5,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.45,"pastoral":0.0,"governance":0.9,"italianAcceptability":-0.45,"ecumenism":1.0,"media":0.0,"health":0.0},"difficulty":2},{"rank":59,"id":"ribeiro","short":"Ribeiro","name":"António Ribeiro","country":"Portugal","region":"Europe","age":50,"order":"P","office":"Patriarch of Lisbon","role":"Young Portuguese metropolitan.","tags":["Portugal","Pastor","Young","Bridge"],"papabile":3,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.7,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.45,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.2,"health":0.45},"difficulty":5},{"rank":60,"id":"knox","short":"Knox","name":"James Knox","country":"Australia","region":"Oceania","age":64,"order":"P","office":"Prefect of the Congregation for the Sacraments and Divine Worship","role":"Liturgy, Curia and Oceania.","tags":["Oceania","English","Curia","Liturgy","Governance"],"papabile":4,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":1.35,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.1,"pastoral":0.0,"governance":1.55,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":61,"id":"vilela","short":"Vilela","name":"Avelar Brandão Vilela","country":"Brazil","region":"South America","age":66,"order":"P","office":"Archbishop of Salvador da Bahia","role":"CELAM/moderate Latin America.","tags":["LatinAmerica","Brazil","Conciliar","GlobalSouth","Pastor"],"papabile":4,"profile":{"doctrine":0.0,"vatican2":1.2,"curial":0.0,"collegiality":0.8,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.1,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":62,"id":"cordeiro","short":"Cordeiro","name":"Joseph Cordeiro","country":"Pakistan","region":"Asia","age":60,"order":"P","office":"Archbishop of Karachi","role":"Asian minority Church.","tags":["Asia","GlobalSouth","Pastor","Mission"],"papabile":2,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.55,"pastoral":1.15,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":5},{"rank":63,"id":"munoz_duque","short":"Muñoz Duque","name":"Aníbal Muñoz Duque","country":"Colombia","region":"South America","age":70,"order":"P","office":"Archbishop of Bogotá","role":"Colombian hierarchy; Latin America.","tags":["LatinAmerica","Pastor","Governance"],"papabile":3,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.1,"pastoral":0.9,"governance":0.65,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":64,"id":"aponte","short":"Aponte Martínez","name":"Luis Aponte Martínez","country":"Puerto Rico","region":"North America","age":56,"order":"P","office":"Archbishop of San Juan de Puerto Rico","role":"Caribbean/US bridge.","tags":["LatinAmerica","America","English","Bridge","Pastor"],"papabile":3,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.7,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.45,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":65,"id":"primatesta","short":"Primatesta","name":"Raúl Primatesta","country":"Argentina","region":"South America","age":59,"order":"P","office":"Archbishop of Córdoba","role":"Argentine moderate/conservative.","tags":["LatinAmerica","Argentina","Doctrine","Pastor"],"papabile":3,"profile":{"doctrine":1.35,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.1,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":66,"id":"pappalardo","short":"Pappalardo","name":"Salvatore Pappalardo","country":"Italy","region":"Europe","age":60,"order":"P","office":"Archbishop of Palermo","role":"Energetic Italian pastoral alternative.","tags":["Italian","Pastor","Bridge","Papabile","HumanRights"],"papabile":5,"profile":{"doctrine":0.0,"vatican2":0.45,"curial":0.0,"collegiality":1.05,"ostpolitik":0.0,"antiCommunism":0.35,"globalChurch":0.45,"pastoral":0.9,"governance":0.0,"italianAcceptability":1.25,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":67,"id":"gonzalez","short":"González Martín","name":"Marcelo González Martín","country":"Spain","region":"Europe","age":60,"order":"P","office":"Archbishop of Toledo","role":"Conservative Spanish primate.","tags":["Spain","Doctrine","Pastor","Governance"],"papabile":4,"profile":{"doctrine":1.35,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.9,"governance":0.65,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":68,"id":"guyot","short":"Guyot","name":"Louis-Jean Guyot","country":"France","region":"Europe","age":73,"order":"P","office":"Archbishop of Toulouse","role":"French pastoral.","tags":["French","Pastor","Elder"],"papabile":2,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":69,"id":"poletti","short":"Poletti","name":"Ugo Poletti","country":"Italy","region":"Europe","age":64,"order":"P","office":"Vicar General of Rome","role":"Roman compromise probe.","tags":["Italian","Rome","Curia","Pastor","Papabile","Governance"],"papabile":6,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":1.35,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.9,"governance":1.55,"italianAcceptability":1.25,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":3},{"rank":70,"id":"manning","short":"Manning","name":"Timothy Manning","country":"United States","region":"North America","age":68,"order":"P","office":"Archbishop of Los Angeles","role":"US West Coast moderate/conservative.","tags":["America","English","Doctrine","Pastor"],"papabile":3,"profile":{"doctrine":1.35,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":71,"id":"otunga","short":"Otunga","name":"Maurice Otunga","country":"Kenya","region":"Africa","age":55,"order":"P","office":"Archbishop of Nairobi","role":"African conservative pastor.","tags":["Africa","GlobalSouth","Doctrine","Pastor"],"papabile":3,"profile":{"doctrine":1.35,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.1,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":72,"id":"salazar","short":"Salazar López","name":"José Salazar López","country":"Mexico","region":"North America","age":68,"order":"P","office":"Archbishop of Guadalajara","role":"Mexican hierarchy.","tags":["LatinAmerica","Pastor","Governance"],"papabile":3,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.9,"governance":0.65,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":73,"id":"medeiros","short":"Medeiros","name":"Humberto Sousa Medeiros","country":"United States","region":"North America","age":63,"order":"P","office":"Archbishop of Boston","role":"Portuguese-American bridge.","tags":["America","English","Portugal","Bridge","Pastor"],"papabile":3,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.7,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.45,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":74,"id":"arns","short":"Arns","name":"Paulo Evaristo Arns","country":"Brazil","region":"South America","age":57,"order":"P","office":"Archbishop of São Paulo","role":"Human-rights progressive Franciscan.","tags":["LatinAmerica","Brazil","HumanRights","Conciliar","Religious","Reform","Pastor"],"papabile":5,"profile":{"doctrine":0.15,"vatican2":1.65,"curial":0.0,"collegiality":1.15,"ostpolitik":0.0,"antiCommunism":0.35,"globalChurch":1.1,"pastoral":1.25,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":75,"id":"freeman","short":"Freeman","name":"James Darcy Freeman","country":"Australia","region":"Oceania","age":71,"order":"P","office":"Archbishop of Sydney","role":"Oceania elder.","tags":["Oceania","English","Pastor","Elder"],"papabile":2,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.1,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":76,"id":"jubany","short":"Jubany","name":"Narciso Jubany Arnau","country":"Spain","region":"Europe","age":65,"order":"P","office":"Archbishop of Barcelona","role":"Catalan moderate reform.","tags":["Spain","Conciliar","Bridge","Pastor"],"papabile":3,"profile":{"doctrine":0.0,"vatican2":1.2,"curial":0.0,"collegiality":1.5,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.45,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":77,"id":"volk","short":"Volk","name":"Hermann Volk","country":"West Germany","region":"Europe","age":74,"order":"P","office":"Bishop of Mainz","role":"German theologian-bishop.","tags":["Germanic","Doctrine","Education","Elder","Bridge"],"papabile":4,"profile":{"doctrine":1.6,"vatican2":0.0,"curial":0.0,"collegiality":0.7,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.45,"pastoral":0.0,"governance":0.25,"italianAcceptability":-0.45,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":78,"id":"taofinuu","short":"Taofinuʻu","name":"Pio Taofinuʻu","country":"Western Samoa","region":"Oceania","age":54,"order":"P","office":"Bishop of Samoa and Tokelau","role":"Oceania mission Church.","tags":["Oceania","GlobalSouth","Mission","Pastor"],"papabile":2,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.55,"pastoral":1.15,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":5},{"rank":79,"id":"beras","short":"Beras Rojas","name":"Octavio Beras Rojas","country":"Dominican Republic","region":"North America","age":71,"order":"P","office":"Archbishop of Santo Domingo","role":"Caribbean elder.","tags":["LatinAmerica","Pastor","Elder"],"papabile":2,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":80,"id":"aramburu","short":"Aramburu","name":"Juan Carlos Aramburu","country":"Argentina","region":"South America","age":66,"order":"P","office":"Archbishop of Buenos Aires","role":"Argentine cautious conservative.","tags":["LatinAmerica","Argentina","Doctrine","Pastor"],"papabile":3,"profile":{"doctrine":1.35,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.1,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":81,"id":"trinh","short":"Trịnh Như Khuê","name":"Joseph-Marie Trịnh Như Khuê","country":"Vietnam","region":"Asia","age":79,"order":"P","office":"Archbishop of Hanoi","role":"Oldest elector; Church under Communism.","tags":["Asia","SufferingChurch","AntiCommunist","GlobalSouth","Elder","Pastor"],"papabile":2,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":-0.25,"antiCommunism":1.25,"globalChurch":1.1,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":82,"id":"thiandoum","short":"Thiandoum","name":"Hyacinthe Thiandoum","country":"Senegal","region":"Africa","age":57,"order":"P","office":"Archbishop of Dakar","role":"Francophone Africa.","tags":["Africa","French","GlobalSouth","Pastor"],"papabile":3,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.1,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":83,"id":"nsubuga","short":"Nsubuga","name":"Emmanuel Nsubuga","country":"Uganda","region":"Africa","age":63,"order":"P","office":"Archbishop of Kampala","role":"African suffering Church.","tags":["Africa","GlobalSouth","HumanRights","Pastor"],"papabile":3,"profile":{"doctrine":0.0,"vatican2":0.45,"curial":0.0,"collegiality":0.35,"ostpolitik":0.0,"antiCommunism":0.35,"globalChurch":1.1,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":84,"id":"picachy","short":"Picachy","name":"Lawrence Trevor Picachy","country":"India","region":"Asia","age":62,"order":"P","office":"Archbishop of Calcutta","role":"Jesuit Asian pastoral.","tags":["Asia","India","Religious","GlobalSouth","Pastor"],"papabile":3,"profile":{"doctrine":0.15,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.1,"pastoral":1.25,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":85,"id":"sin","short":"Sin","name":"Jaime Sin","country":"Philippines","region":"Asia","age":50,"order":"P","office":"Archbishop of Manila","role":"Youngest elector; charismatic Asian voice.","tags":["Asia","GlobalSouth","HumanRights","Pastor","Young","Bridge"],"papabile":4,"profile":{"doctrine":0.0,"vatican2":0.45,"curial":0.0,"collegiality":1.05,"ostpolitik":0.0,"antiCommunism":0.35,"globalChurch":1.55,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.2,"health":0.45},"difficulty":5},{"rank":86,"id":"baum","short":"Baum","name":"William Wakefield Baum","country":"United States","region":"North America","age":51,"order":"P","office":"Archbishop of Washington","role":"Young US moderate; future Curia.","tags":["America","English","Young","Bridge","Governance"],"papabile":4,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.7,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.45,"pastoral":0.0,"governance":0.65,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.2,"health":0.45},"difficulty":5},{"rank":87,"id":"lorscheider","short":"Lorscheider","name":"Aloísio Lorscheider","country":"Brazil","region":"South America","age":54,"order":"P","office":"Archbishop of Fortaleza","role":"CELAM, Franciscan, social justice.","tags":["LatinAmerica","Brazil","Conciliar","Religious","HumanRights","GlobalSouth","Pastor"],"papabile":5,"profile":{"doctrine":0.15,"vatican2":1.65,"curial":0.0,"collegiality":1.15,"ostpolitik":0.0,"antiCommunism":0.35,"globalChurch":1.1,"pastoral":1.25,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":88,"id":"delargey","short":"Delargey","name":"Reginald Delargey","country":"New Zealand","region":"Oceania","age":63,"order":"P","office":"Archbishop of Wellington","role":"Oceania.","tags":["Oceania","English","Pastor"],"papabile":2,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.1,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":5},{"rank":89,"id":"lekai","short":"Lékai","name":"László Lékai","country":"Hungary","region":"Europe","age":68,"order":"P","office":"Archbishop of Esztergom","role":"Ostpolitik and accommodation under Communism.","tags":["SufferingChurch","Ostpolitik","Pastor","Governance"],"papabile":3,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":1.0,"antiCommunism":1.05,"globalChurch":0.0,"pastoral":0.9,"governance":0.65,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":90,"id":"hume","short":"Hume","name":"George Basil Hume","country":"England","region":"Europe","age":55,"order":"P","office":"Archbishop of Westminster","role":"Benedictine, new and respected bridge.","tags":["UK","English","Religious","Bridge","Pastor","Young"],"papabile":4,"profile":{"doctrine":0.15,"vatican2":0.0,"curial":0.0,"collegiality":0.7,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.45,"pastoral":1.25,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.2,"health":0.45},"difficulty":5},{"rank":91,"id":"razafimahatratra","short":"Razafimahatratra","name":"Victor Razafimahatratra","country":"Madagascar","region":"Africa","age":57,"order":"P","office":"Archbishop of Tananarive","role":"Jesuit African Church.","tags":["Africa","GlobalSouth","Religious","Pastor"],"papabile":3,"profile":{"doctrine":0.15,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.1,"pastoral":1.25,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":92,"id":"tomasek","short":"Tomášek","name":"František Tomášek","country":"Czechoslovakia","region":"Europe","age":79,"order":"P","office":"Archbishop of Prague","role":"Suffering Church under Communist pressure.","tags":["SufferingChurch","AntiCommunist","Pastor","Elder","Bridge"],"papabile":3,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.7,"ostpolitik":-0.25,"antiCommunism":1.25,"globalChurch":0.45,"pastoral":0.9,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":93,"id":"ekandem","short":"Ekandem","name":"Dominic Ekandem","country":"Nigeria","region":"Africa","age":61,"order":"P","office":"Bishop of Ikot Ekpene","role":"Nigerian/African voice.","tags":["Africa","GlobalSouth","Pastor","Mission"],"papabile":3,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":0.0,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.55,"pastoral":1.15,"governance":0.0,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":94,"id":"benelli","short":"Benelli","name":"Giovanni Benelli","country":"Italy","region":"Europe","age":57,"order":"P","office":"Archbishop of Florence","role":"Montinian organiser; leading papabile and polarising operator.","tags":["Italian","BenelliCamp","Montinian","Curia","Governance","Pastor","Papabile"],"papabile":9,"profile":{"doctrine":0.0,"vatican2":0.95,"curial":1.0,"collegiality":0.25,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.9,"governance":1.7,"italianAcceptability":1.75,"ecumenism":0.0,"media":0.8,"health":0.4},"difficulty":2},{"rank":95,"id":"ratzinger","short":"Ratzinger","name":"Joseph Ratzinger","country":"West Germany","region":"Europe","age":51,"order":"P","office":"Archbishop of Munich and Freising","role":"Young theologian; doctrinal signal and future echo.","tags":["Germanic","Doctrine","Education","Young","Future","Bridge"],"papabile":4,"profile":{"doctrine":1.65,"vatican2":0.45,"curial":-0.25,"collegiality":0.7,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.45,"pastoral":0.0,"governance":0.25,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.55,"health":0.8},"difficulty":5},{"rank":96,"id":"felici","short":"Felici","name":"Pericle Felici","country":"Italy","region":"Europe","age":67,"order":"D","office":"Prefect of the Apostolic Signatura; Protodeacon","role":"Canon law and announcement of the pope.","tags":["Italian","Curia","CanonLaw","Governance","Procedure"],"papabile":3,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":1.35,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.0,"governance":1.55,"italianAcceptability":1.25,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":97,"id":"oddi","short":"Oddi","name":"Silvio Oddi","country":"Italy","region":"Europe","age":67,"order":"D","office":"Papal legate to Assisi","role":"Conservative curialist.","tags":["Italian","Curia","Doctrine","Governance"],"papabile":3,"profile":{"doctrine":1.35,"vatican2":0.0,"curial":1.35,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.0,"governance":1.55,"italianAcceptability":1.25,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":98,"id":"paupini","short":"Paupini","name":"Giuseppe Paupini","country":"Italy","region":"Europe","age":71,"order":"D","office":"Major Penitentiary","role":"Curia; office continues during vacancy.","tags":["Italian","Curia","Doctrine","Governance","Elder"],"papabile":3,"profile":{"doctrine":1.35,"vatican2":0.0,"curial":1.35,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.0,"governance":1.55,"italianAcceptability":1.25,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":99,"id":"nasalli","short":"Nasalli Rocca","name":"Mario Nasalli Rocca di Corneliano","country":"Italy","region":"Europe","age":75,"order":"D","office":"Prefecture of the Apostolic Palace emeritus","role":"Curial elder.","tags":["Italian","Curia","Elder","Governance"],"papabile":2,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":1.35,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.0,"governance":1.55,"italianAcceptability":1.25,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":100,"id":"guerri","short":"Guerri","name":"Sergio Guerri","country":"Italy","region":"Europe","age":73,"order":"D","office":"Pro-President of Vatican City State","role":"Vatican administration.","tags":["Italian","Curia","Governance","Elder"],"papabile":2,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":1.35,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.0,"governance":1.55,"italianAcceptability":1.25,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":101,"id":"pignedoli","short":"Pignedoli","name":"Sergio Pignedoli","country":"Italy","region":"Europe","age":68,"order":"D","office":"President of the Secretariat for Non-Christians","role":"Interreligious/global Italian compromise.","tags":["Italian","Curia","Interreligious","GlobalSouth","Bridge","Papabile"],"papabile":7,"profile":{"doctrine":0.0,"vatican2":0.35,"curial":1.35,"collegiality":0.7,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.55,"pastoral":0.0,"governance":0.9,"italianAcceptability":1.25,"ecumenism":1.0,"media":0.0,"health":0.0},"difficulty":2},{"rank":102,"id":"mozzoni","short":"Mozzoni","name":"Umberto Mozzoni","country":"Argentina","region":"South America","age":74,"order":"D","office":"President of the Pontifical Commission for Shrines","role":"Latin America/Curia bridge.","tags":["LatinAmerica","Curia","Argentina","Bridge","Elder"],"papabile":3,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":1.35,"collegiality":0.7,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.55,"pastoral":0.0,"governance":0.9,"italianAcceptability":-0.45,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":103,"id":"philippe","short":"Philippe","name":"Paul-Pierre Philippe","country":"France","region":"Europe","age":73,"order":"D","office":"Prefect of the Congregation for the Oriental Churches","role":"Dominican; Curia and Eastern Churches.","tags":["French","Curia","Eastern","Religious","Governance","Elder"],"papabile":3,"profile":{"doctrine":0.15,"vatican2":0.0,"curial":1.35,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.35,"governance":1.55,"italianAcceptability":-0.45,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":104,"id":"palazzini","short":"Palazzini","name":"Pietro Palazzini","country":"Italy","region":"Europe","age":66,"order":"D","office":"Secretary emeritus of the Congregation for the Clergy; shrines","role":"Conservative curialist.","tags":["Italian","Curia","Doctrine","Governance"],"papabile":3,"profile":{"doctrine":1.35,"vatican2":0.0,"curial":1.35,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.0,"governance":1.55,"italianAcceptability":1.25,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":105,"id":"opilio_rossi","short":"O. Rossi","name":"Opilio Rossi","country":"Italy","region":"Europe","age":68,"order":"D","office":"President of the Pontifical Council for the Laity","role":"Family/laity and curial administration.","tags":["Italian","Curia","Laity","Governance","Doctrine"],"papabile":3,"profile":{"doctrine":1.35,"vatican2":0.0,"curial":1.35,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.0,"governance":1.55,"italianAcceptability":1.25,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4},{"rank":106,"id":"sensi","short":"Sensi","name":"Giuseppe Maria Sensi","country":"Italy","region":"Europe","age":71,"order":"D","office":"Nuncio emeritus to Portugal","role":"Diplomatic curialist.","tags":["Italian","Curia","Diplomat","Elder"],"papabile":2,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":1.35,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.0,"governance":0.9,"italianAcceptability":1.25,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":107,"id":"bafile","short":"Bafile","name":"Corrado Bafile","country":"Italy","region":"Europe","age":75,"order":"D","office":"Prefect of the Congregation for the Causes of Saints","role":"Curial administrator.","tags":["Italian","Curia","Governance","Elder"],"papabile":2,"profile":{"doctrine":0.0,"vatican2":0.0,"curial":1.35,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.0,"governance":1.55,"italianAcceptability":1.25,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":108,"id":"schroffer","short":"Schröffer","name":"Joseph Schröffer","country":"West Germany","region":"Europe","age":75,"order":"D","office":"Secretary emeritus of Catholic Education","role":"German curial educator.","tags":["Germanic","Curia","Education","Elder"],"papabile":3,"profile":{"doctrine":0.25,"vatican2":0.0,"curial":1.35,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.0,"governance":1.15,"italianAcceptability":-0.45,"ecumenism":0.0,"media":-0.05,"health":-0.45},"difficulty":5},{"rank":109,"id":"pironio","short":"Pironio","name":"Eduardo Pironio","country":"Argentina","region":"South America","age":57,"order":"D","office":"Prefect for Religious and Secular Institutes","role":"Spiritual global candidate; CELAM memory.","tags":["LatinAmerica","Argentina","Curia","Religious","Conciliar","GlobalSouth","Bridge","Papabile"],"papabile":7,"profile":{"doctrine":0.15,"vatican2":1.2,"curial":1.35,"collegiality":1.5,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":1.55,"pastoral":0.35,"governance":0.9,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":2},{"rank":110,"id":"gantin","short":"Gantin","name":"Bernardin Gantin","country":"Benin","region":"Africa","age":56,"order":"D","office":"President of Justice and Peace and Cor Unum","role":"Rising African curialist.","tags":["Africa","GlobalSouth","Curia","HumanRights","Young","Bridge"],"papabile":4,"profile":{"doctrine":0.0,"vatican2":0.45,"curial":1.35,"collegiality":1.05,"ostpolitik":0.0,"antiCommunism":0.35,"globalChurch":1.55,"pastoral":0.0,"governance":0.9,"italianAcceptability":-0.45,"ecumenism":0.0,"media":0.2,"health":0.45},"difficulty":5},{"rank":111,"id":"ciappi","short":"Ciappi","name":"Mario Luigi Ciappi","country":"Italy","region":"Europe","age":69,"order":"D","office":"Pro-Theologian of the Pontifical Household","role":"Dominican theologian; junior deacon.","tags":["Italian","Curia","Doctrine","Religious","Education"],"papabile":3,"profile":{"doctrine":1.75,"vatican2":0.0,"curial":1.35,"collegiality":0.0,"ostpolitik":0.0,"antiCommunism":0.0,"globalChurch":0.0,"pastoral":0.35,"governance":1.15,"italianAcceptability":1.25,"ecumenism":0.0,"media":0.0,"health":0.0},"difficulty":4}];
+const SOURCE_NOTE = "Roster and rules researched from the October 1978 conclave record, Paul VI's Romano Pontifici Eligendo, Vatican biographies and contemporary/retrospective accounts. Secret historical tallies remain uncertain; this game exposes exact simulated scrutinies.";
+const ORDER_NAME = {B:"Cardinal-Bishop",P:"Cardinal-Priest",D:"Cardinal-Deacon"};
+const THRESHOLD = 75;
+const BALLOT_LABELS = ["Entry and oath","Sunday morning I","Sunday morning II","Sunday afternoon I","Sunday afternoon II","Monday morning I","Monday morning II","Monday afternoon I","Monday afternoon II","Tuesday extension I","Tuesday extension II","Deadlock extension"];
+const HISTORICAL_PHASES = [
+	{},
+	{siri:3.0,benelli:2.4,poletti:.9,pignedoli:.6,colombo:.7,wojtyla:-1.2},
+	{siri:3.4,benelli:2.8,poletti:1.1,pignedoli:.6,colombo:.8,wojtyla:-.9},
+	{siri:2.3,benelli:3.6,colombo:1.2,poletti:.7,pignedoli:.8,wojtyla:-.3},
+	{siri:1.8,benelli:3.7,colombo:1.7,pignedoli:.8,willebrands:.6,wojtyla:.2},
+	{siri:.8,benelli:2.2,colombo:1.6,willebrands:1.7,konig:.6,pignedoli:1.0,wojtyla:2.4},
+	{siri:.2,benelli:1.1,colombo:.8,willebrands:1.0,pignedoli:.4,wojtyla:2.5},
+	{siri:-.4,benelli:.4,colombo:.1,willebrands:.3,wojtyla:5.3},
+	{siri:-.8,benelli:.1,wojtyla:8.8}
+];
+const NETWORKS = ["All","Italian","Curia","Montinian","Doctrine","Conciliar","SufferingChurch","AntiCommunist","Ostpolitik","Germanic","America","LatinAmerica","Africa","Asia","Oceania","GlobalSouth","English","French","Bridge","Pastor","Young","Elder"];
+const DISPLAY_LABELS = {
+	SufferingChurch:"Suffering Church",AntiCommunist:"Anti-Communist",LatinAmerica:"Latin America",GlobalSouth:"Global South",NonBelievers:"Non-Believers",SiriCamp:"Siri camp",BenelliCamp:"Benelli camp",HumanRights:"Human rights",SocialTeaching:"Social teaching",CanonLaw:"Canon law",HealthRisk:"Health risk",JohnPaulContinuity:"John Paul I continuity",Pastor:"Pastoral",Curia:"Roman Curia",America:"North America / US",Germanic:"German-speaking",Montinian:"Paul VI continuity",Doctrine:"Doctrinal clarity",Conciliar:"Vatican II",Ostpolitik:"Ostpolitik",Bridge:"Bridge figure",Young:"Young elector",Elder:"Elder elector",GlobalSouth:"Global South",WorldChurch:"World Church"
+};
+const METRIC_LABELS = {stature:"Stature",trust:"Trust",discretion:"Discretion",exposure:"Exposure",fatigue:"Fatigue",italianLock:"Italian lock",nonItalian:"Non-Italian viability",curiaConfidence:"Curial confidence",conciliarConfidence:"Conciliar confidence",doctrinalConfidence:"Doctrinal confidence",coldWarRisk:"Cold War risk",worldChurch:"World-Church pressure"};
+const METRIC_HELP = {
+	stature:"How seriously other electors treat your judgement.",
+	trust:"Whether private reassurances from you are believed.",
+	discretion:"How safely you can sound people out without seeming ambitious.",
+	exposure:"How much you look like an operator. High exposure makes your moves costlier.",
+	fatigue:"Emotional and physical strain after the second conclave of the year.",
+	italianLock:"How strongly the College still expects an Italian solution.",
+	nonItalian:"How imaginable a non-Italian pope has become.",
+	curiaConfidence:"Whether Roman administrators think the next pope can govern.",
+	conciliarConfidence:"Whether Vatican II-minded electors feel reassured.",
+	doctrinalConfidence:"Whether doctrinally cautious electors feel reassured.",
+	coldWarRisk:"Fear that a candidate will destabilise relations with Communist regimes.",
+	worldChurch:"Pressure from Latin America, Africa, Asia and Oceania against a purely Italian settlement."
+};
+function displayLabel(x){return DISPLAY_LABELS[x]||String(x).replace(/([a-z])([A-Z])/g,"$1 $2")}
+function chipText(x){return displayLabel(x)}
+function metricLevel(k,v){
+	const bad=["exposure","fatigue","coldWarRisk"].includes(k);
+	if(v>=75)return bad?"dangerous":"high";
+	if(v>=55)return bad?"rising":"strong";
+	if(v>=35)return "mixed";
+	if(v>=18)return bad?"low":"fragile";
+	return bad?"quiet":"very weak";
+}
+function papabileWord(n){if(n>=8)return "front-runner";if(n>=6)return "papabile";if(n>=4)return "possible";return "long shot"}
+function deltaText(n){if(!n)return "±0";return (n>0?"+":"")+n}
+function axisBand(v){if(v>=1.35)return "very high";if(v>=.65)return "high";if(v>.15)return "moderate";if(v>=-.15)return "middle";if(v>=-.65)return "low";return "very low"}
+function axisBarWidth(v){return clamp((v+2.5)/5.3*100,0,100)}
+const ASSURANCES = {
+	continuity:{label:"Continuity with Paul VI and John Paul I", tags:["Montinian","Continuity"], axis:{vatican2:.4,governance:.4,italianAcceptability:.15}, note:"comforts Montinian and John Paul I continuity voters"},
+	doctrine:{label:"Doctrinal clarity, not drift", tags:["Doctrine"], axis:{doctrine:.65,governance:.15}, note:"warms doctrinal and CDF-minded electors"},
+	council:{label:"Vatican II faithfully carried forward", tags:["Conciliar","Reform"], axis:{vatican2:.6,collegiality:.45}, note:"warms reform and collegiality voters"},
+	curia:{label:"The Curia will be governed, not humiliated", tags:["Curia","Governance"], axis:{curial:.55,governance:.45}, note:"reduces unknown-governor fears"},
+	world:{label:"The Church is global, not only Italian", tags:["GlobalSouth","Bridge"], axis:{globalChurch:.65,collegiality:.25,italianAcceptability:-.1}, note:"weakens the Italian lock and helps non-Italian imagination"},
+	communism:{label:"The suffering Church understands Communism", tags:["SufferingChurch","AntiCommunist"], axis:{antiCommunism:.65,ostpolitik:-.2}, note:"raises courage behind the Iron Curtain but can alarm diplomats"},
+	ostpolitik:{label:"Prudence with Communist states", tags:["Ostpolitik","Diplomat"], axis:{ostpolitik:.65,governance:.25,antiCommunism:-.1}, note:"reassures cautious diplomats and Eastern accommodationists"},
+	pastoral:{label:"A pastor before an operator", tags:["Pastor"], axis:{pastoral:.65,curial:-.15}, note:"warms diocesan bishops and non-curial electors"}
+};
+const END_NAMES = ["John Paul","Paul","John","Pius","Benedict","Leo","Gregory","Clement","Adrian","Nicholas"];
+const ID = Object.fromEntries(ELECTORS.map(e => [e.id,e]));
+let S = null;
+let pickedId = null;
+let activeNetwork = "All";
+function mulberry32(a){let s=a>>>0; const r=function(){s|=0;s=s+0x6D2B79F5|0;r.state=s>>>0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296};r.state=s>>>0;r.set=function(v){s=v>>>0;r.state=s>>>0};return r}
+function hashSeed(str){let h=1779033703^String(str).length;for(let i=0;i<String(str).length;i++){h=Math.imul(h^String(str).charCodeAt(i),3432918353);h=h<<13|h>>>19}return h>>>0}
+function clamp(x,a,b){return Math.max(a,Math.min(b,x))}
+function rnd(){return S.rng()}
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]))}
+function htmlToText(s){const d=document.createElement("div");d.innerHTML=s;return d.textContent||""}
+function $(q){return document.querySelector(q)}
+function el(tag,attrs,...kids){const e=document.createElement(tag);if(attrs){Object.entries(attrs).forEach(([k,v])=>{if(k==="class")e.className=v;else if(k==="html")e.innerHTML=v;else if(k.startsWith("on"))e.addEventListener(k.slice(2),v);else e.setAttribute(k,v)})}kids.flat().forEach(k=>{if(k==null||k===false)return;e.appendChild(k&&k.nodeType?k:document.createTextNode(String(k)))});return e}
+function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.remove("hidden");t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2600)}
+function stars(n){return "★".repeat(n)+"☆".repeat(5-n)}
+function hasTag(e,tag){return e.tags.includes(tag)}
+function primaryNetworks(e){return e.tags.filter(t=>NETWORKS.includes(t)).slice(0,5)}
+function profileWithMods(id){const base={...ID[id].profile};const mod=S.candidateMods[id]||{};Object.entries(mod).forEach(([k,v])=>{if(typeof base[k]==="number")base[k]=clamp(base[k]+v,-2.5,2.8)});return base}
+function initState(playerId, seed){
+	const rng = mulberry32(hashSeed(seed));
+	const destiny = {}; ELECTORS.forEach(e=>{destiny[e.id]=rng()});
+	S = {seed:String(seed),rng,playerId,ballotNo:0,ap:3,phase:"actions",over:false,electedId:null,log:[],history:[],lastCounts:{},lastRoll:null,
+		candidateMods:{},visibility:{},momentum:{},relationships:{},intel:{},networkWork:{},transfers:{},flags:{},destiny,
+		metrics:{stature:42,trust:54,discretion:66,exposure:8,fatigue:7,italianLock:78,nonItalian:14,curiaConfidence:55,conciliarConfidence:52,doctrinalConfidence:53,coldWarRisk:28,worldChurch:38},
+		player:{withdrawn:false,transferTo:null,assurances:{},objective:objectiveFor(ID[playerId])}
+	};
+	ELECTORS.forEach(a=>{S.relationships[a.id]={};S.intel[a.id]=a.id===playerId?3:0;S.visibility[a.id]=baseVisibility(a);S.momentum[a.id]=0;S.candidateMods[a.id]={};ELECTORS.forEach(b=>{S.relationships[a.id][b.id]=baseRelationship(a,b)})});
+	// hidden providential variance: every elector can have a seed where the room happens to be open to him.
+	if(S.destiny[playerId]>.93){S.visibility[playerId]+=4.5;S.metrics.stature+=8;S.flags.providential=true}
+	if(playerId==="wojtyla")S.visibility[playerId]+=1.5;
+	log(`<b>14 October 1978.</b> The doors close after <i>Extra omnes</i>. One hundred and eleven electors, no absentees, cells in the Apostolic Palace, memories of Paul VI and John Paul I pressing down on the same men who voted only weeks ago. You are <b>${esc(ID[playerId].name)}</b>.`,"holy");
+	if(S.flags.providential)log(`A private sensation follows you into the chapel: a few men who should not be looking your way are looking your way. In this seed the room is more open to your name than it has any right to be.`,"event");
+	log(`Your private objective: <b>${esc(S.player.objective.title)}</b> — ${esc(S.player.objective.text)}`,"event");
+	log(`The first business is not to buy votes. It is to make men imagine a future of the Church they can bear.`,"");
+}
+function baseVisibility(e){let v=e.papabile*.65;if(hasTag(e,"Papabile"))v+=2;if(hasTag(e,"Curia"))v+=.4;if(hasTag(e,"Italian"))v+=.7;if(hasTag(e,"Young"))v-=.6;if(hasTag(e,"Elder"))v-=.2;if(e.id==="wojtyla")v-=1.0;if(e.id==="siri"||e.id==="benelli")v+=2.3;if(e.id==="colombo")v+=1.3;if(e.id==="villot")v-=1.5;return v}
+function baseRelationship(a,b){let r=0;if(a.id===b.id)return .2;for(const t of a.tags){if(b.tags.includes(t))r+=.12}if(a.country===b.country)r+=.45;if(a.region===b.region)r+=.12;if(hasTag(a,"Italian")&&hasTag(b,"Italian"))r+=.22;if(hasTag(a,"Curia")&&hasTag(b,"Curia"))r+=.35;if(hasTag(a,"SufferingChurch")&&hasTag(b,"SufferingChurch"))r+=.5;if((a.id==="siri"&&b.id==="benelli")||(a.id==="benelli"&&b.id==="siri"))r-=1.4;if(a.id==="wyszynski"&&b.id==="wojtyla")r+=1.4;if(a.id==="wojtyla"&&b.id==="wyszynski")r+=1.2;if(a.id==="konig"&&b.id==="wojtyla")r+=1.0;if(a.id==="krol"&&b.id==="wojtyla")r+=.8;if(a.id==="willebrands"&&b.id==="wojtyla")r+=.55;return clamp(r,-1.6,2.4)}
+function objectiveFor(e){
+	if(e.id==="wojtyla")return {title:"The obedience of Kraków",text:"Become viable only after the Italian deadlock; win without appearing to campaign.",kind:"win_or_bridge"};
+	if(e.id==="siri")return {title:"No surrender to Florence",text:"Win early, or block Benelli and secure doctrinal seriousness.",kind:"block_benelli"};
+	if(e.id==="benelli")return {title:"The thirty-three days must not be wasted",text:"Elect yourself or an unmistakable Paul VI / John Paul I continuity pope.",kind:"montinian"};
+	if(e.id==="konig")return {title:"Break the Italian lock",text:"Make a non-Italian compromise respectable.",kind:"nonitalian"};
+	if(e.id==="wyszynski")return {title:"Poland must not be used",text:"Strengthen the suffering Church without reckless theatre.",kind:"suffering"};
+	if(e.id==="krol")return {title:"No Washington pope",text:"Move Americans without making the choice look American-imposed.",kind:"wojtyla_bridge"};
+	if(e.id==="colombo")return {title:"The reluctant peace",text:"Avoid being forced into a factional papacy unless a true peace forms.",kind:"reluctant"};
+	if(e.id==="ratzinger")return {title:"The future overhears",text:"Shape the doctrinal settlement more than your own candidacy.",kind:"doctrine"};
+	if(hasTag(e,"Curia"))return {title:"The machine must govern",text:"Ensure the new pope can handle the Roman Curia and preserve continuity.",kind:"curia"};
+	if(hasTag(e,"GlobalSouth")||hasTag(e,"Africa")||hasTag(e,"Asia")||hasTag(e,"LatinAmerica"))return {title:"The world Church",text:"Make the next pontificate see beyond Italy and Western Europe.",kind:"world"};
+	if(hasTag(e,"Doctrine"))return {title:"No doctrinal fog",text:"Secure a pope who promises clarity and discipline.",kind:"doctrine"};
+	if(hasTag(e,"Conciliar"))return {title:"The Council must live",text:"Secure Vatican II without institutional chaos.",kind:"council"};
+	return {title:"Leave with a pope who owes you",text:"Be elected, or place the winner in your debt.",kind:"influence"};
+}
+function log(html,cls=""){S.log.push({ballot:S.ballotNo,html,cls});renderLog&&renderLog()}
+function phaseName(){if(S.ballotNo===0)return "14 October · before the first scrutiny";return BALLOT_LABELS[Math.min(S.ballotNo,BALLOT_LABELS.length-1)]||`Ballot ${S.ballotNo}`}
+function spendAP(){if(S.ap<=0){toast("No conversation window remains before the next scrutiny.");return false}S.ap--;return true}
+function adjustMetric(k,delta){S.metrics[k]=clamp((S.metrics[k]||0)+delta,0,100)}
+function addCandidateMod(id,axis,delta){S.candidateMods[id][axis]=(S.candidateMods[id][axis]||0)+delta}
+function modifyCandidateFromAssurance(id,assurance,scale=1){Object.entries(assurance.axis).forEach(([k,v])=>addCandidateMod(id,k,v*scale))}
+function workNetwork(network, assuranceKey, candidateId){
+	const a=ASSURANCES[assuranceKey];
+	const player=ID[S.playerId];
+	const cand=candidateId||S.playerId;
+	let affinity = player.tags.includes(network)?1.2:.8;
+	if(network==="All")affinity=.55;
+	if(a.tags.some(t=>player.tags.includes(t)))affinity+=.25;
+	const gain = (1.6 + rnd()*1.1) * affinity;
+	S.networkWork[network]=clamp((S.networkWork[network]||0)+gain, -10, 18);
+	S.visibility[cand]+=candidateId===S.playerId?1.1:.65;
+	S.momentum[cand]+=candidateId===S.playerId?.7:.45;
+	modifyCandidateFromAssurance(cand,a,.65);
+	if(network==="Italian")adjustMetric("italianLock",gain*.28);
+	if(network==="GlobalSouth"||network==="Africa"||network==="Asia"||network==="LatinAmerica")adjustMetric("worldChurch",gain*.65);
+	if(assuranceKey==="world")adjustMetric("nonItalian",2.4),adjustMetric("italianLock",-2.2);
+	if(assuranceKey==="curia")adjustMetric("curiaConfidence",2.3);
+	if(assuranceKey==="council")adjustMetric("conciliarConfidence",2.4);
+	if(assuranceKey==="doctrine")adjustMetric("doctrinalConfidence",2.4);
+	if(assuranceKey==="communism")adjustMetric("coldWarRisk",1.6);
+	log(`You work the <b>${esc(displayLabel(network))}</b> network for <b>${esc(cand===S.playerId?ID[S.playerId].short:ID[cand].short)}</b>: ${esc(a.label)}. <span class="dim">${esc(a.note)}.</span>`,"deal");
+}
+function historicalBonus(id, voter){
+	const b = S.ballotNo+1;
+	const phase = HISTORICAL_PHASES[Math.min(b, HISTORICAL_PHASES.length-1)] || {};
+	let x = phase[id] || 0;
+	if(id===S.playerId){
+		x += S.visibility[id]*.45 + Math.max(0,S.metrics.stature-45)*.09 + Math.max(0,S.metrics.trust-50)*.08 - S.metrics.exposure*.055;
+		if(S.flags.providential)x+=2.1;
+		if(S.player.withdrawn)x-=20;
+	}
+	// events that make Wojtyla plausible after deadlock, unless player has successfully built another bridge.
+	const playerThreat = S.playerId!=="wojtyla" && (S.lastCounts[S.playerId]||0)>28;
+	if(id==="wojtyla" && b>=5 && !playerThreat){
+		x += clamp((S.metrics.nonItalian-20)/10,0,2.8);
+		x += clamp((S.metrics.worldChurch-38)/12,0,2.2);
+		if(S.lastCounts.siri>28 && S.lastCounts.benelli>25)x+=1.5;
+	}
+	// Colombo reluctance suppresses his finish unless player is him or has acted.
+	if(id==="colombo" && S.playerId!=="colombo" && b>=5)x-=2.5;
+	return x;
+}
+function voterUtility(voter,cand){
+	const v=ID[voter], c=ID[cand];
+	const vp=v.profile, cp=profileWithMods(cand);
+	let u = c.papabile*.72 + S.visibility[cand]*.52 + S.momentum[cand]*.9 + historicalBonus(cand,voter);
+	// voter/candidate axes: prefer men who speak their ecclesial language.
+	const axes=["doctrine","vatican2","curial","collegiality","ostpolitik","antiCommunism","globalChurch","pastoral","governance","italianAcceptability","ecumenism"];
+	axes.forEach(k=>{u += (2.0 - Math.abs((vp[k]||0)-(cp[k]||0))) * .48});
+	u += S.relationships[voter][cand] * 1.25;
+	for(const tag of v.tags){if(c.tags.includes(tag))u+=.18}
+	for(const tag of ["Italian","Curia","Montinian","Doctrine","Conciliar","SufferingChurch","AntiCommunist","Ostpolitik","GlobalSouth","Germanic","America","LatinAmerica","Africa","Asia","Oceania","English","French","Bridge","Pastor"]){
+		if(v.tags.includes(tag))u += (S.networkWork[tag]||0)*.08*(c.tags.includes(tag)?1:.35);
+	}
+	// world-state pressures.
+	if(c.country==="Italy")u += (S.metrics.italianLock-50)*.035; else u += (S.metrics.nonItalian-30)*.045 + (S.metrics.worldChurch-40)*.025;
+	if(c.tags.includes("Curia"))u += (S.metrics.curiaConfidence-50)*.025;
+	if(c.profile.vatican2>.6)u += (S.metrics.conciliarConfidence-50)*.018;
+	if(c.profile.doctrine>.8)u += (S.metrics.doctrinalConfidence-50)*.018;
+	if(c.profile.antiCommunism>.8)u -= (S.metrics.coldWarRisk-36)*.035;
+	// candidate fear/ceilings, soft not hard.
+	if(cand==="siri" && (v.tags.includes("Conciliar")||v.tags.includes("Reform")||v.tags.includes("HumanRights")))u -= 3.8 + (S.lastCounts.siri||0)*.035;
+	if(cand==="benelli" && (v.tags.includes("Doctrine")||v.tags.includes("Curia")||v.tags.includes("SiriCamp")))u -= 2.8 + (S.lastCounts.benelli||0)*.025;
+	if(cand==="wojtyla" && S.ballotNo<4 && v.country==="Italy")u -= 2.0;
+	if(c.tags.includes("Young") && c.papabile<5)u-=1.8;
+	if(c.tags.includes("Elder") && c.age>=77)u-=1.4;
+	if(cand===voter)u -= (cand===S.playerId?0.2:1.3);
+	if(S.transfers[voter]===cand)u+=5;
+	if(S.player.transferTo===cand && voter!==S.playerId)u+= (S.lastCounts[S.playerId]||0)*.055;
+	// exact but seeded noise. Less noise later.
+	const noise = (rnd()-.5)*(S.ballotNo<3?3.2:2.1);
+	u += noise;
+	return u;
+}
+function bestExcluding(voter, excluded){
+	let best=null,bestU=-1e9;
+	for(const e of ELECTORS){
+		if(e.id===excluded)continue;
+		const u=voterUtility(voter,e.id);
+		if(u>bestU){bestU=u;best=e.id}
+	}
+	return best||"benelli";
+}
+function secondChoiceMargin(voter, winner){
+	const top=voterUtility(voter,winner);
+	let alt=-1e9;
+	for(const e of ELECTORS){if(e.id!==winner)alt=Math.max(alt,voterUtility(voter,e.id))}
+	return top-alt;
+}
+function runBallot(playerVote){
+	S.ballotNo++;
+	const previousHistory=S.history.length?S.history[S.history.length-1]:null;
+	const roll={};
+	const counts={};
+	for(const v of ELECTORS.map(e=>e.id)){
+		let choice=null;
+		if(v===S.playerId && playerVote)choice=playerVote;
+		else{
+			const scored=[];
+			for(const c of ELECTORS.map(e=>e.id)){
+				if(S.player.withdrawn && c===S.playerId)continue;
+				scored.push({id:c,u:voterUtility(v,c)});
+			}
+			scored.sort((a,b)=>b.u-a.u);
+			const top=scored[0].u;
+			const temp=S.ballotNo<=2?4.9:(S.ballotNo<=5?4.1:(S.ballotNo<=7?3.4:1.7));
+			const window=S.ballotNo<=3?9.5:(S.ballotNo<=7?8.0:4.8);
+			const pool=scored.filter(x=>x.u>=top-window).slice(0,18);
+			let total=0;
+			const weights=pool.map(x=>{const w=Math.exp((x.u-top)/temp); total+=w; return w});
+			let r=rnd()*total;
+			choice=pool[0].id;
+			for(let i=0;i<pool.length;i++){r-=weights[i];if(r<=0){choice=pool[i].id;break}}
+		}
+		roll[v]=choice;counts[choice]=(counts[choice]||0)+1;
+	}
+	// Exact correction pass: if no one is anywhere close by ballot 8 and history has not been derailed, let Wojtyla's late coalition cohere.
+	if(S.ballotNo===8 && !Object.values(counts).some(n=>n>=THRESHOLD) && S.playerId!=="wojtyla" && (counts[S.playerId]||0)<45){
+		const needed=THRESHOLD-(counts.wojtyla||0);
+		if(needed>0){
+			const movable=Object.keys(roll).filter(v=>v!==S.playerId && roll[v]!=="wojtyla" && voterUtility(v,"wojtyla")>voterUtility(v,roll[v])-4.5).sort((a,b)=>voterUtility(b,"wojtyla")-voterUtility(a,"wojtyla"));
+			for(let i=0;i<Math.min(needed+Math.floor(rnd()*9),movable.length);i++){counts[roll[movable[i]]]--;roll[movable[i]]="wojtyla";counts.wojtyla=(counts.wojtyla||0)+1}
+		}
+	}
+	// Keep the historical Wojtyła momentum dramatic rather than unanimous in the historical path.
+	// If the player has actively built a landslide, leave it alone; otherwise leave a realistic residue.
+	if((S.ballotNo===7||S.ballotNo===8) && counts.wojtyla){
+		const activePlayerWork = Math.max(0,...Object.values(S.networkWork||{}))>4 || Math.abs(Object.values(S.candidateMods[S.playerId]||{}).reduce((a,b)=>a+Math.abs(b),0))>2.2 || S.metrics.stature>55;
+		let cap = S.ballotNo===7 ? (activePlayerWork&&S.playerId==="wojtyla"?88:73) : (94+Math.floor(rnd()*6));
+		if(counts.wojtyla>cap){
+			const voters=Object.keys(roll).filter(v=>roll[v]==="wojtyla" && v!=="wojtyla").sort((a,b)=>{
+				const aa=secondChoiceMargin(a,"wojtyla"), bb=secondChoiceMargin(b,"wojtyla");
+				return aa-bb;
+			});
+			while(counts.wojtyla>cap && voters.length){
+				const v=voters.shift();
+				const alt=bestExcluding(v,"wojtyla");
+				counts.wojtyla--; roll[v]=alt; counts[alt]=(counts[alt]||0)+1;
+			}
+		}
+	}
+	S.lastRoll=roll;S.lastCounts=counts;const hist={ballot:S.ballotNo,roll:{...roll},counts:{...counts},label:BALLOT_LABELS[S.ballotNo]||`Ballot ${S.ballotNo}`};
+	S.history.push(hist);
+	Object.keys(counts).forEach(id=>{S.momentum[id]=S.momentum[id]*.35 + counts[id]/16});
+	const sorted=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+	const leader=sorted[0];
+	log(`<b>Scrutiny ${roman(S.ballotNo)}.</b> Exact count recorded in the scrutiny book. <b>${esc(ID[leader[0]].short)}</b> leads with ${leader[1]} of ${THRESHOLD}. ${leader[1]>=THRESHOLD?"<b>Election.</b>":"Black smoke."}`,"scrut");
+	postBallotEffects(sorted);
+	if(leader[1]>=THRESHOLD){S.over=true;S.electedId=leader[0];renderAll();showScrutinyScreen(hist,()=>endGame())}else{S.ap=S.ballotNo>=6?2:3;S.metrics.fatigue=clamp(S.metrics.fatigue+4+(S.ballotNo>4?2:0),0,100);renderAll();showScrutinyScreen(hist,false)}
+}
+function postBallotEffects(sorted){
+	if(S.ballotNo===1)log(`Siri and Benelli are no longer rumours; they are measurable poles. The question is whether either pole has a ceiling.`,"event");
+	if(S.ballotNo===2 && (S.lastCounts.siri||0)>30)log(`The anti-Siri votes are not merely absent; they are organised. A strong opening can also be a wall.`,"event");
+	if(S.ballotNo===3 && (S.lastCounts.benelli||0)>28)log(`Benelli's discipline is visible. So is the resentment against him.`,"event");
+	if(S.ballotNo===4){adjustMetric("italianLock",-8);adjustMetric("nonItalian",8);log(`By supper the Italian lock has hairline cracks. Colombo, Poletti and Pignedoli are not fantasies, but neither has ended the war between Genoa and Florence.`,"event")}
+	if(S.ballotNo===5){adjustMetric("nonItalian",10);adjustMetric("worldChurch",6);log(`For the first time men say “Poland” without smiling. König, Krol, Wyszyński and Willebrands matter more than the public board suggests.`,"event")}
+	if(S.ballotNo===6){adjustMetric("italianLock",-10);adjustMetric("curiaConfidence",-2);log(`The room is not merely tired. It is becoming willing to imagine a pope who is not Italian.`,"event")}
+	if(S.ballotNo>=8 && !S.over){adjustMetric("italianLock",-5);adjustMetric("nonItalian",5);log(`Eight ballots have passed: in history this was enough. In this seed the College keeps going, more exposed, more tired, and more dangerous.`,"event")}
+}
+function roman(n){const r=[[10,"X"],[9,"IX"],[5,"V"],[4,"IV"],[1,"I"]];let s="";for(const [v,c] of r){while(n>=v){s+=c;n-=v}}return s}
+function actionEnabled(){return !S.over && S.ap>0}
+function openModal(title,body,choices=[]){
+	const ov=el("div",{class:"overlay"});
+	const m=el("div",{class:"modal"},el("button",{class:"mclose",onclick:()=>ov.remove()},"✕"),el("h3",null,title));
+	if(typeof body==="string")m.appendChild(el("div",{html:body}));else m.appendChild(body);
+	if(choices.length)m.appendChild(el("div",{class:"choices"},choices.map(c=>el("button",{onclick:()=>{ov.remove();if(c.fn)c.fn()}},c.label,c.sub?el("small",null,c.sub):null))));
+	ov.appendChild(m);document.body.appendChild(ov);return ov;
+}
+function pickCardinal(title, cb, opts={}){
+	const wrap=el("div");
+	const inp=el("input",{placeholder:"Search…",style:"width:100%;margin-bottom:.5rem;background:#11131a;color:#fff;border:1px solid rgba(255,255,255,.16);border-radius:7px;padding:.5rem"});
+	const grid=el("div",{class:"pickgrid"});
+	wrap.append(inp,grid);
+	const ov=openModal(title,wrap,[]);
+	function draw(){
+		grid.innerHTML="";const q=inp.value.toLowerCase();
+		ELECTORS.filter(e=>!opts.exclude||!opts.exclude(e)).filter(e=>(e.name+" "+e.short+" "+e.country+" "+e.tags.join(" ")).toLowerCase().includes(q)).forEach(e=>{
+			grid.appendChild(el("button",{onclick:()=>{ov.remove();cb(e.id)}},e.short,el("small",null,`${e.country} · ${e.role}`)))
+		})
+	}
+	inp.addEventListener("input",draw);draw();
+}
+function pickNetwork(cb){
+	const wrap=el("div",{class:"pickgrid"});
+	NETWORKS.filter(n=>n!=="All").forEach(n=>wrap.appendChild(el("button",{onclick:()=>{document.querySelector(".overlay")?.remove();cb(n)}},displayLabel(n),el("small",null,networkDescription(n)))));
+	openModal("Choose a network",wrap,[]);
+}
+function pickAssurance(cb){
+	const wrap=el("div",{class:"pickgrid"});
+	Object.entries(ASSURANCES).forEach(([k,a])=>wrap.appendChild(el("button",{onclick:()=>{document.querySelector(".overlay")?.remove();cb(k)}},a.label,el("small",null,a.note))));
+	openModal("Choose an assurance",wrap,[]);
+}
+function networkDescription(n){const desc={Italian:"Italian bishops and the old expectation of an Italian pope",Curia:"Roman administrators and dicastery heads",Montinian:"Continuity with Paul VI and John Paul I",Doctrine:"Doctrinal and disciplinary clarity",Conciliar:"Vatican II and collegial implementation",SufferingChurch:"Churches under Communist or authoritarian pressure",AntiCommunist:"Electors alert to Communist pressure and persecution",Ostpolitik:"Prudence and diplomacy with Communist regimes",Germanic:"German-speaking and Central European relationships",America:"US and North American organising weight",LatinAmerica:"Latin American episcopal and CELAM concerns",Africa:"African and mission-Church voices",Asia:"Asian and minority-Church voices",Oceania:"Oceania and English-speaking mission links",GlobalSouth:"Latin America, Africa, Asia and Oceania",Bridge:"Men who can make one bloc trust another",Pastor:"Diocesan bishops who trust pastoral credibility",Young:"Younger electors conscious of a long reign",Elder:"Older electors and caretaker possibilities"};return desc[n]||"Shared concern or relationship"}
+function doSound(){if(!actionEnabled())return;pickCardinal("Sound out an elector",id=>{if(!spendAP())return;S.intel[id]=Math.min(3,S.intel[id]+1);S.relationships[id][S.playerId]+=.45;S.relationships[S.playerId][id]+=.2;const pref=topPreference(id);log(`You speak privately with <b>${esc(ID[id].short)}</b>. ${S.intel[id]>=2?`His present lean is <b>${esc(ID[pref].short)}</b>; his fear is ${esc(fearLine(id,pref))}.`:"He gives you enough to improve the dossier, but not enough to trust."}`,"deal");renderAll()},{exclude:e=>e.id===S.playerId})}
+function doNetwork(){if(!actionEnabled())return;pickNetwork(n=>pickAssurance(a=>{if(!spendAP())return;workNetwork(n,a,S.playerId);renderAll()}))}
+function doAssure(){if(!actionEnabled())return;pickAssurance(a=>pickCardinal("Give assurance in whose cause?",id=>{if(!spendAP())return;const ass=ASSURANCES[a];S.visibility[id]+=1.3;S.momentum[id]+=.6;modifyCandidateFromAssurance(id,ass,.9);adjustMetric("exposure", id===S.playerId?2:1);log(`You quietly circulate an assurance for <b>${esc(ID[id].short)}</b>: ${esc(ass.label)}.`,"deal");renderAll()}))}
+function doFloat(){if(!actionEnabled())return;pickCardinal("Float a name",id=>{if(!spendAP())return;S.visibility[id]+=2.4;S.momentum[id]+=1.2;adjustMetric("exposure",id===S.playerId?5:2);if(id!==S.playerId)S.relationships[id][S.playerId]+=.35;log(`You float <b>${esc(ID[id].short)}</b> as a possible settlement. Visibility rises; so does the danger of looking too clever.`,"event");renderAll()})}
+function doDiscourage(){if(!actionEnabled())return;pickCardinal("Discourage which rival?",id=>{if(!spendAP())return;const caught=rnd()<(.25 + S.metrics.exposure/220 - S.metrics.discretion/300);S.visibility[id]-=caught?.5:1.5;S.momentum[id]-=caught?.2:1.3;adjustMetric("exposure",caught?9:4);if(caught)S.relationships[id][S.playerId]-=1.0;log(caught?`Your doubts about <b>${esc(ID[id].short)}</b> are traced back to you. The rival is bruised, but so are you.`:`A careful objection lands against <b>${esc(ID[id].short)}</b>. Nobody knows it began with you; everyone repeats it by dinner.`,caught?"event":"deal");renderAll()},{exclude:e=>e.id===S.playerId})}
+function doRest(){if(!actionEnabled())return;if(!spendAP())return;adjustMetric("fatigue",-9);adjustMetric("exposure",-6);adjustMetric("trust",3);const e=ID[S.playerId];if(e.tags.includes("Religious")||e.tags.includes("Pastor"))adjustMetric("stature",1.5);log(`You withdraw to prayer and rest. In this conclave a man who stops talking sometimes becomes more credible.`,"holy");renderAll()}
+function doTransfer(){if(!actionEnabled())return;pickCardinal("Transfer your support to…",id=>{if(!spendAP())return;S.player.withdrawn=true;S.player.transferTo=id;S.transfers[S.playerId]=id;S.visibility[S.playerId]-=4;S.visibility[id]+=2.2;S.momentum[id]+=1.8;adjustMetric("trust",6);adjustMetric("exposure",-8);log(`You signal that your own candidacy should not block <b>${esc(ID[id].short)}</b>. Your votes, such as they are, now have somewhere to go.`,"deal");renderAll()},{exclude:e=>e.id===S.playerId})}
+function topPreference(voter){let best=null,score=-1e9;for(const e of ELECTORS){const u=voterUtility(voter,e.id);if(u>score){score=u;best=e.id}}return best}
+function fearLine(voter,pref){const v=ID[voter], p=ID[pref];if(pref==="siri")return "a rollback of the Council";if(pref==="benelli")return "another factional administrator";if(pref==="wojtyla")return "Cold War risk and unknown Roman governance";if(p.country!=="Italy"&&v.country==="Italy")return "the end of Italian habit";if(p.tags.includes("Curia")&&!v.tags.includes("Curia"))return "too much palace government";return "a choice without enough peace behind it"}
+function runBallotModal(){
+	pickCardinal("Write one name on your ballot",id=>{runBallot(id)},{});
+}
+function showExactRoll(hist, after=false){
+	const rows=Object.entries(hist.counts).sort((a,b)=>b[1]-a[1]).map(([id,n])=>`<tr><td>${esc(ID[id].short)}</td><td class="n">${n}</td></tr>`).join("");
+	const rollRows=Object.entries(hist.roll).sort((a,b)=>ID[a[0]].rank-ID[b[0]].rank).map(([v,c])=>`<tr><td>${esc(ID[v].short)}</td><td>→ ${esc(ID[c].short)}</td></tr>`).join("");
+	openModal(`Scrutiny ${roman(hist.ballot)} — exact roll`, `<div class="callout ${after?'':'warning'}">These are exact simulated ballots, not a claim to know the secret historical ballot papers.</div><h4>Exact count</h4><table>${rows}</table><h4>Exact simulated roll</h4><table>${rollRows}</table>`, [{label:"Return to the chapel"}]);
+}
+function scrutinyInterpretation(hist, previous){
+	const entries=Object.entries(hist.counts).sort((a,b)=>b[1]-a[1]);
+	const leader=entries[0];
+	if(!previous)return `The first scrutiny gives the room a map: ${ID[leader[0]].short} leads, but every camp is still testing names.`;
+	const oldLeader=Object.entries(previous.counts).sort((a,b)=>b[1]-a[1])[0];
+	const gain=leader[1]-(previous.counts[leader[0]]||0);
+	if(leader[1]>=THRESHOLD)return `${ID[leader[0]].short} has crossed the canonical threshold. The remaining question is how the chapel remembers the road to this count.`;
+	if(hist.ballot<=2)return `The Italian poles are still being measured. A high count may be strength; it may also reveal a ceiling.`;
+	if(hist.ballot<=4)return `The room is looking for ceilings: who can rise, who cannot, and which supporters are transferable.`;
+	if(gain>=10)return `${ID[leader[0]].short} has become more than a rumour. A movement of ${gain} votes in one scrutiny means a coalition is beginning to cohere.`;
+	if(oldLeader&&oldLeader[0]!==leader[0])return `The lead has changed hands from ${ID[oldLeader[0]].short} to ${ID[leader[0]].short}. That matters as much psychologically as arithmetically.`;
+	return `The count has not broken yet. The next actions should reassure a bloc, lower a fear, or move transferable voters rather than simply raise visibility.`;
+}
+function showScrutinyScreen(hist, advance){
+	const previous=S.history.length>1?S.history[S.history.length-2]:null;
+	const entries=Object.entries(hist.counts).sort((a,b)=>b[1]-a[1]);
+	const leader=entries[0];
+	const yourVotes=hist.counts[S.playerId]||0;
+	const gap=Math.max(0,THRESHOLD-leader[1]);
+	const list=entries.slice(0,14).map(([id,n],i)=>{
+		const old=previous?(previous.counts[id]||0):0;
+		const d=previous?n-old:0;
+		const dc=d>0?"up":(d<0?"down":"");
+		const pct=Math.min(100,n/THRESHOLD*100);
+		return `<div class="srow${i===0?' leader':''}"><span class="sname">${esc(ID[id].short)}${id===S.playerId?' · you':''}</span><span class="rtrack"><span class="rfill${n>=THRESHOLD?' win':''}" style="width:${pct}%"></span></span><span class="rnum">${n}</span><span class="delta ${dc}">${previous?deltaText(d):'—'}</span></div>`;
+	}).join("");
+	const rollRows=Object.entries(hist.roll).sort((a,b)=>ID[a[0]].rank-ID[b[0]].rank).map(([v,c])=>`<tr><td>${esc(ID[v].short)}</td><td>${esc(ID[v].country)}</td><td>→ ${esc(ID[c].short)}</td></tr>`).join("");
+	const body=`<div class="callout">Scrutiny votes here are exact model output. Historical 1978 ballot papers remain secret.</div><div class="scrutiny-hero"><div class="scard"><b>${esc(ID[leader[0]].short)}</b><span>leader</span></div><div class="scard"><b>${leader[1]}/${THRESHOLD}</b><span>${gap?gap+' short':'elected'}</span></div><div class="scard"><b>${yourVotes}</b><span>votes for you</span></div></div><div class="scrutiny-grid"><div><h4>Exact count</h4><div class="smini">The bar ends at the ${THRESHOLD}-vote threshold. The final column shows change since the previous scrutiny.</div><div class="scrutiny-list">${list}</div></div><div><h4>What it means</h4><p class="smini">${esc(scrutinyInterpretation(hist,previous))}</p><div class="statusbox"><b>Next pressure point</b><br>${esc(nextPressurePoint(hist))}</div><details><summary class="goldtx">Read every simulated ballot</summary><div class="exact-roll"><table><thead><tr><th>Elector</th><th>Country</th><th>Ballot</th></tr></thead><tbody>${rollRows}</tbody></table></div></details></div></div>`;
+	const ov=openModal(`Scrutiny ${roman(hist.ballot)} — exact scrutiny book`, body, [{label:S.over?"Continue to the balcony":"Return to the chapel",fn:()=>{if(advance)advance()}}]);
+	ov.querySelector(".modal").classList.add("scrutinybook");
+}
+function nextPressurePoint(hist){
+	const entries=Object.entries(hist.counts).sort((a,b)=>b[1]-a[1]);
+	const leader=entries[0];
+	if(leader[1]>=THRESHOLD)return "Election secured. The politics now become memory, legitimacy and the balcony.";
+	if(S.metrics.exposure>60)return "Your exposure is high. Rest, transfer, or work through another network rather than pushing your own name openly.";
+	if(S.metrics.italianLock>62&&ID[leader[0]].country!=="Italy")return "A non-Italian is rising before the Italian lock has fully cracked. Reassure Italian and curial voters.";
+	if(S.metrics.curiaConfidence<42)return "Curial confidence is fragile. Use a Curia or governance assurance before the next scrutiny.";
+	if(S.metrics.nonItalian<35&&ID[S.playerId].country!=="Italy")return "Non-Italian viability is still weak. Work Global South, German-speaking, American or bridge networks before floating yourself again.";
+	if((hist.counts[S.playerId]||0)>25&&S.player.withdrawn)return "Your transfer can still matter: keep the destination reassuring and avoid reopening your own candidacy.";
+	return "Find transferable voters: sound out one bridge elector, then give an assurance that lowers his main fear.";
+}
+function showWorld(){
+	const m=S.metrics;
+	openModal("The world outside", `<div class="callout">No king sends a veto. The law excludes civil interference. But the outside world shapes fear.</div>
+	<div class="statusbox"><b>Italy and the Curia</b><br>Italian lock ${Math.round(m.italianLock)} · Curial confidence ${Math.round(m.curiaConfidence)}. A foreign pope still feels like losing Rome unless reassured.</div>
+	<div class="statusbox"><b>Communist bloc</b><br>Cold War risk ${Math.round(m.coldWarRisk)}. A Polish or suffering-Church pope can inspire courage and diplomatic alarm at the same time.</div>
+	<div class="statusbox"><b>Vatican II and doctrine</b><br>Conciliar confidence ${Math.round(m.conciliarConfidence)} · Doctrinal confidence ${Math.round(m.doctrinalConfidence)}. The settlement must promise renewal without chaos.</div>
+	<div class="statusbox"><b>The world Church</b><br>World-Church pressure ${Math.round(m.worldChurch)} · non-Italian viability ${Math.round(m.nonItalian)}. Latin America, Africa, Asia and Oceania make the old monopoly morally fragile.</div>`, [{label:"Close"}]);
+}
+function openDossier(id){
+	const e=ID[id], p=profileWithMods(id), intel=S.intel[id]||0;
+	const axes=["doctrine","vatican2","curial","collegiality","ostpolitik","antiCommunism","globalChurch","pastoral","governance","italianAcceptability"];
+	const axisHtml=axes.map(k=>`<div class="axis"><span>${axisLabel(k)}</span><span class="axbar"><span style="width:${axisBarWidth(p[k])}%"></span></span><span>${axisBand(p[k])}</span></div>`).join("");
+	const lean=intel>=2?topPreference(id):null;
+	openModal(e.name, `<div class="dossier-head"><div class="badge"></div><div><b>${ORDER_NAME[e.order]}</b><br><span class="dim">${esc(e.country)} · aged ${e.age} · rank ${e.rank}</span><br><i>${esc(e.office)}</i></div></div>
+	<p>${esc(e.role)}</p><div class="chips">${e.tags.map(t=>`<span class="chip">${esc(chipText(t))}</span>`).join("")}</div>
+	<div class="callout">${intel>=2?`Current lean: <b>${esc(ID[lean].short)}</b>. Fear: ${esc(fearLine(id,lean))}.`:`Intelligence ${intel}/3. Use Soundings to learn his lean and fear.`}</div>
+	<h4>Where he stands</h4>${axisHtml}<p class="dim" style="font-family:var(--mono);font-size:.64rem;letter-spacing:.04em;margin:.5rem 0 0">These are qualitative dossier judgements, not extra votes. Bars show the direction and strength of an elector's public profile.</p>`, [{label:"Close"}]);
+}
+function axisLabel(k){return {vatican2:"Vatican II",curial:"Curia",collegiality:"Collegiality",ostpolitik:"Ostpolitik",antiCommunism:"Anti-communism",globalChurch:"World Church",pastoral:"Pastoral",governance:"Governance",italianAcceptability:"Italian fit",doctrine:"Doctrine",ecumenism:"Ecumenism"}[k]||k}
+function renderSelect(){
+	const nf=$("#networkFilter");nf.innerHTML="<option value=''>All networks</option>"+NETWORKS.filter(n=>n!=="All").map(n=>`<option value="${esc(n)}">${esc(displayLabel(n))}</option>`).join("");
+	const rf=$("#regionFilter");[...new Set(ELECTORS.map(e=>e.region))].forEach(r=>rf.appendChild(el("option",{value:r},r)));
+	function draw(){
+		const q=$("#search").value.toLowerCase(), n=nf.value, r=rf.value;
+		const grid=$("#selgrid");grid.innerHTML="";
+		ELECTORS.filter(e=>(!n||e.tags.includes(n))&&(!r||e.region===r)).filter(e=>(e.name+" "+e.short+" "+e.country+" "+e.office+" "+e.tags.join(" ")).toLowerCase().includes(q)).forEach(e=>{
+			const card=el("div",{class:"ccard"+(pickedId===e.id?" sel":""),onclick:()=>{pickedId=e.id;draw();$("#startbtn").disabled=false;$("#startbtn").textContent="Enter as "+e.short}},
+				el("div",{class:"meta"},el("span",null,"#"+e.rank+" · "+e.country),el("span",null,stars(e.difficulty))),
+				el("div",{class:"nm"},e.name),el("div",{class:"office"},e.office),el("div",{class:"chips"},primaryNetworks(e).map(t=>el("span",{class:"chip"},chipText(t)))),el("div",{class:"hook"},e.role));
+			grid.appendChild(card);
+		})
+	}
+	["#search","#networkFilter","#regionFilter"].forEach(q=>$(q).addEventListener("input",draw));draw();
+}
+function renderRoster(){
+	const q=($("#rosterSearch")?.value||"").toLowerCase();
+	$("#rosterCount").textContent="111 electors";
+	const tabs=$("#networkTabs");tabs.innerHTML="";NETWORKS.forEach(n=>tabs.appendChild(el("button",{class:n===activeNetwork?"active":"",onclick:()=>{activeNetwork=n;renderRoster();renderNetworkSummary()}},displayLabel(n))));
+	const rs=$("#roster");rs.innerHTML="";
+	ELECTORS.filter(e=>(activeNetwork==="All"||e.tags.includes(activeNetwork))).filter(e=>(e.name+" "+e.short+" "+e.country+" "+e.tags.join(" ")).toLowerCase().includes(q)).forEach(e=>{
+		const count=S.lastCounts[e.id]||0;const intel=S.intel[e.id]||0;const lean=intel>=2?topPreference(e.id):null;
+		rs.appendChild(el("div",{class:"crow"+(e.id===S.playerId?" player":""),onclick:()=>openDossier(e.id)},el("span",{class:"vt",title:"Votes received in the latest scrutiny"},S.history.length?String(count||0):"—"),el("span",{class:"nm",html:`${esc(e.short)}<small>${esc(e.country)}${lean?` · leaning → ${esc(ID[lean].short)}`:""}</small>`}),el("span",{class:"vt",title:"Opening papabile profile: "+papabileWord(e.papabile),html:`<span class="badgeword">${esc(papabileWord(e.papabile))}</span>`})))
+	});
+}
+function renderLog(){if(!S)return;const l=$("#log");if(!l)return;l.innerHTML="";S.log.slice(-100).forEach(x=>l.appendChild(el("div",{class:"le "+x.cls},el("div",{class:"stamp"},x.ballot?`after scrutiny ${roman(x.ballot)}`:"entry"),el("div",{html:x.html}))));l.scrollTop=l.scrollHeight}
+function renderMeters(){
+	const m=S.metrics;
+	$("#meters").innerHTML=Object.entries(METRIC_LABELS).map(([k,label])=>{
+		const value=Math.round(m[k]);
+		const level=metricLevel(k,value);
+		const tone=["exposure","fatigue","coldWarRisk"].includes(k)?"bad":(["nonItalian","worldChurch"].includes(k)?"blue":"");
+		return `<div class="meter" title="${esc(METRIC_HELP[k])} Current model value: ${value}/100."><div class="lb"><span>${esc(label)}</span><span>${esc(level)}</span></div><div class="bar"><div class="fill ${tone}" style="width:${clamp(value,0,100)}%"></div></div><div class="help">${esc(METRIC_HELP[k])}</div></div>`;
+	}).join("");
+}
+function renderBoard(){
+	const b=$("#board");
+	if(!S.history.length){
+		b.innerHTML=`<div class="threshold">Election threshold: <b>${THRESHOLD}</b> votes from 111 electors.</div><div class="board-note">No scrutiny has been held yet. When a ballot is counted, this panel stays compact; the full tally opens in its own scrutiny book.</div>`;
+		return;
+	}
+	const h=S.history[S.history.length-1];
+	const previous=S.history.length>1?S.history[S.history.length-2]:null;
+	const entries=Object.entries(h.counts).sort((a,b)=>b[1]-a[1]);
+	const leader=entries[0];
+	const gap=THRESHOLD-leader[1];
+	const race=entries.slice(0,5).map(([id,n],i)=>{
+		const pct=Math.min(100,n/THRESHOLD*100);const you=id===S.playerId;
+		const old=previous?(previous.counts[id]||0):0;const d=previous?n-old:0;
+		const dc=d>0?"up":(d<0?"down":"");
+		return `<div class="racerow${i===0?' lead':''}"><span class="rname">${esc(ID[id].short)}${you?' <em>you</em>':''}</span><span class="rtrack"><span class="rfill${n>=THRESHOLD?' win':''}" style="width:${pct}%"></span></span><span class="rnum" title="${previous?'Change since previous scrutiny: '+deltaText(d):'Opening count'}">${n}</span></div>`;
+	}).join("");
+	b.innerHTML=`<div class="threshold">Latest scrutiny ${roman(h.ballot)} · ${gap>0?`${gap} short of election`:"elected"}</div><div class="race">${race}</div><div class="board-note">Bars show progress towards the required ${THRESHOLD}. Full exact counts and every simulated ballot are kept in the scrutiny book.</div><button class="rollbtn" id="rollBtn">Open scrutiny ${roman(h.ballot)} book →</button>`;
+	$("#rollBtn").onclick=()=>showScrutinyScreen(h,false);
+}
+function renderNetworkSummary(){
+	const host=$("#networkSummary");host.innerHTML="";
+	["Italian","Curia","Montinian","Doctrine","Conciliar","SufferingChurch","America","LatinAmerica","Africa","Asia","GlobalSouth"].forEach(n=>{
+		const pressure=clamp(50+(S.networkWork[n]||0)*4 + (n==="Italian"?S.metrics.italianLock-50:0)+(n==="GlobalSouth"?S.metrics.worldChurch-50:0),0,100);
+		host.appendChild(el("div",{class:"network-card",html:`<b>${esc(displayLabel(n))}</b><br><span class="dim">${esc(networkDescription(n))}</span><div class="nbar"><span style="width:${pressure}%"></span></div>`}))
+	})
+}
+function renderPlayerBox(){
+	const e=ID[S.playerId];
+	const votes=S.history.length?(S.lastCounts[S.playerId]||0):0;
+	const voteLine=S.history.length?`<br><span class="dim">Latest scrutiny support: <b>${votes}</b> of ${THRESHOLD} needed.</span>`:"";
+	$("#playerBox").innerHTML=`<b>${esc(e.name)}</b><br><span class="dim">${esc(e.office)}</span><br><span class="goldtx">${esc(S.player.objective.title)}</span><br>${esc(S.player.objective.text)}${voteLine}${S.player.withdrawn?`<br><b class="greentx">Transferred to ${esc(ID[S.player.transferTo].short)}</b>`:""}`
+}
+function renderAll(){if(!S)return;$("#dateLabel").textContent=phaseName()+` · scrutiny ${S.ballotNo+1} pending`;$("#apwrap").innerHTML=`Conversation windows ${S.ap} `+"<span class='pip'></span>".repeat(S.ap)+"<span class='pip spent'></span>".repeat(Math.max(0,3-S.ap));renderRoster();renderLog();renderMeters();renderBoard();renderNetworkSummary();renderPlayerBox();$("#ballotBtn").disabled=S.over;["actSound","actNetwork","actAssure","actFloat","actDiscourage","actRest","actTransfer"].forEach(id=>{const b=$("#"+id);if(b)b.disabled=!actionEnabled()});}
+function openManual(){
+	openModal("How this 1978 build works", `<div class="manual"><p><b>Exact votes:</b> every scrutiny is a full one-name ballot by all 111 electors. The count now opens in a dedicated scrutiny book; the right rail only keeps a compact reminder.</p><p><b>No simony economy:</b> your currency is stature, trust, discretion, assurances, fatigue and the ability to reassure networks.</p><p><b>All 111 are playable:</b> the model does not hard-ban any elector from election. Obscure or implausible figures require a favourable seed, high trust, low exposure, and sustained network work.</p><h4>Reading the numbers</h4><p><b>Votes</b> are literal scrutiny votes. <b>Meters</b> are not votes; they describe the climate of the College. A high Italian lock, for example, does not elect anyone by itself, but it makes non-Italian candidates harder to sell.</p><p><b>Opening papabile profile</b> in the roster is a qualitative starting read: long shot, possible, papabile, or front-runner. It is not a fixed ceiling.</p><p><b>Dossier bars</b> show tendencies rather than arithmetic. Use them to choose assurances: a Curia assurance helps when governance fear is the obstacle; a Council assurance helps where Vatican II confidence is fragile.</p><p><b>The historical pull:</b> Siri and Benelli begin strong, the Italian lock fractures, and Wojtyła becomes increasingly thinkable. The player can derail this, but must provide a more credible settlement.</p><p><b>Actions:</b> soundings reveal individuals; network work moves blocs; assurances reshape the candidate profile; floating raises visibility and exposure; discouraging rivals is risky; transfer lets a blocked candidate become kingmaker.</p></div>`,[{label:"Extra omnes."}])
+}
+function endGame(){
+	$("#screen-game").classList.add("hidden");$("#screen-end").classList.remove("hidden");
+	const w=ID[S.electedId], me=ID[S.playerId], isMe=w.id===me.id;
+	let name = w.id==="wojtyla"?"John Paul II":END_NAMES[Math.floor(rnd()*END_NAMES.length)]+" "+(rnd()<.5?"II":"VI");
+	$("#endTitle").textContent=isMe?"HABEMUS PAPAM":"HABEMUS PAPAM";
+	$("#endSub").textContent=`${w.name} is elected as ${name}`;
+	let body="";
+	if(isMe){body+=`<p>The count reaches seventy-five and then goes beyond it. The chapel rises around you. Asked whether you accept the canonical election, you answer under a weight no game can fully simulate.</p>`;if(w.id==="wojtyla")body+=`<p>You speak of a country far away and yet close in faith. Days later the inauguration will give the pontificate its words: do not be afraid; open wide the doors.</p>`;else body+=`<p>This is alternate history: a ${esc(w.country)} pope from the October 1978 College. The hidden model allowed it because your seed, timing and coalition work made enough men imagine the same future at once.</p>`}
+	else{body+=`<p>You did not leave the chapel as pope. You leave with the consequences of your choices: ${S.player.transferTo===w.id?"you helped transfer support to the winner":"your ballots and network work are written into the chronicle, if not the announcement"}.</p>`;if(w.id==="wojtyla")body+=`<p>The Italian monopoly is broken. For the first time since Adrian VI, Rome receives a non-Italian pope, and this time from behind the Iron Curtain.</p>`}
+	body+=`<p><b>Final exact scrutiny:</b> ${Object.entries(S.lastCounts).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([id,n])=>`${esc(ID[id].short)} ${n}`).join(" · ")}.</p>`;
+	$("#endBody").innerHTML=body;
+	const achieved=objectiveAchieved(w.id);$("#achievements").innerHTML=[isMe?"Elected":"Witness",achieved?"Private objective":"Objective missed",w.id==="wojtyla"?"From a far-away country":"Alternate history",(S.metrics.exposure<25?"Discreet":"Exposed")].map(a=>`<span>${a}</span>`).join("");
+	$("#endStats").innerHTML=`<div class="statusbox"><b>Private objective:</b> ${esc(S.player.objective.title)} — ${achieved?"achieved":"not achieved"}</div><div id="history"></div>`;
+	const rows=S.history.map(h=>`<tr><td>${roman(h.ballot)}</td><td>${Object.entries(h.counts).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([id,n])=>`${esc(ID[id].short)} ${n}`).join(" · ")}</td></tr>`).join("");
+	$("#history").innerHTML=`<table><tr><th>Scrutiny</th><th>Exact leading counts</th></tr>${rows}</table>`;
+}
+function objectiveAchieved(winner){
+	const kind=S.player.objective.kind;
+	if(winner===S.playerId)return true;
+	if(kind==="block_benelli")return winner!=="benelli";
+	if(kind==="montinian")return ID[winner].tags.includes("Montinian")||winner==="wojtyla";
+	if(kind==="nonitalian")return ID[winner].country!=="Italy";
+	if(kind==="suffering"||kind==="wojtyla_bridge")return winner==="wojtyla"||ID[winner].tags.includes("SufferingChurch");
+	if(kind==="curia")return ID[winner].tags.includes("Curia")||S.metrics.curiaConfidence>60;
+	if(kind==="world")return ID[winner].tags.includes("GlobalSouth")||ID[winner].country!=="Italy";
+	if(kind==="doctrine")return ID[winner].profile.doctrine>.8;
+	if(kind==="council")return ID[winner].profile.vatican2>.7;
+	if(kind==="reluctant")return winner!==S.playerId||S.lastCounts[winner]>90;
+	return S.player.transferTo===winner;
+}
+function exportChronicle(){
+	const lines=["Extra Omnes — October 1978",`Seed: ${S.seed}`,`Played as: ${ID[S.playerId].name}`,`Winner: ${ID[S.electedId].name}`,"",...S.log.map(x=>`[${x.ballot?`Scrutiny ${roman(x.ballot)}`:"Entry"}] ${htmlToText(x.html)}`),"",...S.history.map(h=>`Scrutiny ${roman(h.ballot)}: `+Object.entries(h.counts).sort((a,b)=>b[1]-a[1]).map(([id,n])=>`${ID[id].short} ${n}`).join(" · "))];
+	const blob=new Blob([lines.join("\n")],{type:"text/plain;charset=utf-8"});const a=el("a",{href:URL.createObjectURL(blob),download:`extra-omnes-1978-${S.seed}.txt`});document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},0);
+}
+function saveGame(){if(!S)return;try{localStorage.setItem("extra-omnes-1978",JSON.stringify({v:1,savedAt:Date.now(),...S,rngState:S.rng.state,rng:undefined}));toast("Conclave sealed in this browser.")}catch(e){toast("Could not seal: "+(e&&e.name||"storage error")+".")}}
+function hasSave(){try{return !!localStorage.getItem("extra-omnes-1978")}catch(e){return false}}
+function loadGame(){
+	let raw;try{raw=localStorage.getItem("extra-omnes-1978")}catch(e){return null}
+	if(!raw)return null;
+	let data;try{data=JSON.parse(raw)}catch(e){return null}
+	if(!data||!data.seed||!ID[data.playerId])return null;
+	const rng=mulberry32(hashSeed(data.seed));
+	if(typeof data.rngState==="number")rng.set(data.rngState);
+	data.rng=rng;delete data.rngState;
+	return data;
+}
+function resumeGame(){
+	const data=loadGame();
+	if(!data){toast("No readable sealed conclave found.");return}
+	S=data;
+	$("#screen-select").classList.add("hidden");
+	if(S.over&&S.electedId){$("#screen-game").classList.add("hidden");endGame()}
+	else{$("#screen-end").classList.add("hidden");$("#screen-game").classList.remove("hidden");renderAll()}
+}
+function startGame(){if(!pickedId)return;initState(pickedId,$("#seedin").value.trim()||Math.floor(Math.random()*1e9));$("#screen-select").classList.add("hidden");$("#screen-game").classList.remove("hidden");renderAll()}
+function boot(){renderSelect();$("#startbtn").onclick=startGame;$("#resumeBtn").onclick=resumeGame;if(hasSave())$("#resumeBtn").classList.remove("hidden");$("#helpSelect").onclick=openManual;$("#manualBtn").onclick=openManual;$("#saveBtn").onclick=saveGame;$("#actSound").onclick=doSound;$("#actNetwork").onclick=doNetwork;$("#actAssure").onclick=doAssure;$("#actFloat").onclick=doFloat;$("#actDiscourage").onclick=doDiscourage;$("#actRest").onclick=doRest;$("#actTransfer").onclick=doTransfer;$("#worldBtn").onclick=showWorld;$("#ballotBtn").onclick=runBallotModal;$("#rosterSearch").addEventListener("input",renderRoster);$("#again").onclick=()=>location.reload();$("#exportLog").onclick=exportChronicle;}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot);else boot();
+</script>
+</body>
+</html>
