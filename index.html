@@ -199,6 +199,7 @@
   .tile:nth-child(6){background:linear-gradient(135deg,#322c40,#776489)}
   .tile:nth-child(7){background:linear-gradient(135deg,#251724,#8f2632)}
   .tile:nth-child(8){background:linear-gradient(135deg,#4c6334,#86a44b)}
+  .tile.crow-tile{background:linear-gradient(135deg,#143226,#315f42)}
   .hero-board[data-active="meteorology"] .tile[data-group="games"],
   .hero-board[data-active="games"] .tile[data-group="meteorology"]{display:none}
   .section{padding:42px 0 58px;border-top:1px solid var(--line)}
@@ -275,6 +276,8 @@
   .card.accent-blue{border-top:5px solid var(--blue)}
   .card.accent-gold{border-top:5px solid var(--gold)}
   .card.accent-green{border-top:5px solid var(--green)}
+  .card.accent-crow{border-top:5px solid #254c39}
+  .card.accent-crow .go{color:#254c39}
   .card.accent-plum{border-top:5px solid var(--plum)}
   .wide{grid-column:span 2}
   .subhead{
@@ -382,7 +385,7 @@
             <a class="tile" data-group="meteorology" href="./oscillarium/"><strong>The Oscillarium</strong><span>Climate indices</span></a>
             <a class="tile" data-group="meteorology" href="./the-boosted-forecast/"><strong>XGBoost Tutorial</strong><span>Gradient boosting</span></a>
             <a class="tile" data-group="games" href="https://kieranmrhunt.github.io/extra-omnes/"><strong>Extra Omnes</strong><span>Conclave simulator</span></a>
-            <a class="tile" data-group="games" href="./crow-flies-pubs-uk/"><strong>As the Crow Crawls</strong><span>Nearest pubs</span></a>
+            <a class="tile crow-tile" data-group="games" href="./crow-flies-pubs-uk/"><strong>As the Crow Crawls</strong><span>Nearest pubs</span></a>
           </div>
         </div>
       </section>
@@ -450,7 +453,7 @@
             <p>A directory of playable conclave simulations, including the stable 1492 build and beta historical variants.</p>
             <span class="go">Open directory</span>
           </a>
-          <a class="card accent-green" href="./crow-flies-pubs-uk/">
+          <a class="card accent-crow" href="./crow-flies-pubs-uk/">
             <span class="type"><span>Map / other</span></span>
             <h3>As the Crow Crawls</h3>
             <p>A nearest-pubs page for the UK, mixing postcode lookup, geography, and pub-map utility.</p>
