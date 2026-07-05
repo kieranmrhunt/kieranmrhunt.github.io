@@ -5,25 +5,28 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Kieran Hunt — Projects</title>
 <meta name="description" content="A small atlas of Kieran Hunt's interactive pages: conclaves, weather, climate, forecasting, maps, and observatory notes.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Mulish:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#f6f2ea;
-    --ink:#171719;
-    --muted:#5f6067;
-    --faint:#8d8f97;
-    --surface:#fffdf8;
-    --surface-2:#ece8dd;
-    --line:#d9d1c2;
-    --line-strong:#bfb3a0;
-    --red:#9b2635;
-    --blue:#265e73;
+    --bg:#f5f1e9;
+    --ink:#211c2a;
+    --muted:#665f73;
+    --faint:#938b9f;
+    --surface:#ffffff;
+    --surface-2:#fbf8f2;
+    --line:rgba(33,28,42,.12);
+    --line-strong:rgba(33,28,42,.24);
+    --red:#d61f55;
+    --blue:#1f8fa6;
     --green:#477247;
-    --gold:#b9862f;
-    --plum:#4d334b;
-    --shadow:0 22px 55px -42px rgba(24,22,19,.7);
-    --sans:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
-    --serif:Georgia,"Times New Roman",serif;
-    --mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+    --gold:#cf6d12;
+    --plum:#51415f;
+    --shadow:0 18px 44px -36px rgba(33,28,42,.65);
+    --sans:"Effra","Effra Std","Mulish",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+    --serif:var(--sans);
+    --mono:"Space Mono",ui-monospace,Consolas,"Liberation Mono",monospace;
   }
   *{box-sizing:border-box}
   html{scroll-behavior:smooth}
@@ -31,8 +34,8 @@
     margin:0;
     color:var(--ink);
     background:
-      linear-gradient(90deg, rgba(23,23,25,.035) 1px, transparent 1px) 0 0/58px 58px,
-      linear-gradient(180deg, #fbf8f1 0%, var(--bg) 46%, #eee6d8 100%);
+      linear-gradient(90deg, rgba(33,28,42,.035) 1px, transparent 1px) 0 0/58px 58px,
+      linear-gradient(180deg, #fbf8f1 0%, var(--bg) 48%, #eee6d8 100%);
     font-family:var(--sans);
     font-size:17px;
     line-height:1.55;
@@ -61,7 +64,7 @@
     display:grid;
     place-items:center;
     color:#fff;
-    background:conic-gradient(from 210deg, var(--red), var(--gold), var(--blue), var(--plum), var(--red));
+    background:linear-gradient(135deg, var(--red), var(--gold));
     border:1px solid rgba(0,0,0,.12);
     box-shadow:inset 0 0 0 4px rgba(255,255,255,.26);
     font-family:var(--serif);
@@ -104,12 +107,12 @@
   }
   h1{
     font-family:var(--serif);
-    font-weight:500;
-    font-size:clamp(48px, 8vw, 96px);
-    line-height:.93;
+    font-weight:800;
+    font-size:78px;
+    line-height:.96;
     margin:0;
-    letter-spacing:0;
-    max-width:9.5ch;
+    letter-spacing:-.025em;
+    max-width:10.5ch;
   }
   .standfirst{
     max-width:54ch;
@@ -124,6 +127,8 @@
     margin-top:28px;
   }
   .button{
+    appearance:none;
+    cursor:pointer;
     display:inline-flex;
     align-items:center;
     justify-content:center;
@@ -143,16 +148,20 @@
     background:var(--ink);
     border-color:var(--ink);
   }
+  .button[aria-pressed="true"]{
+    color:#fff;
+    background:var(--ink);
+    border-color:var(--ink);
+  }
   .hero-board{
     position:relative;
-    min-height:480px;
     border-left:1px solid var(--line);
     padding-left:34px;
   }
   .stack{
     display:grid;
-    grid-template-columns:repeat(6, 1fr);
-    grid-auto-rows:86px;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    grid-auto-rows:minmax(132px, auto);
     gap:12px;
   }
   .tile{
@@ -180,15 +189,17 @@
     transform:rotate(-8deg);
   }
   .tile strong,.tile span{position:relative}
-  .tile strong{font-family:var(--serif);font-size:20px;line-height:1.02;font-weight:600}
+  .tile strong{font-family:var(--serif);font-size:24px;line-height:1.02;font-weight:600}
   .tile span{font-family:var(--mono);font-size:11px;opacity:.82;text-transform:uppercase;letter-spacing:.08em}
-  .tile:nth-child(1){grid-column:1 / span 3;grid-row:1 / span 2;background:linear-gradient(135deg,#123847,#2d7b89)}
-  .tile:nth-child(2){grid-column:4 / span 3;grid-row:1 / span 2;background:linear-gradient(135deg,#6d321f,#d27a21)}
-  .tile:nth-child(3){grid-column:1 / span 2;grid-row:3 / span 2;background:linear-gradient(135deg,#142632,#5bb0d4)}
-  .tile:nth-child(4){grid-column:3 / span 2;grid-row:3 / span 2;background:linear-gradient(135deg,#273055,#5974a0)}
-  .tile:nth-child(5){grid-column:5 / span 2;grid-row:3 / span 2;background:linear-gradient(135deg,#322c40,#776489)}
-  .tile:nth-child(6){grid-column:1 / span 3;grid-row:5 / span 2;background:linear-gradient(135deg,#251724,#8f2632)}
-  .tile:nth-child(7){grid-column:4 / span 3;grid-row:5 / span 2;background:linear-gradient(135deg,#4c6334,#86a44b)}
+  .tile:nth-child(1){background:linear-gradient(135deg,#123847,#2d7b89)}
+  .tile:nth-child(2){background:linear-gradient(135deg,#6d321f,#d27a21)}
+  .tile:nth-child(3){background:linear-gradient(135deg,#142632,#5bb0d4)}
+  .tile:nth-child(4){background:linear-gradient(135deg,#273055,#5974a0)}
+  .tile:nth-child(5){background:linear-gradient(135deg,#322c40,#776489)}
+  .tile:nth-child(6){background:linear-gradient(135deg,#251724,#8f2632)}
+  .tile:nth-child(7){background:linear-gradient(135deg,#4c6334,#86a44b)}
+  .hero-board[data-active="meteorology"] .tile[data-group="games"],
+  .hero-board[data-active="games"] .tile[data-group="meteorology"]{display:none}
   .section{padding:42px 0 58px;border-top:1px solid var(--line)}
   .section-head{
     display:flex;
@@ -200,9 +211,10 @@
   h2{
     margin:0;
     font-family:var(--serif);
-    font-weight:500;
-    font-size:clamp(30px, 4vw, 48px);
-    line-height:1;
+    font-weight:800;
+    font-size:42px;
+    line-height:1.04;
+    letter-spacing:-.02em;
   }
   .section-head p{
     margin:0;
@@ -241,9 +253,10 @@
   .card h3{
     margin:0;
     font-family:var(--serif);
+    font-weight:800;
     font-size:30px;
     line-height:1.02;
-    font-weight:500;
+    letter-spacing:-.01em;
   }
   .card p{
     margin:13px 0 0;
@@ -289,6 +302,7 @@
   }
   .year b{
     font-family:var(--serif);
+    font-weight:800;
     font-size:34px;
     line-height:1;
   }
@@ -314,7 +328,7 @@
   }
   @media (max-width:900px){
     .hero{grid-template-columns:1fr;min-height:0;padding-top:42px}
-    .hero-board{border-left:0;padding-left:0;min-height:520px}
+    .hero-board{border-left:0;padding-left:0}
     .grid{grid-template-columns:1fr 1fr}
     .grid.two{grid-template-columns:1fr 1fr}
     .wide{grid-column:span 1}
@@ -324,12 +338,12 @@
     .wrap{width:min(100% - 28px, 1160px)}
     .topbar{align-items:flex-start}
     .nav{display:none}
-    .hero-board{min-height:0}
     .stack{grid-template-columns:1fr 1fr;grid-auto-rows:118px}
-    .tile:nth-child(n){grid-column:auto;grid-row:auto}
     .grid,.grid.two,.conclaves{grid-template-columns:1fr}
     .section-head{display:block}
     .section-head p{margin-top:12px}
+    h1{font-size:50px}
+    h2{font-size:32px}
   }
 </style>
 </head>
@@ -353,19 +367,19 @@
           <h1>Kieran Hunt projects</h1>
           <p class="standfirst">A gathered front door for meteorology, research, and teaching pages, with games and other oddments kept on their own shelf.</p>
           <div class="hero-links">
-            <a class="button primary" href="#meteorology-research-teaching">Meteorology / research</a>
-            <a class="button" href="#games-other">Games / other</a>
+            <button class="button" type="button" data-filter="meteorology" aria-controls="hero-projects" aria-pressed="true">Meteorology / research</button>
+            <button class="button" type="button" data-filter="games" aria-controls="hero-projects" aria-pressed="false">Games / other</button>
           </div>
         </div>
-        <div class="hero-board" aria-label="Featured project mosaic">
-          <div class="stack">
-            <a class="tile" href="https://kieranmrhunt.github.io/weather-dash/"><strong>Weather Dash</strong><span>Observatory live conditions</span></a>
-            <a class="tile" href="https://kieranmrhunt.github.io/heatwave-2026/"><strong>Heatwave 2026</strong><span>Climate report</span></a>
-            <a class="tile" href="https://kieranmrhunt.github.io/five-days-to-impact/"><strong>Five Days to Impact</strong><span>Early warning game</span></a>
-            <a class="tile" href="./oscillarium/"><strong>The Oscillarium</strong><span>Climate indices</span></a>
-            <a class="tile" href="./the-boosted-forecast/"><strong>The Boosted Forecast</strong><span>XGBoost explainer</span></a>
-            <a class="tile" href="https://kieranmrhunt.github.io/extra-omnes/"><strong>Extra Omnes</strong><span>Conclave simulator</span></a>
-            <a class="tile" href="./crow-flies-pubs-uk/"><strong>As the Crow Crawls</strong><span>Nearest pubs</span></a>
+        <div class="hero-board" data-active="meteorology" aria-label="Featured project links">
+          <div class="stack" id="hero-projects">
+            <a class="tile" data-group="meteorology" href="https://kieranmrhunt.github.io/weather-dash/"><strong>Weather Dash</strong><span>Observatory live conditions</span></a>
+            <a class="tile" data-group="meteorology" href="https://kieranmrhunt.github.io/heatwave-2026/"><strong>Heatwave 2026</strong><span>Climate report</span></a>
+            <a class="tile" data-group="meteorology" href="https://kieranmrhunt.github.io/five-days-to-impact/"><strong>Five Days to Impact</strong><span>Early warning game</span></a>
+            <a class="tile" data-group="meteorology" href="./oscillarium/"><strong>The Oscillarium</strong><span>Climate indices</span></a>
+            <a class="tile" data-group="meteorology" href="./the-boosted-forecast/"><strong>XGBoost Tutorial</strong><span>Gradient boosting</span></a>
+            <a class="tile" data-group="games" href="https://kieranmrhunt.github.io/extra-omnes/"><strong>Extra Omnes</strong><span>Conclave simulator</span></a>
+            <a class="tile" data-group="games" href="./crow-flies-pubs-uk/"><strong>As the Crow Crawls</strong><span>Nearest pubs</span></a>
           </div>
         </div>
       </section>
@@ -377,33 +391,33 @@
         </div>
         <div class="grid">
           <a class="card accent-blue" href="https://kieranmrhunt.github.io/weather-dash/">
-            <span class="type"><span>Weather</span><span>Live repo</span></span>
+            <span class="type"><span>Weather</span></span>
             <h3>Weather Dash</h3>
             <p>Reading Atmospheric Observatory live conditions dashboard, built for quick scanning and station context.</p>
             <span class="go">Open live project</span>
           </a>
           <a class="card accent-gold" href="https://kieranmrhunt.github.io/heatwave-2026/">
-            <span class="type"><span>Climate</span><span>Live repo</span></span>
+            <span class="type"><span>Climate</span></span>
             <h3>Heatwave 2026</h3>
             <p>A visual account of a June with no precedent at Reading University Observatory.</p>
             <span class="go">Open live project</span>
           </a>
           <a class="card accent-blue" href="https://kieranmrhunt.github.io/five-days-to-impact/">
-            <span class="type"><span>Teaching</span><span>Live repo</span></span>
+            <span class="type"><span>Teaching</span></span>
             <h3>Five Days to Impact</h3>
             <p>A National Early Warning Centre scenario page about forecast lead time, impact decisions, and escalating risk.</p>
             <span class="go">Open live project</span>
           </a>
           <a class="card accent-plum" href="./oscillarium/">
-            <span class="type"><span>Climate</span><span>New page</span></span>
+            <span class="type"><span>Climate indices</span></span>
             <h3>The Oscillarium</h3>
-            <p>A cabinet of climate indices for browsing atmospheric and oceanic rhythms.</p>
+            <p>A compact browser for climate indices, coupled ocean-atmosphere variability, and teleconnection patterns.</p>
             <span class="go">Open page</span>
           </a>
           <a class="card accent-blue" href="./the-boosted-forecast/">
-            <span class="type"><span>Forecasting</span><span>New page</span></span>
-            <h3>The Boosted Forecast</h3>
-            <p>An interactive XGBoost-from-first-principles explainer with a forecasting spine.</p>
+            <span class="type"><span>Machine learning</span></span>
+            <h3>XGBoost Tutorial</h3>
+            <p>A hands-on explanation of gradient boosting and XGBoost from first principles.</p>
             <span class="go">Open page</span>
           </a>
         </div>
@@ -416,13 +430,13 @@
         </div>
         <div class="grid two">
           <a class="card accent-red" href="https://kieranmrhunt.github.io/extra-omnes/">
-            <span class="type"><span>History game</span><span>Live repo</span></span>
+            <span class="type"><span>History game</span></span>
             <h3>Extra Omnes</h3>
             <p>A playable, procedural conclave world, with candidate politics, scrutiny rounds, coalitions, and smoke.</p>
             <span class="go">Open live project</span>
           </a>
           <a class="card accent-green" href="./crow-flies-pubs-uk/">
-            <span class="type"><span>Map / other</span><span>New page</span></span>
+            <span class="type"><span>Map / other</span></span>
             <h3>As the Crow Crawls</h3>
             <p>A nearest-pubs page for the UK, mixing postcode lookup, geography, and pub-map utility.</p>
             <span class="go">Open page</span>
@@ -458,5 +472,19 @@
       <span>Last assembled 5 July 2026.</span>
     </footer>
   </div>
+  <script>
+    const heroBoard = document.querySelector('.hero-board');
+    const filters = document.querySelectorAll('[data-filter]');
+
+    filters.forEach((filter) => {
+      filter.addEventListener('click', () => {
+        const active = filter.dataset.filter;
+        heroBoard.dataset.active = active;
+        filters.forEach((button) => {
+          button.setAttribute('aria-pressed', String(button === filter));
+        });
+      });
+    });
+  </script>
 </body>
 </html>

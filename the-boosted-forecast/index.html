@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>The Boosted Forecast — XGBoost from First Principles</title>
+<title>XGBoost Tutorial — From First Principles</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600;9..144,700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Mulish:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
 :root{
   --night:#141109;        /* clear-night ground */
@@ -24,9 +24,9 @@
   --blue:#84abd1;         /* moon blue — data series C */
   --gold:#f0d9a4;
   --good:#9fc98a;
-  --serif:'EB Garamond', Georgia, serif;
-  --disp:'Fraunces', Georgia, serif;
-  --mono:'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  --serif:"Effra","Effra Std","Mulish",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+  --disp:"Effra","Effra Std","Mulish",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+  --mono:"Space Mono",ui-monospace,Consolas,monospace;
 }
 *{box-sizing:border-box; margin:0; padding:0}
 html{scroll-behavior:smooth}
@@ -73,16 +73,16 @@ section.page.on{display:block; animation:fadein .35s ease}
   text-transform:uppercase; color:var(--brass); margin-bottom:10px;
 }
 h1{
-  font-family:var(--disp); font-weight:300; font-size:52px; line-height:1.06;
-  letter-spacing:-.01em; color:var(--gold); margin:0 0 14px;
+  font-family:var(--disp); font-weight:800; font-size:52px; line-height:1.06;
+  letter-spacing:-.025em; color:var(--gold); margin:0 0 14px;
 }
 h1 b{font-weight:700}
 h2{
-  font-family:var(--disp); font-weight:600; font-size:30px; line-height:1.15;
+  font-family:var(--disp); font-weight:800; font-size:30px; line-height:1.15;
   color:var(--gold); margin:54px 0 14px;
 }
 h3{
-  font-family:var(--disp); font-weight:600; font-size:20.5px;
+  font-family:var(--disp); font-weight:800; font-size:20.5px;
   color:var(--ink); margin:36px 0 10px;
 }
 p{margin:0 0 16px; max-width:70ch}
@@ -275,7 +275,7 @@ details.q .ans b{color:var(--gold)}
 </head>
 <body>
 <header class="mast">
-  <div class="t" onclick="go('toc')">The Boosted Forecast</div>
+  <div class="t" onclick="go('toc')">XGBoost Tutorial</div>
   <div class="where" id="whereami">Contents</div>
   <button class="toc-btn" onclick="go('toc')">CONTENTS</button>
 </header>
@@ -283,7 +283,7 @@ details.q .ans b{color:var(--gold)}
 <!-- ============================ TOC ============================ -->
 <section class="page" id="pg-toc">
   <div class="eyebrow">An interactive course in one file</div>
-  <h1>The <b>Boosted</b> Forecast</h1>
+  <h1>XGBoost Tutorial</h1>
   <p class="lede">XGBoost derived from first principles — the loss, the gradient, the Hessian, the gain, the whole machine — taught through a single meteorological question: <em>how cold will tonight get?</em></p>
   <p>Every chapter pairs a derivation with an instrument you can turn over in your hands. Nothing is asserted that you cannot poke. By the end you will be able to write down XGBoost's objective from memory, explain what every hyperparameter does to that objective, and predict — before touching a slider — what changing it will do to a model.</p>
   <p class="footnote">The observing programme below is sequential: each chapter uses the machinery of the last. The glyphs are live — they are drawn by the same code you'll meet inside.</p>
