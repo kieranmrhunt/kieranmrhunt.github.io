@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kieran Hunt — Projects</title>
+<title>Kieran Hunt - Projects</title>
 <meta name="description" content="A small atlas of Kieran Hunt's interactive pages: conclaves, weather, climate, forecasting, maps, and observatory notes.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -193,11 +193,12 @@
   .tile span{font-family:var(--mono);font-size:11px;opacity:.82;text-transform:uppercase;letter-spacing:.08em}
   .tile:nth-child(1){background:linear-gradient(135deg,#123847,#2d7b89)}
   .tile:nth-child(2){background:linear-gradient(135deg,#6d321f,#d27a21)}
-  .tile:nth-child(3){background:linear-gradient(135deg,#142632,#5bb0d4)}
-  .tile:nth-child(4){background:linear-gradient(135deg,#273055,#5974a0)}
-  .tile:nth-child(5){background:linear-gradient(135deg,#322c40,#776489)}
-  .tile:nth-child(6){background:linear-gradient(135deg,#251724,#8f2632)}
-  .tile:nth-child(7){background:linear-gradient(135deg,#4c6334,#86a44b)}
+  .tile:nth-child(3){background:linear-gradient(135deg,#17464f,#1f8fa6)}
+  .tile:nth-child(4){background:linear-gradient(135deg,#142632,#5bb0d4)}
+  .tile:nth-child(5){background:linear-gradient(135deg,#273055,#5974a0)}
+  .tile:nth-child(6){background:linear-gradient(135deg,#322c40,#776489)}
+  .tile:nth-child(7){background:linear-gradient(135deg,#251724,#8f2632)}
+  .tile:nth-child(8){background:linear-gradient(135deg,#4c6334,#86a44b)}
   .hero-board[data-active="meteorology"] .tile[data-group="games"],
   .hero-board[data-active="games"] .tile[data-group="meteorology"]{display:none}
   .section{padding:42px 0 58px;border-top:1px solid var(--line)}
@@ -375,6 +376,7 @@
           <div class="stack" id="hero-projects">
             <a class="tile" data-group="meteorology" href="https://kieranmrhunt.github.io/weather-dash/"><strong>Weather Dash</strong><span>Observatory live conditions</span></a>
             <a class="tile" data-group="meteorology" href="https://kieranmrhunt.github.io/heatwave-2026/"><strong>Heatwave 2026</strong><span>Climate report</span></a>
+            <a class="tile" data-group="meteorology" href="https://kieranmrhunt.github.io/western-disturbances-atlas/"><strong>WD Atlas</strong><span>Storm-track catalogue</span></a>
             <a class="tile" data-group="meteorology" href="https://kieranmrhunt.github.io/five-days-to-impact/"><strong>Five Days to Impact</strong><span>Early warning game</span></a>
             <a class="tile" data-group="meteorology" href="./oscillarium/"><strong>The Oscillarium</strong><span>Climate indices</span></a>
             <a class="tile" data-group="meteorology" href="./the-boosted-forecast/"><strong>XGBoost Tutorial</strong><span>Gradient boosting</span></a>
@@ -387,38 +389,44 @@
       <section class="section" id="meteorology-research-teaching">
         <div class="section-head">
           <h2>Meteorology / Research / Teaching</h2>
-          <p>Weather, climate, forecasting, and explainers. Existing GitHub Pages projects are linked live; new attached pages sit in clean folders ready for the user-site repo.</p>
+          <p>Weather, climate, forecasting, machine learning, and teaching materials.</p>
         </div>
         <div class="grid">
           <a class="card accent-blue" href="https://kieranmrhunt.github.io/weather-dash/">
             <span class="type"><span>Weather</span></span>
             <h3>Weather Dash</h3>
             <p>Reading Atmospheric Observatory live conditions dashboard, built for quick scanning and station context.</p>
-            <span class="go">Open live project</span>
+            <span class="go">Open project</span>
           </a>
           <a class="card accent-gold" href="https://kieranmrhunt.github.io/heatwave-2026/">
             <span class="type"><span>Climate</span></span>
             <h3>Heatwave 2026</h3>
             <p>A visual account of a June with no precedent at Reading University Observatory.</p>
-            <span class="go">Open live project</span>
+            <span class="go">Open project</span>
+          </a>
+          <a class="card accent-blue" href="https://kieranmrhunt.github.io/western-disturbances-atlas/">
+            <span class="type"><span>Storm tracks</span></span>
+            <h3>Western Disturbances Atlas</h3>
+            <p>An interactive catalogue of ERA5-derived Western Disturbance tracks from 1950 to 2025.</p>
+            <span class="go">Open project</span>
           </a>
           <a class="card accent-blue" href="https://kieranmrhunt.github.io/five-days-to-impact/">
             <span class="type"><span>Teaching</span></span>
             <h3>Five Days to Impact</h3>
             <p>A National Early Warning Centre scenario page about forecast lead time, impact decisions, and escalating risk.</p>
-            <span class="go">Open live project</span>
+            <span class="go">Open project</span>
           </a>
           <a class="card accent-plum" href="./oscillarium/">
             <span class="type"><span>Climate indices</span></span>
             <h3>The Oscillarium</h3>
             <p>A compact browser for climate indices, coupled ocean-atmosphere variability, and teleconnection patterns.</p>
-            <span class="go">Open page</span>
+            <span class="go">Open project</span>
           </a>
           <a class="card accent-blue" href="./the-boosted-forecast/">
             <span class="type"><span>Machine learning</span></span>
             <h3>XGBoost Tutorial</h3>
             <p>A hands-on explanation of gradient boosting and XGBoost from first principles.</p>
-            <span class="go">Open page</span>
+            <span class="go">Open project</span>
           </a>
         </div>
       </section>
@@ -439,7 +447,7 @@
             <span class="type"><span>Map / other</span></span>
             <h3>As the Crow Crawls</h3>
             <p>A nearest-pubs page for the UK, mixing postcode lookup, geography, and pub-map utility.</p>
-            <span class="go">Open page</span>
+            <span class="go">Open project</span>
           </a>
         </div>
       </section>
