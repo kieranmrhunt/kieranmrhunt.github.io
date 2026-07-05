@@ -1,0 +1,1416 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Boosted Forecast — XGBoost from First Principles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600;9..144,700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --night:#141109;        /* clear-night ground */
+  --panel:#1d1912;        /* instrument housing */
+  --panel2:#231e15;
+  --rule:#3a3222;         /* brass rule, dimmed */
+  --rule2:#2a2417;
+  --ink:#eae2cf;          /* vellum ink */
+  --dim:#a79c83;
+  --faint:#6f664f;
+  --brass:#dca85c;        /* instrument brass — accent */
+  --brassdim:#8a6a3a;
+  --teal:#8bbfa8;         /* frost teal — data series A */
+  --rose:#cf7a8e;         /* rose madder — data series B / warnings */
+  --blue:#84abd1;         /* moon blue — data series C */
+  --gold:#f0d9a4;
+  --good:#9fc98a;
+  --serif:'EB Garamond', Georgia, serif;
+  --disp:'Fraunces', Georgia, serif;
+  --mono:'IBM Plex Mono', ui-monospace, Menlo, monospace;
+}
+*{box-sizing:border-box; margin:0; padding:0}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} *{transition:none!important; animation:none!important} }
+body{
+  background:var(--night); color:var(--ink);
+  font-family:var(--serif); font-size:19px; line-height:1.68;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--brassdim); color:var(--night)}
+
+/* ---------- masthead ---------- */
+header.mast{
+  position:sticky; top:0; z-index:50;
+  background:rgba(20,17,9,.94); backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--rule);
+  display:flex; align-items:baseline; gap:14px;
+  padding:10px 22px;
+}
+header.mast .t{
+  font-family:var(--disp); font-weight:600; font-size:16px;
+  letter-spacing:.06em; color:var(--gold); cursor:pointer; white-space:nowrap;
+}
+header.mast .t:hover{color:var(--brass)}
+header.mast .where{
+  font-family:var(--mono); font-size:11.5px; color:var(--dim);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;
+}
+header.mast button.toc-btn{
+  font-family:var(--mono); font-size:11.5px; letter-spacing:.08em;
+  color:var(--brass); background:none; border:1px solid var(--brassdim);
+  border-radius:3px; padding:3px 10px; cursor:pointer;
+}
+header.mast button.toc-btn:hover{background:var(--brassdim); color:var(--night)}
+
+main{max-width:900px; margin:0 auto; padding:34px 22px 110px}
+section.page{display:none}
+section.page.on{display:block; animation:fadein .35s ease}
+@keyframes fadein{from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:none}}
+
+/* ---------- type ---------- */
+.eyebrow{
+  font-family:var(--mono); font-size:12px; letter-spacing:.22em;
+  text-transform:uppercase; color:var(--brass); margin-bottom:10px;
+}
+h1{
+  font-family:var(--disp); font-weight:300; font-size:52px; line-height:1.06;
+  letter-spacing:-.01em; color:var(--gold); margin:0 0 14px;
+}
+h1 b{font-weight:700}
+h2{
+  font-family:var(--disp); font-weight:600; font-size:30px; line-height:1.15;
+  color:var(--gold); margin:54px 0 14px;
+}
+h3{
+  font-family:var(--disp); font-weight:600; font-size:20.5px;
+  color:var(--ink); margin:36px 0 10px;
+}
+p{margin:0 0 16px; max-width:70ch}
+p.lede{font-size:22.5px; line-height:1.55; color:var(--ink); font-weight:500; max-width:64ch}
+em{font-style:italic}
+strong{font-weight:600; color:var(--gold)}
+a{color:var(--brass); text-decoration:none; border-bottom:1px solid var(--brassdim)}
+a:hover{color:var(--gold)}
+hr{border:none; border-top:1px solid var(--rule); margin:44px 0}
+ul.plain{margin:0 0 16px 24px}
+ul.plain li{margin-bottom:8px; max-width:66ch}
+code, .mono{font-family:var(--mono); font-size:.82em; color:var(--teal)}
+.tag{
+  display:inline-block; font-family:var(--mono); font-size:11px; letter-spacing:.05em;
+  border:1px solid var(--rule); border-radius:3px; padding:1px 7px; color:var(--dim);
+  vertical-align:2px;
+}
+.lever{
+  font-family:var(--mono); font-size:.78em; color:var(--night);
+  background:var(--brass); border-radius:3px; padding:1px 6px; white-space:nowrap;
+}
+
+/* ---------- equation plates ---------- */
+.eq{
+  border:1px solid var(--rule); border-radius:6px; background:var(--panel);
+  margin:26px 0; padding:20px 22px 16px; position:relative;
+  font-size:22px; text-align:center; overflow-x:auto;
+}
+.eq .no{
+  position:absolute; top:8px; right:12px;
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; color:var(--faint);
+}
+.eq .cap{
+  display:block; margin-top:12px; padding-top:10px; border-top:1px dashed var(--rule2);
+  font-size:15.5px; color:var(--dim); text-align:left; line-height:1.55;
+}
+.m{font-family:var(--serif); font-style:italic}
+.mr{font-family:var(--serif); font-style:normal}
+.eq .m, .m{letter-spacing:.01em}
+sub, sup{font-size:.62em}
+.frac{display:inline-flex; flex-direction:column; text-align:center; vertical-align:middle; margin:0 .18em; line-height:1.25}
+.frac>span{padding:0 .3em; display:block}
+.frac>span:first-child{border-bottom:1.2px solid currentColor}
+.sum{font-size:1.45em; font-style:normal; vertical-align:-.12em; margin:0 .05em}
+.paren{font-size:1.35em; vertical-align:-.1em; font-style:normal}
+.brk{font-size:1.35em; vertical-align:-.1em; font-style:normal}
+.hl-g{color:var(--teal)} .hl-h{color:var(--rose)} .hl-l{color:var(--blue)} .hl-a{color:var(--brass)}
+
+/* ---------- labs (instrument panels) ---------- */
+.lab{
+  border:1px solid var(--rule); border-left:3px solid var(--brass);
+  border-radius:6px; background:var(--panel); margin:30px 0; overflow:hidden;
+}
+.lab .head{
+  display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;
+  padding:12px 18px; border-bottom:1px solid var(--rule2); background:var(--panel2);
+}
+.lab .head .name{
+  font-family:var(--mono); font-size:12px; letter-spacing:.2em; text-transform:uppercase;
+  color:var(--brass);
+}
+.lab .head .sub{font-size:15px; color:var(--dim); font-style:italic}
+.lab .body{padding:18px}
+.lab canvas{display:block; width:100%; height:var(--ch,220px); box-sizing:border-box; border:1px solid var(--rule2); border-radius:4px; background:#16130c}
+.ctl-row{display:flex; flex-wrap:wrap; gap:14px 26px; margin:14px 0 4px}
+.ctl{min-width:180px; flex:1}
+.ctl label{
+  display:flex; justify-content:space-between; align-items:baseline;
+  font-family:var(--mono); font-size:11.5px; letter-spacing:.05em; color:var(--dim);
+  margin-bottom:4px;
+}
+.ctl label .val{color:var(--gold); font-weight:600; font-size:12.5px}
+input[type=range]{
+  -webkit-appearance:none; appearance:none; width:100%; height:22px; background:none; cursor:pointer;
+}
+input[type=range]::-webkit-slider-runnable-track{height:3px; background:var(--rule); border-radius:2px}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none; appearance:none; width:15px; height:15px; border-radius:50%;
+  background:var(--brass); border:2px solid var(--night); margin-top:-6px;
+  box-shadow:0 0 0 1px var(--brassdim);
+}
+input[type=range]::-moz-range-track{height:3px; background:var(--rule); border-radius:2px}
+input[type=range]::-moz-range-thumb{width:13px; height:13px; border-radius:50%; background:var(--brass); border:2px solid var(--night)}
+input[type=range]:focus-visible{outline:2px solid var(--brass); outline-offset:4px; border-radius:4px}
+.btn{
+  font-family:var(--mono); font-size:12px; letter-spacing:.08em;
+  color:var(--brass); background:none; border:1px solid var(--brassdim); border-radius:4px;
+  padding:6px 14px; cursor:pointer;
+}
+.btn:hover{background:var(--brassdim); color:var(--night)}
+.btn.primary{background:var(--brass); color:var(--night); border-color:var(--brass); font-weight:600}
+.btn.primary:hover{background:var(--gold); border-color:var(--gold)}
+.btn:disabled{opacity:.35; cursor:default}
+.btn:focus-visible{outline:2px solid var(--gold); outline-offset:2px}
+.btn-row{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:12px 0 4px}
+.seg{display:inline-flex; border:1px solid var(--rule); border-radius:4px; overflow:hidden}
+.seg button{
+  font-family:var(--mono); font-size:11.5px; color:var(--dim); background:none; border:none;
+  padding:6px 12px; cursor:pointer; border-right:1px solid var(--rule);
+}
+.seg button:last-child{border-right:none}
+.seg button.on{background:var(--brass); color:var(--night); font-weight:600}
+.readout{
+  font-family:var(--mono); font-size:12.5px; line-height:1.9; color:var(--dim);
+  background:#16130c; border:1px solid var(--rule2); border-radius:4px;
+  padding:10px 14px; margin-top:12px; overflow-x:auto;
+}
+.readout b{color:var(--gold); font-weight:600}
+.readout .g{color:var(--teal)} .readout .r{color:var(--rose)} .readout .b{color:var(--blue)} .readout .a{color:var(--brass)}
+.split2{display:grid; grid-template-columns:1fr 1fr; gap:14px}
+@media (max-width:700px){
+  .split2{grid-template-columns:1fr} h1{font-size:38px} body{font-size:17.5px}
+  .lab .body{padding:14px}
+  .ctl{min-width:130px}
+  .ctl-row{gap:10px 16px; margin:12px 0 2px}
+  .readout{line-height:1.72; font-size:12px; padding:9px 12px}
+  .ctl label{font-size:11px}
+  .lab canvas{height:calc(var(--ch,220px) * 0.82)}
+}
+@media (max-width:430px){
+  .lab canvas{height:calc(var(--ch,220px) * 0.7)}
+}
+
+/* ---------- asides & callouts ---------- */
+.note{
+  border:1px solid var(--rule); border-left:3px solid var(--blue); border-radius:6px;
+  background:var(--panel); padding:14px 18px; margin:24px 0; font-size:17px; color:var(--dim);
+}
+.note b, .note strong{color:var(--ink)}
+.note .nt{font-family:var(--mono); font-size:10.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--blue); display:block; margin-bottom:6px}
+.try{
+  border:1px dashed var(--brassdim); border-radius:6px; background:rgba(220,168,92,.05);
+  padding:14px 18px; margin:24px 0; font-size:17px;
+}
+.try .nt{font-family:var(--mono); font-size:10.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--brass); display:block; margin-bottom:6px}
+.try ol{margin-left:22px}
+.try li{margin-bottom:6px}
+
+/* ---------- TOC ---------- */
+.toc-grid{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:34px}
+@media (max-width:700px){ .toc-grid{grid-template-columns:1fr} }
+.toc-card{
+  border:1px solid var(--rule); border-radius:6px; background:var(--panel);
+  padding:16px 18px 14px; cursor:pointer; display:flex; flex-direction:column; gap:8px;
+  transition:border-color .15s, transform .15s;
+}
+.toc-card:hover{border-color:var(--brassdim); transform:translateY(-2px)}
+.toc-card:focus-visible{outline:2px solid var(--brass); outline-offset:2px}
+.toc-card .num{font-family:var(--mono); font-size:11px; letter-spacing:.2em; color:var(--brass)}
+.toc-card .tt{font-family:var(--disp); font-weight:600; font-size:19.5px; color:var(--gold); line-height:1.2}
+.toc-card .dd{font-size:15.5px; color:var(--dim); line-height:1.5; flex:1}
+.toc-card canvas{width:100%; height:44px; border:none; background:none; margin-top:2px}
+
+/* ---------- nav footer ---------- */
+.pager{
+  display:flex; justify-content:space-between; gap:14px; margin-top:64px;
+  border-top:1px solid var(--rule); padding-top:22px;
+}
+.pager a{
+  border:none; font-family:var(--mono); font-size:12.5px; letter-spacing:.06em; color:var(--brass);
+  max-width:45%;
+}
+.pager a span{display:block; font-family:var(--serif); font-size:16.5px; color:var(--dim); font-style:italic; letter-spacing:0}
+.pager a:hover span{color:var(--ink)}
+
+/* ---------- tables ---------- */
+table.lv{width:100%; border-collapse:collapse; font-size:16px; margin:20px 0}
+table.lv th{
+  font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--brass); text-align:left; padding:8px 10px; border-bottom:1px solid var(--rule);
+}
+table.lv td{padding:9px 10px; border-bottom:1px solid var(--rule2); vertical-align:top; color:var(--dim)}
+table.lv td:first-child{color:var(--gold); font-family:var(--mono); font-size:13px; white-space:nowrap}
+table.lv td b{color:var(--ink)}
+
+/* ---------- quiz ---------- */
+details.q{border:1px solid var(--rule); border-radius:6px; background:var(--panel); margin:12px 0; padding:0}
+details.q summary{
+  cursor:pointer; padding:13px 18px; font-size:17.5px; color:var(--ink); list-style:none;
+}
+details.q summary::before{content:"Q — "; font-family:var(--mono); font-size:12px; color:var(--brass); letter-spacing:.1em}
+details.q[open] summary{border-bottom:1px solid var(--rule2)}
+details.q .ans{padding:13px 18px; font-size:16.5px; color:var(--dim)}
+details.q .ans b{color:var(--gold)}
+
+.legend{display:flex; gap:18px; flex-wrap:wrap; font-family:var(--mono); font-size:11.5px; color:var(--dim); margin-top:8px}
+.legend i{display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; vertical-align:-1px; font-style:normal}
+.footnote{font-size:15px; color:var(--faint); font-style:italic}
+</style>
+</head>
+<body>
+<header class="mast">
+  <div class="t" onclick="go('toc')">The Boosted Forecast</div>
+  <div class="where" id="whereami">Contents</div>
+  <button class="toc-btn" onclick="go('toc')">CONTENTS</button>
+</header>
+<main>
+<!-- ============================ TOC ============================ -->
+<section class="page" id="pg-toc">
+  <div class="eyebrow">An interactive course in one file</div>
+  <h1>The <b>Boosted</b> Forecast</h1>
+  <p class="lede">XGBoost derived from first principles — the loss, the gradient, the Hessian, the gain, the whole machine — taught through a single meteorological question: <em>how cold will tonight get?</em></p>
+  <p>Every chapter pairs a derivation with an instrument you can turn over in your hands. Nothing is asserted that you cannot poke. By the end you will be able to write down XGBoost's objective from memory, explain what every hyperparameter does to that objective, and predict — before touching a slider — what changing it will do to a model.</p>
+  <p class="footnote">The observing programme below is sequential: each chapter uses the machinery of the last. The glyphs are live — they are drawn by the same code you'll meet inside.</p>
+  <div class="toc-grid" id="tocGrid"></div>
+</section>
+
+<!-- ============================ CH 1 ============================ -->
+<section class="page" id="pg-ch1">
+  <div class="eyebrow">Chapter I · Foundations</div>
+  <h1>The Loss Function</h1>
+  <p class="lede">Everything in XGBoost — every split, every leaf value, every hyperparameter — is in service of one number. Before we grow a single tree, we must decide precisely what it means to be <em>wrong</em>.</p>
+
+  <h2>1.1 — A forecast and its price</h2>
+  <p>Our running problem, start to finish: at 18:00 UTC an observer at a small atmospheric observatory records the evening conditions — cloud cover, wind speed, dewpoint depression, time of year — and must forecast the <strong>overnight temperature drop</strong>: how far the thermometer will fall between the evening reading and dawn minimum. Clear, calm, dry winter nights radiate ferociously and can drop 12&nbsp;°C or more; overcast, windy summer nights barely drop 2&nbsp;°C. The physics is real, the interactions are nonlinear, and the record is imperfect. It is a perfect job for boosted trees.</p>
+  <p>A model produces a prediction <span class="m">ŷ</span> for a true outcome <span class="m">y</span>. A <strong>loss function</strong> <span class="m hl-l">l(y, ŷ)</span> converts the pair into a price: zero when the forecast is perfect, growing as it degrades. The choice of loss is a modelling decision, not a technicality — it declares which mistakes you care about. Forecast a 10&nbsp;°C drop when the true drop is 4&nbsp;°C and the road-gritting lorries roll out for nothing; forecast 4&nbsp;°C when the truth is 10&nbsp;°C and the roads ice over. Squared error says these two failures cost the same; a real forecaster might disagree, and later we will see that XGBoost lets you say so.</p>
+
+  <h2>1.2 — Two derivatives are all you get</h2>
+  <p>Here is the single most important design decision in XGBoost, stated up front so you can watch everything else flow from it. The algorithm never looks at your loss function directly. For each data point it asks the loss for exactly two numbers, evaluated at the current prediction:</p>
+  <div class="eq"><span class="no">EQ 1.1</span>
+    <span class="m hl-g">g<sub>i</sub></span> <span class="mr">=</span> <span class="frac"><span><span class="m">∂ l(y<sub>i</sub>, ŷ<sub>i</sub>)</span></span><span><span class="m">∂ ŷ<sub>i</sub></span></span></span>
+    <span style="display:inline-block; width:56px"></span>
+    <span class="m hl-h">h<sub>i</sub></span> <span class="mr">=</span> <span class="frac"><span><span class="m">∂<sup> 2</sup> l(y<sub>i</sub>, ŷ<sub>i</sub>)</span></span><span><span class="m">∂ ŷ<sub>i</sub><sup> 2</sup></span></span></span>
+    <span class="cap"><b class="hl-g">g<i>ᵢ</i></b> — the <b>gradient</b>: the slope of the loss at the current prediction. Its sign says which way the prediction should move; its size says how urgently. <b class="hl-h">h<i>ᵢ</i></b> — the <b>Hessian</b> (here just a second derivative, since the prediction for one point is one number): the curvature. It says how quickly the urgency changes as the prediction moves — how far you can trust the slope.</span>
+  </div>
+  <p>Everything downstream — leaf values, split gains, <code>min_child_weight</code>, why logistic regression "just works" in the same code — is arithmetic on <span class="m hl-g">g</span> and <span class="m hl-h">h</span>. Swap the loss, and only these two formulas change; the entire tree-growing machine is untouched. This is why XGBoost ships regression, classification, ranking and survival objectives in one engine, and why you can hand it any twice-differentiable loss of your own invention.</p>
+
+  <h2>1.3 — The gallery of losses</h2>
+  <p>Meet the candidates. For regression on our temperature drop, the default is <strong>squared error</strong>; its gradient is the (signed) error itself and its Hessian is the constant 1 — a fact that will quietly simplify half the formulas in this course, and quietly hide the other half's purpose. Absolute error is more robust to freak nights but has a broken second derivative. Pseudo-Huber interpolates between them. And log-loss, for classifying <em>will there be a ground frost?</em>, has the most instructive Hessian of all.</p>
+
+  <div class="lab">
+    <div class="head"><span class="name">Lab 1 · The Loss Bench</span><span class="sub">one observation, every loss — watch g and h, not just l</span></div>
+    <div class="body">
+      <div class="btn-row">
+        <div class="seg" id="lossSeg">
+          <button data-k="sq" class="on">squared</button><button data-k="abs">absolute</button><button data-k="hub">pseudo-Huber</button><button data-k="log">log-loss</button>
+        </div>
+      </div>
+      <div class="ctl-row">
+        <div class="ctl" id="lossYCtl"><label>true drop y (°C) <span class="val" id="lossYVal">4.0</span></label><input type="range" id="lossY" min="-2" max="10" step="0.5" value="4"></div>
+        <div class="ctl" id="hubCtl" style="display:none"><label>Huber δ <span class="val" id="hubVal">1.5</span></label><input type="range" id="hubD" min="0.5" max="4" step="0.1" value="1.5"></div>
+        <div class="ctl" id="logYCtl" style="display:none"><label>true class y (frost?) <span class="val" id="logYVal">1</span></label><input type="range" id="logY" min="0" max="1" step="1" value="1"></div>
+        <div class="ctl"><label>current prediction ŷ <span class="val" id="lossPVal">1.0</span></label><input type="range" id="lossP" min="-6" max="14" step="0.1" value="1"></div>
+      </div>
+      <canvas id="cvLoss" style="--ch:240px" height="240"></canvas>
+      <div class="legend"><span><i style="background:var(--blue)"></i>loss l(ŷ)</span><span><i style="background:var(--teal)"></i>gradient g</span><span><i style="background:var(--rose)"></i>Hessian h</span><span><i style="background:var(--brass)"></i>your prediction</span></div>
+      <div class="readout" id="lossRead"></div>
+    </div>
+  </div>
+
+  <div class="try"><span class="nt">Turn the dials</span>
+    <ol>
+      <li><b>Squared:</b> drag ŷ. The gradient line is straight (<span class="m">g = ŷ − y</span>) and the Hessian is flat at 1. Curvature never changes — the loss trusts big corrective steps.</li>
+      <li><b>Absolute:</b> the gradient is ±1 no matter how wrong you are — a 12&nbsp;°C error shouts no louder than a 0.5&nbsp;°C one — and <span class="m">h = 0</span> everywhere. Hold that thought: in Chapter III a zero Hessian will try to divide by zero, and you'll see exactly why libraries fake <span class="m">h = 1</span> here.</li>
+      <li><b>Pseudo-Huber:</b> quadratic near the truth, linear far away. Watch <span class="m">h</span> fade towards zero in the tails — distant outliers get gradient but lose <em>authority</em>.</li>
+      <li><b>Log-loss:</b> now ŷ is a raw score pushed through a sigmoid, <span class="m">p = σ(ŷ)</span>. The gradient is the beautifully simple <span class="m">p − y</span>, and <span class="m">h = p(1−p)</span> peaks at maximum uncertainty (p = ½) and vanishes when the model is confident. The Hessian is literally a <em>confidence meter</em>. Chapter VII builds on this.</li>
+    </ol>
+  </div>
+
+  <div class="note"><span class="nt">Why the second derivative at all?</span>
+  Gradient descent uses slope alone: step size is guesswork. Newton's method divides slope by curvature, <span class="m">step = −g/h</span>, and for a quadratic bowl lands at the bottom in one hop. XGBoost is, at heart, <strong>Newton's method performed by trees</strong> — Chapter III makes this exact. That is the honest answer to "what does the X in eXtreme actually buy you": second-order information, plus regularisation built into the objective rather than bolted on.</div>
+</section>
+
+<!-- ============================ CH 2 ============================ -->
+<section class="page" id="pg-ch2">
+  <div class="eyebrow">Chapter II · Foundations</div>
+  <h1>Boosting: a Committee of Corrections</h1>
+  <p class="lede">One tree is a crude forecaster. Boosting builds a committee in which each new member is hired for one job only: to correct the standing error of everyone hired before it.</p>
+
+  <h2>2.1 — The additive model</h2>
+  <p>The final model is a <strong>sum</strong> of <span class="m">K</span> small trees, each mapping the evening observations <span class="m">x</span> to a number:</p>
+  <div class="eq"><span class="no">EQ 2.1</span>
+    <span class="m">ŷ<sub>i</sub></span> <span class="mr">=</span> <span class="sum">Σ</span><sub class="m" style="font-size:.7em">k=1…K</sub> <span class="m">f<sub>k</sub>(x<sub>i</sub>)</span>
+    <span class="cap">Not a vote, not an average — a running total. Each tree contributes a (possibly negative) number of degrees to the forecast. A single tree partitions the weather into a few crude regimes; a sum of trees layers hundreds of partitions into a fine-grained response surface no single tree could express.</span>
+  </div>
+  <p>Fitting all <span class="m">K</span> trees jointly is hopeless — the space of tree ensembles is combinatorial. So boosting fits them <strong>stagewise</strong>: freeze everything built so far, and ask only what one more tree should be.</p>
+  <div class="eq"><span class="no">EQ 2.2</span>
+    <span class="m">ŷ<sub>i</sub><sup>(t)</sup></span> <span class="mr">=</span> <span class="m">ŷ<sub>i</sub><sup>(t−1)</sup></span> <span class="mr">+</span> <span class="m hl-a">η</span>&thinsp;<span class="m">f<sub>t</sub>(x<sub>i</sub>)</span>
+    <span class="cap">The update rule of the whole enterprise. <b class="hl-a"><i>η</i></b> is the <b>learning rate</b> (<span class="mono">eta</span>, "shrinkage"): each new tree's contribution is deliberately damped, so no single hire dominates the committee. Why that is wise becomes visceral in the lab below.</span>
+  </div>
+
+  <h2>2.2 — What should the new tree fit?</h2>
+  <p>Take the simplest case: squared loss, <span class="m">l = ½(y − ŷ)²</span>. The gradient at the current prediction is <span class="m hl-g">g<sub>i</sub> = ŷ<sub>i</sub> − y<sub>i</sub></span> — the negative of the <strong>residual</strong>. So "fit the new tree to the residuals," the folk description of boosting, is secretly "fit the new tree to the negative gradient of the loss." That reframing is the whole trick: gradients exist for <em>any</em> loss, residuals only for squared error. Boosting is <strong>gradient descent in the space of functions</strong> — each tree is one downhill step, and η is the step size.</p>
+  <p>Watch it happen. Below is a slice of our problem with everything held fixed except wind: clear-sky nights, drop against wind speed. The physics gives a nonlinear curve — calm nights decouple the surface air and cool hard; even a few m/s of wind stirs warmer air down and kills the drop. We'll fit it with <strong>stumps</strong> (depth-1 trees, one split each), the weakest learner there is.</p>
+
+  <div class="lab">
+    <div class="head"><span class="name">Lab 2 · The Corrections Committee</span><span class="sub">stumps fitting residuals, one hire at a time</span></div>
+    <div class="body">
+      <div class="btn-row">
+        <button class="btn primary" id="bAdd1">+ 1 tree</button>
+        <button class="btn" id="bAdd10">+ 10</button>
+        <button class="btn" id="bAdd50">+ 50</button>
+        <button class="btn" id="bReset">reset</button>
+        <span class="mono" style="font-size:12px; color:var(--dim)" id="boostCount">0 trees</span>
+      </div>
+      <div class="ctl-row">
+        <div class="ctl"><label>learning rate η <span class="val" id="etaVal">0.30</span></label><input type="range" id="etaSl" min="0.02" max="1" step="0.02" value="0.3"></div>
+      </div>
+      <canvas id="cvBoostTop" style="--ch:230px" height="230"></canvas>
+      <div class="legend"><span><i style="background:var(--dim)"></i>observed nights</span><span><i style="background:var(--brass)"></i>current model F(x)</span></div>
+      <canvas id="cvBoostBot" height="150" style="--ch:150px; margin-top:10px"></canvas>
+      <div class="legend"><span><i style="background:var(--rose)"></i>residuals y − F(x) — the next tree's target</span><span><i style="background:var(--teal)"></i>the correction η·f<sub>t</sub> just added</span></div>
+      <div class="readout" id="boostRead"></div>
+    </div>
+  </div>
+
+  <div class="try"><span class="nt">Turn the dials</span>
+    <ol>
+      <li>Set <span class="m">η = 1</span> and add trees one at a time. Fast — and jagged. Each stump commits fully to its correction, and later trees spend their lives correcting earlier trees' overcommitments. Watch the residual plot: it doesn't shrink smoothly, it sloshes.</li>
+      <li>Reset. Set <span class="m">η = 0.05</span> and add 50. Slower, but the fit is calmer and the residuals decay like a discharging capacitor. Shrinkage leaves headroom — <em>room for future trees to disagree</em>.</li>
+      <li>Notice the model is a staircase. A sum of stumps is piecewise constant; more trees means finer stairs. Depth will buy interactions in Chapter VI.</li>
+      <li>Keep adding trees at high η and watch the model start chasing individual noisy points. That is overfitting happening live — the committee has begun memorising the minutes.</li>
+    </ol>
+  </div>
+
+  <div class="note"><span class="nt">Where this chapter leaves us</span>
+  We know the <em>shape</em> of the algorithm: start somewhere, repeatedly add a damped tree fitted to the current gradients. Two questions remain, and they are the heart of XGBoost. Given a tree's <em>structure</em>, what value should each leaf output? And how do we choose the structure — the splits — in the first place? Both answers fall out of a single second-order calculation. Onwards.</div>
+</section>
+<!-- ============================ CH 3 ============================ -->
+<section class="page" id="pg-ch3">
+  <div class="eyebrow">Chapter III · The Core Derivation</div>
+  <h1>The Newton Step: Deriving the Leaf</h1>
+  <p class="lede">This is the load-bearing chapter. In roughly a page of algebra we derive the two formulas that <em>are</em> XGBoost: the optimal value of a leaf, and the quality score of a tree. Every hyperparameter you will ever tune appears here with a job description.</p>
+
+  <h2>3.1 — The regularised objective</h2>
+  <p>At boosting round <span class="m">t</span>, we seek the tree <span class="m">f<sub>t</sub></span> minimising the total loss <em>plus a penalty for complexity</em>. XGBoost's signature move is putting the penalty inside the objective from the start, rather than pruning as an afterthought:</p>
+  <div class="eq"><span class="no">EQ 3.1</span>
+    <span class="mr">Obj</span><sup class="m">(t)</sup> <span class="mr">=</span> <span class="sum">Σ</span><sub class="m" style="font-size:.7em">i</sub> <span class="m hl-l">l</span><span class="paren">(</span><span class="m">y<sub>i</sub>, ŷ<sub>i</sub><sup>(t−1)</sup> + f<sub>t</sub>(x<sub>i</sub>)</span><span class="paren">)</span> <span class="mr">+</span> <span class="m hl-a">γ</span><span class="m">T</span> <span class="mr">+</span> <span class="mr">½</span><span class="m hl-a">λ</span> <span class="sum">Σ</span><sub class="m" style="font-size:.7em">j</sub> <span class="m">w<sub>j</sub><sup>2</sup></span>
+    <span class="cap">The tree is described by its <b>structure</b> — which leaf each point lands in — and its <b>leaf weights</b> <i>w</i><sub>1</sub>…<i>w</i><sub>T</sub>, the numbers the leaves output. The penalty Ω(<i>f</i>) = <b class="hl-a">γ</b><i>T</i> + ½<b class="hl-a">λ</b>Σ<i>w</i>² charges <b class="hl-a">γ</b> (<span class="mono">gamma</span>) per leaf — a flat toll on structure — and <b class="hl-a">λ</b> (<span class="mono">lambda</span>, L2) on the squared size of every output — a tax on confidence.</span>
+  </div>
+
+  <h2>3.2 — Taylor to the rescue</h2>
+  <p>EQ 3.1 is unoptimisable as written: <span class="m">f<sub>t</sub></span> sits inside an arbitrary loss. So we approximate the loss around the current prediction with a <strong>second-order Taylor expansion</strong> — slope and curvature, exactly the two numbers Chapter I said we'd need:</p>
+  <div class="eq"><span class="no">EQ 3.2</span>
+    <span class="m hl-l">l</span><span class="paren">(</span><span class="m">y<sub>i</sub>, ŷ<sub>i</sub><sup>(t−1)</sup> + f<sub>t</sub>(x<sub>i</sub>)</span><span class="paren">)</span> <span class="mr">&nbsp;≈&nbsp;</span> <span class="m hl-l">l</span><span class="paren">(</span><span class="m">y<sub>i</sub>, ŷ<sub>i</sub><sup>(t−1)</sup></span><span class="paren">)</span> <span class="mr">+</span> <span class="m hl-g">g<sub>i</sub></span>&thinsp;<span class="m">f<sub>t</sub>(x<sub>i</sub>)</span> <span class="mr">+</span> <span class="mr">½</span><span class="m hl-h">h<sub>i</sub></span>&thinsp;<span class="m">f<sub>t</sub>(x<sub>i</sub>)<sup>2</sup></span>
+    <span class="cap">The first term is a constant — last round's loss, already paid, drop it. What remains is a <b>quadratic in the new tree's output</b>. We have replaced your loss, whatever it was, with a private parabola per data point: tilt <b class="hl-g">g<i>ᵢ</i></b>, curvature <b class="hl-h">h<i>ᵢ</i></b>. From here the loss function never appears again.</span>
+  </div>
+  <p>Now the decisive regrouping. A tree assigns every point to exactly one leaf. So instead of summing over points, sum over <strong>leaves</strong>, pooling the parabolas of the points inside each. Writing <span class="m">I<sub>j</sub></span> for the set of points in leaf <span class="m">j</span>, and defining the leaf totals <span class="m hl-g">G<sub>j</sub> = Σ g<sub>i</sub></span> and <span class="m hl-h">H<sub>j</sub> = Σ h<sub>i</sub></span> over <span class="m">i ∈ I<sub>j</sub></span>:</p>
+  <div class="eq"><span class="no">EQ 3.3</span>
+    <span class="mr">Obj</span><sup class="m">(t)</sup> <span class="mr">≈</span> <span class="sum">Σ</span><sub class="m" style="font-size:.7em">j=1…T</sub> <span class="brk">[</span>&thinsp;<span class="m hl-g">G<sub>j</sub></span>&thinsp;<span class="m">w<sub>j</sub></span> <span class="mr">+</span> <span class="mr">½</span><span class="paren">(</span><span class="m hl-h">H<sub>j</sub></span> <span class="mr">+</span> <span class="m hl-a">λ</span><span class="paren">)</span><span class="m">w<sub>j</sub><sup>2</sup></span>&thinsp;<span class="brk">]</span> <span class="mr">+</span> <span class="m hl-a">γ</span><span class="m">T</span>
+    <span class="cap">The objective has shattered into <i>T</i> <b>independent one-dimensional parabolas</b>, one per leaf, plus the toll. Independence is everything: each leaf can be optimised alone, in closed form, by A-level calculus.</span>
+  </div>
+
+  <h2>3.3 — The two formulas</h2>
+  <p>Differentiate one leaf's parabola with respect to <span class="m">w<sub>j</sub></span>, set to zero:</p>
+  <div class="eq"><span class="no">EQ 3.4 · the leaf weight</span>
+    <span class="m">w<sub>j</sub><sup>★</sup></span> <span class="mr">=</span> <span class="mr">−</span><span class="frac"><span><span class="m hl-g">G<sub>j</sub></span></span><span><span class="m hl-h">H<sub>j</sub></span> <span class="mr">+</span> <span class="m hl-a">λ</span></span></span>
+    <span class="cap">Read it aloud: <b>a leaf outputs the pooled gradient, divided by the pooled curvature, plus ballast.</b> It is a Newton step (−g/h) computed jointly for all its residents, shrunk towards zero by λ. For squared loss (h=1), G is the sum of residuals and H is the head-count, so w★ = (mean residual) × n/(n+λ) — the average correction, damped more when the leaf is small. λ literally acts like λ phantom residents who all vote "do nothing".</span>
+  </div>
+  <p>Substitute <span class="m">w★</span> back in, and each leaf contributes <span class="m">−½G²/(H+λ)</span> to the objective. The best achievable score for a given <em>structure</em> is therefore:</p>
+  <div class="eq"><span class="no">EQ 3.5 · the structure score</span>
+    <span class="mr">Obj</span><sup class="mr">★</sup> <span class="mr">=</span> <span class="mr">−½</span> <span class="sum">Σ</span><sub class="m" style="font-size:.7em">j=1…T</sub> <span class="frac"><span><span class="m hl-g">G<sub>j</sub></span><sup class="m">2</sup></span><span><span class="m hl-h">H<sub>j</sub></span> <span class="mr">+</span> <span class="m hl-a">λ</span></span></span> <span class="mr">+</span> <span class="m hl-a">γ</span><span class="m">T</span>
+    <span class="cap">A single number grading any candidate tree shape — lower is better. Each leaf's term <i>G</i>²/(<i>H</i>+λ) measures how much pooled, <em>agreeing</em> gradient it captured: gradients of opposite sign cancel inside <i>G</i> and score nothing. A good leaf is a room full of points that all want to move the same way. This score is the judge that will choose our splits in Chapter IV.</span>
+  </div>
+
+  <div class="lab">
+    <div class="head"><span class="name">Lab 3 · One Leaf, Five Residents</span><span class="sub">pooled parabolas and the λ ballast — EQ 3.3 and 3.4 live</span></div>
+    <div class="body">
+      <p style="font-size:15.5px; color:var(--dim); margin-bottom:10px">Five nights share a leaf. Each slider is that night's gradient <span class="m hl-g">g<sub>i</sub></span> (for squared loss: current prediction − truth, so <em>negative</em> means "the model under-forecast the drop"). Each night contributes a private parabola (thin curves); the leaf must pick <b>one</b> output <span class="m">w</span> minimising their sum plus the λ term (bright curve).</p>
+      <div class="ctl-row" id="leafSliders"></div>
+      <div class="ctl-row">
+        <div class="ctl"><label>λ — L2 ballast <span class="val" id="lamVal">1.0</span></label><input type="range" id="lamSl" min="0" max="20" step="0.5" value="1"></div>
+      </div>
+      <canvas id="cvLeaf" style="--ch:250px" height="250"></canvas>
+      <div class="legend"><span><i style="background:var(--faint)"></i>per-point parabolas g<sub>i</sub>w + ½h<sub>i</sub>w²</span><span><i style="background:var(--gold)"></i>leaf objective (sum + ½λw²)</span><span><i style="background:var(--brass)"></i>w★ = −G/(H+λ)</span><span><i style="background:var(--teal)"></i>unregularised −G/H</span></div>
+      <div class="readout" id="leafRead"></div>
+    </div>
+  </div>
+
+  <div class="try"><span class="nt">Turn the dials</span>
+    <ol>
+      <li>Drag all five gradients negative (model under-forecasting everywhere). The parabolas agree, the pooled bowl is deep and off-centre, and <span class="m">w★</span> is a confident positive correction.</li>
+      <li>Now set them to alternate signs, roughly summing to zero. The bowl is still curved (<span class="m">H</span> unchanged) but centred at zero — the leaf, hearing contradictory demands, wisely does <em>almost nothing</em>. This leaf needs splitting, not averaging: exactly what Chapter IV detects.</li>
+      <li>Sweep λ from 0 to 20 with strong agreement among the gradients. Watch w★ slide towards zero — never past it. λ can only shrink, never flip.</li>
+      <li>Now the payoff of Chapter I: imagine these were log-loss points, each with its own <span class="m hl-h">h<sub>i</sub> = p<sub>i</sub>(1−p<sub>i</sub>)</span>. Confident points (h≈0) would bring flat parabolas — loud gradients but no <em>authority</em> over where the minimum sits. The Hessian is a per-point credibility weight, and −G/(H+λ) is a credibility-weighted vote. And if <em>every</em> h were 0 (absolute loss), the denominator would be bare λ — division by zero at λ=0. That is why h=0 losses need patching.</li>
+    </ol>
+  </div>
+
+  <div class="note"><span class="nt">min_child_weight lives here</span>
+  The famous <span class="lever">min_child_weight</span> is a floor on a leaf's <span class="m hl-h">H</span>. For squared loss, h=1, so H = number of points and the name reads "minimum samples per leaf". But for log-loss, H is the <em>sum of confidences</em> p(1−p) — a leaf of 200 already-certain points can have less Hessian mass than a leaf of 3 uncertain ones. The parameter is really: <strong>do not create a leaf whose pooled parabola is too shallow to trust</strong>. We enforce it in the next chapter's lab.</div>
+</section>
+
+<!-- ============================ CH 4 ============================ -->
+<section class="page" id="pg-ch4">
+  <div class="eyebrow">Chapter IV · The Core Derivation</div>
+  <h1>Growing the Tree: the Gain</h1>
+  <p class="lede">EQ 3.5 grades a finished tree, but trees are grown one split at a time. The <strong>gain</strong> asks the only question a growing tree ever needs answered: is this room better as two rooms?</p>
+
+  <h2>4.1 — Better as two rooms?</h2>
+  <p>Take a leaf with totals <span class="m hl-g">G</span>, <span class="m hl-h">H</span>. A candidate split — say <em>wind &lt; 3.1&nbsp;m/s</em> — divides its residents into a left set (<span class="m">G<sub>L</sub>, H<sub>L</sub></span>) and a right set (<span class="m">G<sub>R</sub>, H<sub>R</sub></span>). Score both arrangements with EQ 3.5 and subtract. Structure-score improvement, minus the toll for the extra leaf:</p>
+  <div class="eq"><span class="no">EQ 4.1 · the gain</span>
+    <span class="mr">Gain</span> <span class="mr">=</span> <span class="mr">½</span><span class="brk">[</span>
+    <span class="frac"><span><span class="m hl-g">G<sub>L</sub></span><sup class="m">2</sup></span><span><span class="m hl-h">H<sub>L</sub></span> <span class="mr">+</span> <span class="m hl-a">λ</span></span></span> <span class="mr">+</span>
+    <span class="frac"><span><span class="m hl-g">G<sub>R</sub></span><sup class="m">2</sup></span><span><span class="m hl-h">H<sub>R</sub></span> <span class="mr">+</span> <span class="m hl-a">λ</span></span></span> <span class="mr">−</span>
+    <span class="frac"><span><span class="paren">(</span><span class="m hl-g">G<sub>L</sub></span><span class="mr">+</span><span class="m hl-g">G<sub>R</sub></span><span class="paren">)</span><sup class="m">2</sup></span><span><span class="m hl-h">H<sub>L</sub></span><span class="mr">+</span><span class="m hl-h">H<sub>R</sub></span> <span class="mr">+</span> <span class="m hl-a">λ</span></span></span>
+    <span class="brk">]</span> <span class="mr">−</span> <span class="m hl-a">γ</span>
+    <span class="cap">Split if Gain &gt; 0. The bracket is pure algebraic pleasure: it is large exactly when the split <b>separates disagreeing gradients</b>. If left wants "predict more" and right wants "predict less", their gradients cancel in the parent's (G<sub>L</sub>+G<sub>R</sub>)² but stand tall in G<sub>L</sub>² and G<sub>R</sub>² separately. A split earns its keep by resolving an argument. And <b class="hl-a">γ</b> is not a tie-breaker but a hurdle: a split must resolve at least γ worth of argument or the leaf stays whole — pre-pruning, derived rather than decreed.</span>
+  </div>
+
+  <h2>4.2 — The exact greedy scan</h2>
+  <p>How does the algorithm find the best split? With no cleverness whatsoever — and that is worth seeing once in your life. For each feature: sort the leaf's points by that feature, then walk the sorted order maintaining <em>running</em> totals <span class="m">G<sub>L</sub>, H<sub>L</sub></span> (the right totals are just <span class="m">G−G<sub>L</sub></span>, <span class="m">H−H<sub>L</sub></span>). Every gap between consecutive values is a candidate threshold; EQ 4.1 costs a handful of arithmetic operations per candidate. Best gain across all features and thresholds wins. This is the <em>exact greedy</em> algorithm; Chapter VII shows the histogram trick that big data forces upon it.</p>
+  <p>The lab below is that scan, opened up. Forty-eight nights, one feature (evening cloud cover), and the gradients from a model that so far predicts only the global mean drop — so <span class="m hl-g">g<sub>i</sub> = ȳ − y<sub>i</sub></span>: clear nights (left) dropped far more than the mean predicted and carry big negative gradients; overcast nights carry positive ones. An argument waiting to be resolved.</p>
+
+  <div class="lab">
+    <div class="head"><span class="name">Lab 4 · The Split Scanner</span><span class="sub">drag a threshold through real gradients; the gain curve is EQ 4.1 evaluated everywhere</span></div>
+    <div class="body">
+      <div class="ctl-row">
+        <div class="ctl"><label>threshold — cloud cover (oktas) <span class="val" id="thrVal">4.0</span></label><input type="range" id="thrSl" min="0.25" max="7.75" step="0.05" value="4"></div>
+        <div class="ctl"><label>λ <span class="val" id="lam4Val">1.0</span></label><input type="range" id="lam4" min="0" max="30" step="0.5" value="1"></div>
+      </div>
+      <div class="ctl-row">
+        <div class="ctl"><label>γ — split toll <span class="val" id="gam4Val">0</span></label><input type="range" id="gam4" min="0" max="90" step="1" value="0"></div>
+        <div class="ctl"><label>min_child_weight (min H per side) <span class="val" id="mcw4Val">1</span></label><input type="range" id="mcw4" min="1" max="20" step="1" value="1"></div>
+      </div>
+      <canvas id="cvSplitTop" style="--ch:220px" height="220"></canvas>
+      <div class="legend"><span><i style="background:var(--teal)"></i>g&lt;0 — "drop was bigger than predicted"</span><span><i style="background:var(--rose)"></i>g&gt;0 — "smaller than predicted"</span><span><i style="background:var(--brass)"></i>your threshold</span></div>
+      <canvas id="cvSplitBot" height="170" style="--ch:170px; margin-top:10px"></canvas>
+      <div class="legend"><span><i style="background:var(--gold)"></i>gain at every candidate threshold</span><span><i style="background:var(--rose)"></i>forbidden by min_child_weight</span><span><i style="background:var(--blue)"></i>γ hurdle</span></div>
+      <div class="readout" id="splitRead"></div>
+    </div>
+  </div>
+
+  <div class="try"><span class="nt">Turn the dials</span>
+    <ol>
+      <li>Drag the threshold across the plot and watch the gain curve trace out the exact greedy scan. The maximum sits where teal and rose populations separate — around 2–3 oktas, the physics of radiative cooling rediscovered by arithmetic.</li>
+      <li>Raise γ until the entire gain curve sinks below the hurdle. Verdict: leaf stays whole. You have just pre-pruned a tree by hand.</li>
+      <li>Raise λ. The gain curve deflates <em>everywhere</em> — but not uniformly: thresholds carving off small groups (small H in the denominator's company) deflate fastest. λ is quietly biased against splits justified by few points.</li>
+      <li>Push min_child_weight up and watch the flanks of the curve get struck out: splits isolating a handful of extreme nights are forbidden outright, however tempting their gain. The three levers overlap in effect — all fight tiny, overconfident leaves — but by different mechanisms: λ shrinks, γ tolls, min_child_weight forbids.</li>
+    </ol>
+  </div>
+
+  <div class="note"><span class="nt">Recursion, and two ways to stop</span>
+  Apply the scan to the root, then to each child, and so on: that recursion <em>is</em> tree growing. It halts when nothing clears the hurdles — or at <span class="lever">max_depth</span>, a blunt structural stop. Historical footnote: XGBoost grows <em>depth-wise</em> (level by level) by default, while LightGBM grows <em>leaf-wise</em> (always split the current best leaf anywhere in the tree); same gain formula, different search order, and with a leaf budget the leaf-wise order finds lower objectives but lonelier, riskier leaves.</div>
+</section>
+
+<!-- ============================ CH 5 ============================ -->
+<section class="page" id="pg-ch5">
+  <div class="eyebrow">Chapter V · The Elegant Trick</div>
+  <h1>Missing Data: the Default Direction</h1>
+  <p class="lede">On the coldest nights, the anemometer ices up. Our wind column is missing precisely when wind matters most. Most algorithms make you impute and pray; XGBoost turns the gap itself into signal.</p>
+
+  <h2>5.1 — Learn where the ghosts go</h2>
+  <p>Every split in an XGBoost tree carries, alongside its feature and threshold, a learned <strong>default direction</strong>. During the split scan, the points with a missing value can't be sorted with the rest — so the algorithm simply tries both dispositions. Compute EQ 4.1 with all missing points massed on the left; compute it again with them massed on the right; the split's gain is the better of the two, and the winning side is stamped onto the node. At prediction time, a night arriving with no wind reading follows the stamp.</p>
+  <p>This is the <em>sparsity-aware split</em>, and it costs almost nothing: the missing points' pooled totals <span class="m">G<sub>miss</sub>, H<sub>miss</sub></span> are added to one side or the other of sums we were already maintaining. Two extra additions per candidate.</p>
+  <p>The deep point: if missingness is <strong>informative</strong> — icing means cold, a sensor that saturates means extreme values, a survey question skipped means something — the default direction <em>learns the meaning of absence</em>. Imputing the column mean would have actively destroyed that signal, quietly filing the iciest nights of the record under "average breeze".</p>
+
+  <div class="lab">
+    <div class="head"><span class="name">Lab 5 · The Iced Anemometer</span><span class="sub">forty nights, nine silent instruments — where should the ghosts sit?</span></div>
+    <div class="body">
+      <div class="ctl-row">
+        <div class="ctl"><label>threshold — wind (m/s) <span class="val" id="thr5Val">3.0</span></label><input type="range" id="thr5" min="0.3" max="10.7" step="0.05" value="3"></div>
+      </div>
+      <div class="btn-row">
+        <div class="seg" id="missSeg"><button data-k="L" class="on">missing → left</button><button data-k="R">missing → right</button></div>
+        <button class="btn" id="bMissAuto">let the algorithm choose</button>
+      </div>
+      <canvas id="cvMiss" style="--ch:240px" height="240"></canvas>
+      <div class="legend"><span><i style="background:var(--teal)"></i>g&lt;0</span><span><i style="background:var(--rose)"></i>g&gt;0</span><span><i style="background:var(--brass)"></i>threshold</span><span><i style="border:1px dashed var(--dim); background:none"></i>missing wind (gutter)</span></div>
+      <div class="readout" id="missRead"></div>
+    </div>
+  </div>
+
+  <div class="try"><span class="nt">Turn the dials</span>
+    <ol>
+      <li>Park the threshold near 3&nbsp;m/s and flip the toggle. The missing nights are mostly hard-drop, negative-gradient nights (icing ⇒ cold, calm), so sending them <b>left</b> — in with the calm nights they resemble — scores far higher. The arithmetic discovers the meteorology of the gap.</li>
+      <li>Press <em>let the algorithm choose</em>: it scans every threshold under both dispositions and reports the champion — one line of bookkeeping in the real code.</li>
+      <li>A subtlety worth savouring: the default direction is chosen <em>per node</em>. Deeper in a tree, "wind missing" can be routed differently under different cloud regimes. Absence is allowed to mean different things in different weather.</li>
+    </ol>
+  </div>
+
+  <div class="note"><span class="nt">Sparsity is the same trick</span>
+  XGBoost treats explicit zeros in sparse matrices and one-hot encodings the same way — the scan only ever visits the <em>present</em> entries, and the default direction sweeps the rest along. That's why it eats bag-of-words matrices with millions of columns for breakfast: cost scales with non-zeros, not with cells.</div>
+</section>
+<!-- ============================ CH 6 ============================ -->
+<section class="page" id="pg-ch6">
+  <div class="eyebrow">Chapter VI · The Full Machine</div>
+  <h1>The Observatory Model</h1>
+  <p class="lede">Everything assembles. A real (if synthetic) dataset, a complete XGBoost implemented in the page you are reading — exact greedy scan, Newton leaves, learned default directions — and every lever on one panel. Your job: overfit it, then rescue it.</p>
+
+  <h2>6.1 — The data</h2>
+  <p>420 observing nights, generated from a plausible boundary-layer story plus honest noise. Four features at 18:00: <b>cloud</b> (oktas 0–8), <b>wind</b> (m/s — <em>missing on about one night in eight, preferentially the icy ones</em>), <b>dpd</b> (dewpoint depression, °C — dry air radiates to space more freely), <b>month</b> (1–12, standing in for night length). Target: overnight drop in °C. The generator hides a strong cloud×wind interaction — clear <em>and</em> calm is worth far more than the sum of clear and calm — which is precisely what depth &gt; 1 exists to find. 300 nights train the model; 120 held-out nights judge it.</p>
+
+  <h2>6.2 — The algorithm, complete</h2>
+  <div class="note"><span class="nt">XGBoost in nine lines</span>
+  <span class="mono" style="display:block; line-height:2; font-size:12.5px; color:var(--dim)">
+  F₀(x) ← base_score (mean of y)<br>
+  for t = 1 … n_trees:<br>
+  &nbsp;&nbsp;gᵢ ← ∂l/∂ŷ, hᵢ ← ∂²l/∂ŷ² at ŷ = F<sub>t−1</sub>(xᵢ) <span style="color:var(--faint)">// Ch I</span><br>
+  &nbsp;&nbsp;draw a row subsample; draw a column subsample <span style="color:var(--faint)">// Ch VII</span><br>
+  &nbsp;&nbsp;grow tree: recursively take the best-gain split (EQ 4.1, both missing directions) <span style="color:var(--faint)">// Ch IV–V</span><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;… while gain &gt; 0, H<sub>child</sub> ≥ min_child_weight, depth &lt; max_depth<br>
+  &nbsp;&nbsp;set each leaf to w★ = −G/(H+λ) <span style="color:var(--faint)">// Ch III</span><br>
+  &nbsp;&nbsp;F<sub>t</sub>(x) ← F<sub>t−1</sub>(x) + η·tree(x) <span style="color:var(--faint)">// Ch II</span><br>
+  &nbsp;&nbsp;stop early if validation loss hasn't improved in <i>k</i> rounds
+  </span></div>
+
+  <div class="lab">
+    <div class="head"><span class="name">Lab 6 · The Training Desk</span><span class="sub">a full XGBoost, running in this page — 300 training nights, 120 validation nights</span></div>
+    <div class="body">
+      <div class="ctl-row">
+        <div class="ctl"><label>trees <span class="val" id="p_ntV">120</span></label><input type="range" id="p_nt" min="10" max="300" step="10" value="120"></div>
+        <div class="ctl"><label>learning rate η <span class="val" id="p_etaV">0.10</span></label><input type="range" id="p_eta" min="0.02" max="1" step="0.02" value="0.1"></div>
+        <div class="ctl"><label>max_depth <span class="val" id="p_mdV">3</span></label><input type="range" id="p_md" min="1" max="6" step="1" value="3"></div>
+      </div>
+      <div class="ctl-row">
+        <div class="ctl"><label>λ (L2) <span class="val" id="p_lamV">1.0</span></label><input type="range" id="p_lam" min="0" max="30" step="0.5" value="1"></div>
+        <div class="ctl"><label>γ (split toll) <span class="val" id="p_gamV">0</span></label><input type="range" id="p_gam" min="0" max="20" step="0.5" value="0"></div>
+        <div class="ctl"><label>min_child_weight <span class="val" id="p_mcwV">1</span></label><input type="range" id="p_mcw" min="1" max="30" step="1" value="1"></div>
+      </div>
+      <div class="ctl-row">
+        <div class="ctl"><label>subsample (rows/tree) <span class="val" id="p_ssV">1.00</span></label><input type="range" id="p_ss" min="0.2" max="1" step="0.05" value="1"></div>
+        <div class="ctl"><label>colsample (features/tree) <span class="val" id="p_csV">1.00</span></label><input type="range" id="p_cs" min="0.25" max="1" step="0.25" value="1"></div>
+        <div class="ctl"><label>early stopping (rounds; 0 = off) <span class="val" id="p_esV">0</span></label><input type="range" id="p_es" min="0" max="60" step="5" value="0"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn primary" id="bTrain">train</button>
+        <button class="btn" id="bStep">+ 1 tree</button>
+        <span class="mono" id="trainStatus" style="font-size:12px; color:var(--dim)">untrained</span>
+      </div>
+      <canvas id="cvCurves" style="--ch:210px" height="210"></canvas>
+      <div class="legend"><span><i style="background:var(--teal)"></i>train RMSE</span><span><i style="background:var(--rose)"></i>validation RMSE</span><span><i style="background:var(--brass)"></i>best round</span></div>
+      <div class="split2" style="margin-top:12px">
+        <div><canvas id="cvScatter" style="--ch:230px" height="230"></canvas>
+        <div class="legend"><span><i style="background:var(--blue)"></i>validation nights: predicted vs observed drop</span></div></div>
+        <div><canvas id="cvImp" style="--ch:230px" height="230"></canvas>
+        <div class="legend"><span><i style="background:var(--brass)"></i>feature importance — total gain claimed</span></div></div>
+      </div>
+      <div class="ctl-row" style="margin-top:14px">
+        <div class="ctl"><label>inspect tree <span class="val" id="p_tiV">1</span></label><input type="range" id="p_ti" min="1" max="120" step="1" value="1"></div>
+      </div>
+      <canvas id="cvTree" style="--ch:260px" height="260"></canvas>
+      <div class="legend"><span><i style="background:var(--panel2); border:1px solid var(--rule)"></i>decision node (∅→ marks the learned missing direction)</span><span><i style="background:var(--teal)"></i>leaf w★ &gt; 0</span><span><i style="background:var(--rose)"></i>leaf w★ &lt; 0</span></div>
+      <div class="readout" id="trainRead">Press <b>train</b>.</div>
+    </div>
+  </div>
+
+  <div class="try"><span class="nt">A guided ruin and rescue</span>
+    <ol>
+      <li><b>Baseline.</b> Defaults, train. Note both RMSEs and the gap between them. Inspect tree 1 (big confident structure) versus the last tree (shallow, timid leaves — later corrections are refinements of refinements).</li>
+      <li><b>Underfit on purpose.</b> depth 1, 30 trees, η 0.05. Train RMSE stays high and the two curves hug: the model lacks capacity — stumps cannot express cloud×wind. Bias, visualised.</li>
+      <li><b>Overfit on purpose.</b> depth 6, η 0.5, 300 trees, λ 0, everything else off. Train RMSE dives towards the noise floor while validation bottoms out and climbs. That climbing rose curve is the sound of a model memorising 300 particular nights.</li>
+      <li><b>Rescue with each lever separately</b>, from the overfit settings: first λ ≈ 10 alone; reset, then γ ≈ 5 alone; reset, then min_child_weight ≈ 15 alone; reset, then subsample 0.6 alone. Each closes the gap by a different mechanism — shrinking leaves, refusing splits, forbidding small leaves, decorrelating trees. Then combine, lower η to 0.05, and switch early stopping to 30: the brass marker plants itself at the honest optimum.</li>
+      <li><b>Read the importance panel.</b> Cloud and wind should dominate, month behind, dpd modest — the generator's own recipe recovered. At depth 1, watch the interaction-dependent share collapse.</li>
+    </ol>
+  </div>
+
+  <div class="note"><span class="nt">The one true tuning heuristic</span>
+  Lower η is almost never wrong if you can afford the trees — it is the only lever that reduces overfitting <em>and</em> underfitting risk together, at the price of compute. The practical recipe the derivation supports: set η small (0.02–0.1), n_trees large, let <b>early stopping</b> choose the count, then tune depth and min_child_weight against each other, then λ/γ, then subsampling for decorrelation. You now know <em>why</em> each step targets what it does.</div>
+</section>
+
+<!-- ============================ CH 7 ============================ -->
+<section class="page" id="pg-ch7">
+  <div class="eyebrow">Chapter VII · Bells &amp; Whistles</div>
+  <h1>The Extended Instrument Case</h1>
+  <p class="lede">The core machine is complete. What remains are the refinements that made XGBoost an industrial tool — each a small idea, and each now a one-paragraph corollary of things you already know.</p>
+
+  <h2>7.1 — The objective zoo</h2>
+  <p>Chapter I promised that changing the loss changes only <span class="m hl-g">g</span> and <span class="m hl-h">h</span>. Cash the promise: to turn our regression engine into a <strong>frost classifier</strong> (<span class="m">y ∈ {0,1}</span>), keep every line of tree code and swap two formulas. The model's raw score <span class="m">z</span> becomes a probability via the sigmoid <span class="m">p = 1/(1+e<sup>−z</sup>)</span>, and log-loss gives:</p>
+  <div class="eq"><span class="no">EQ 7.1</span>
+    <span class="m hl-g">g<sub>i</sub></span> <span class="mr">=</span> <span class="m">p<sub>i</sub> − y<sub>i</sub></span>
+    <span style="display:inline-block; width:56px"></span>
+    <span class="m hl-h">h<sub>i</sub></span> <span class="mr">=</span> <span class="m">p<sub>i</sub>(1 − p<sub>i</sub>)</span>
+    <span class="cap">The gradient is again "prediction minus truth" — in probability space. The Hessian is the variance of a coin with bias <i>p</i>: maximal at p = ½, zero at certainty. Every formula you have learned now reweights itself: leaves average corrections weighted by uncertainty; min_child_weight demands leaves contain enough <em>doubt</em>; and the gain seeks splits that separate the confidently-wrong from the rest.</span>
+  </div>
+  <div class="lab">
+    <div class="head"><span class="name">Lab 7a · The Confidence Meter</span><span class="sub">one night in the frost classifier — g and h as the score moves</span></div>
+    <div class="body">
+      <div class="ctl-row">
+        <div class="ctl"><label>raw score z for this night <span class="val" id="zVal">0.0</span></label><input type="range" id="zSl" min="-5" max="5" step="0.1" value="0"></div>
+        <div class="ctl"><label>truth: frost occurred? <span class="val" id="fyVal">yes</span></label><input type="range" id="fySl" min="0" max="1" step="1" value="1"></div>
+      </div>
+      <canvas id="cvLogit" style="--ch:210px" height="210"></canvas>
+      <div class="readout" id="logitRead"></div>
+    </div>
+  </div>
+  <p>The same plug-in socket accepts multiclass softmax (one tree per class per round), Poisson counts, Tweedie for rainfall-like zero-inflated targets, quantile losses for "what drop will only 1 night in 10 exceed?", ranking losses, survival times, and any custom pair of <span class="mono">(g, h)</span> callbacks you write yourself. The engine never knows the difference.</p>
+
+  <h2>7.2 — Histograms and the quantile sketch</h2>
+  <p>The exact greedy scan sorts every feature in every node — brutal at a hundred million rows. The <strong>approximate algorithm</strong> replaces raw values with a few hundred <strong>bins</strong> whose edges are (weighted) quantiles of the feature, then scans bin boundaries only. Two refinements matter: the quantiles are weighted by <span class="m hl-h">h</span> — bins hold equal curvature, not equal counts, so resolution concentrates where the objective still has structure — and the <em>weighted quantile sketch</em> computes them in one streaming pass with provable error bounds, which is a genuine contribution of the XGBoost paper. Modern <span class="mono">hist</span> mode adds a lovely accounting trick: a child's histogram equals its parent's minus its sibling's, so each split's second histogram is free.</p>
+  <div class="lab">
+    <div class="head"><span class="name">Lab 7b · The Binning Desk</span><span class="sub">how much gain do you lose by not looking everywhere?</span></div>
+    <div class="body">
+      <div class="ctl-row">
+        <div class="ctl"><label>histogram bins <span class="val" id="binVal">8</span></label><input type="range" id="binSl" min="2" max="48" step="1" value="8"></div>
+      </div>
+      <canvas id="cvBins" style="--ch:200px" height="200"></canvas>
+      <div class="readout" id="binRead"></div>
+    </div>
+  </div>
+
+  <h2>7.3 — Randomness as regulariser</h2>
+  <p><span class="lever">subsample</span> shows each tree only a random fraction of rows; <span class="lever">colsample_bytree / _bylevel / _bynode</span> hide a random fraction of features per tree, per level, or per split. Both are borrowed from bagging and random forests, and both work for the same reason: trees that see different evidence make <em>decorrelated</em> mistakes, and decorrelated mistakes partially cancel in the sum (EQ 2.1). Column subsampling has a second virtue: it forces the ensemble to develop backup routes around a dominant feature — insurance for the day the anemometer really does die. You already felt both in Lab 6, step 4.</p>
+
+  <h2>7.4 — Constraints, priors, and other house rules</h2>
+  <ul class="plain">
+    <li><b>Monotone constraints.</b> Physics says the drop cannot <em>increase</em> with cloud cover. Declare it, and during the scan any split whose two leaf values would violate the ordering is discarded, with bounds propagated down the subtree. You trade a little training fit for a model that cannot embarrass you in front of a physicist — often a validation <em>gain</em>, since the constraint is true.</li>
+    <li><b>Interaction constraints.</b> Permit only declared feature groups to co-occur along a root-to-leaf path — "cloud may interact with wind, but month works alone."</li>
+    <li><b>base_score.</b> <span class="m">F₀</span> — the prediction before any tree exists. For regression, the target mean; for rare-event classification, the log-odds of the base rate, so early trees model structure instead of wasting rounds discovering that frost is uncommon.</li>
+    <li><b>α (L1, <span class="mono">reg_alpha</span>).</b> λ's sharper sibling: soft-thresholds each leaf, <span class="m">w★ = −sign(G)·max(0, |G|−α)/(H+λ)</span>. Small pooled gradients snap to exactly zero — leaves must clear a minimum conviction to speak at all.</li>
+    <li><b>DART.</b> Dropout for trees: each round, temporarily delete a random subset of existing trees, fit the new tree to the gradients of the <em>diminished</em> ensemble, then rescale. Fights the pattern where late trees only polish the residual crumbs of early ones.</li>
+    <li><b>max_delta_step.</b> A hard clamp on any leaf's |w★| — a belt to λ's braces, mostly for wildly imbalanced logistic problems where early Hessians are near zero and Newton steps explode.</li>
+  </ul>
+
+  <h2>7.5 — Viva voce</h2>
+  <p>Close the notes. If the course has worked, these should feel less like trivia than like consequences.</p>
+  <details class="q"><summary>Why does XGBoost require a <em>twice</em>-differentiable loss when plain gradient boosting needs only one derivative?</summary><div class="ans">Because the leaf weight is a <b>Newton step</b>, w★ = −G/(H+λ): the second derivative sits in the denominator of every leaf and every gain. First-order boosting fits the gradient's <i>shape</i> and picks step sizes by line search or decree; XGBoost's second-order expansion (EQ 3.2) makes the objective a per-leaf parabola solvable in closed form.</div></details>
+    <details class="q"><summary>λ = 0, and a leaf ends up containing points whose Hessians are all ≈ 0. What happens, mechanically?</summary><div class="ans">w★ = −G/(H+λ) → −G/0: the leaf weight <b>diverges</b>. A whisper of pooled gradient over no curvature is a division-by-nearly-zero — numerically an enormous, wildly overconfident leaf. This is why absolute loss needs a fake Hessian, why max_delta_step exists, and why min_child_weight is phrased in Hessian mass rather than sample count.</div></details>
+  <details class="q"><summary>Your training data has no missing values, but production data will. Does the default direction still get learned?</summary><div class="ans">Yes — every node still stores one. With nothing missing at training time, the choice comes free of evidence (implementations pick a convention — dense training data typically yields default-right), so it's <b>arbitrary rather than informed</b>. The model won't crash in production, but absence will be routed by convention, not by learned meaning. If production will have gaps, train with representative gaps.</div></details>
+  <details class="q"><summary>Why does a split's gain never exceed the sum of its children's future gains — i.e. why can γ prune too eagerly?</summary><div class="ans">Gain is <b>greedy and local</b>: EQ 4.1 scores one split assuming the children stay leaves. A mediocre split can unlock brilliant grandchildren (classic case: XOR-like interactions, where the first split alone separates nothing), but γ is applied to the mediocre split <i>now</i>. Depth-wise growth with post-pruning (grow to max_depth, then collapse negative-gain subtrees bottom-up) exists precisely to soften this.</div></details>
+  <details class="q"><summary>min_child_weight = 200 barely changes your squared-loss model but devastates your log-loss model on the same features. Why?</summary><div class="ans">Under squared loss h = 1, so the constraint means "≥ 200 <i>points</i> per leaf" — mild in a big dataset. Under log-loss h = p(1−p) ≤ ¼, so 200 of Hessian requires at least <b>800 points</b>, and far more once the model grows confident (h → 0). Same number, different currency: the parameter is denominated in curvature.</div></details>
+  <details class="q"><summary>Halving η while doubling n_trees usually improves validation loss. What is the honest cost, besides compute?</summary><div class="ans">Almost none — that's the point — but "almost": the ensemble becomes <b>larger to store and slower to score</b> at prediction time, and past a point the returns vanish because shrinkage only helps until the trajectory through function space is smooth enough that further damping just retraces it. Early stopping finds that point for you.</div></details>
+</section>
+
+<!-- ============================ CH 8 ============================ -->
+<section class="page" id="pg-ch8">
+  <div class="eyebrow">Chapter VIII · Epilogue</div>
+  <h1>The Cheat Sheet</h1>
+  <p class="lede">The whole course on one plate. If you can reconstruct each line's <em>why</em>, the instrument is yours.</p>
+
+  <div class="eq"><span class="no">THE COURSE IN FOUR LINES</span>
+    <div style="font-size:19px; line-height:2.6; text-align:left; max-width:640px; margin:0 auto">
+    <span class="mono" style="font-size:11px; color:var(--faint)">I&nbsp;&nbsp;</span> <span class="m hl-g">g<sub>i</sub></span><span class="mr"> = ∂l/∂ŷ,&nbsp;&nbsp;</span><span class="m hl-h">h<sub>i</sub></span><span class="mr"> = ∂²l/∂ŷ²</span> <span style="color:var(--faint); font-size:15px">— the loss, reduced to slope and curvature</span><br>
+    <span class="mono" style="font-size:11px; color:var(--faint)">III</span> <span class="m">w<sub>j</sub><sup>★</sup></span> <span class="mr">= −</span><span class="frac"><span><span class="m hl-g">G<sub>j</sub></span></span><span><span class="m hl-h">H<sub>j</sub></span><span class="mr">+</span><span class="m hl-a">λ</span></span></span> <span style="color:var(--faint); font-size:15px">— each leaf: a pooled, ballasted Newton step</span><br>
+    <span class="mono" style="font-size:11px; color:var(--faint)">IV&nbsp;</span> <span class="mr">Gain = ½[</span><span class="m">G<sub>L</sub>²/(H<sub>L</sub>+λ) + G<sub>R</sub>²/(H<sub>R</sub>+λ) − G²/(H+λ)</span><span class="mr">] − </span><span class="m hl-a">γ</span> <span style="color:var(--faint); font-size:15px">— split iff it resolves an argument worth the toll</span><br>
+    <span class="mono" style="font-size:11px; color:var(--faint)">II&nbsp;</span> <span class="m">F<sub>t</sub></span> <span class="mr">=</span> <span class="m">F<sub>t−1</sub></span> <span class="mr">+</span> <span class="m hl-a">η</span><span class="m">·f<sub>t</sub></span> <span style="color:var(--faint); font-size:15px">— add it, damped; repeat; stop when validation says so</span>
+    </div>
+  </div>
+
+  <h2>The levers, with job descriptions</h2>
+  <table class="lv">
+    <tr><th>lever</th><th>where it lives</th><th>what it really does</th></tr>
+    <tr><td>eta (η)</td><td>EQ 2.2</td><td><b>Damps every tree's contribution.</b> Leaves headroom for future corrections; the one lever that fights over- and underfit together, paid in trees.</td></tr>
+    <tr><td>lambda (λ)</td><td>EQ 3.4 denominator</td><td><b>Ballast in every leaf.</b> λ phantom residents voting "do nothing"; shrinks weights towards zero, hits small-H leaves hardest, deflates all gains.</td></tr>
+    <tr><td>gamma (γ)</td><td>EQ 4.1 tail</td><td><b>Toll per new leaf.</b> A split must resolve ≥ γ of gradient argument or the room stays whole. Pre-pruning, derived from the objective.</td></tr>
+    <tr><td>min_child_weight</td><td>constraint on H<sub>L</sub>, H<sub>R</sub></td><td><b>Floor on leaf curvature.</b> Refuses leaves whose pooled parabola is too shallow to trust. Counts points under squared loss; counts <i>doubt</i> under log-loss.</td></tr>
+    <tr><td>max_depth</td><td>growth recursion</td><td><b>Cap on interaction order.</b> Depth d can express interactions among ≤ d features along a path. Depth 1 = additive model.</td></tr>
+    <tr><td>subsample</td><td>per-round row draw</td><td><b>Decorrelates trees' mistakes</b> so they cancel in the sum; also 25–50% faster per tree.</td></tr>
+    <tr><td>colsample_*</td><td>per tree/level/node feature draw</td><td><b>Forces backup routes</b> around dominant features; decorrelation in feature space.</td></tr>
+    <tr><td>alpha (α)</td><td>soft-threshold on w★</td><td><b>Minimum conviction to speak.</b> Leaves with |G| ≤ α output exactly zero.</td></tr>
+    <tr><td>early stopping</td><td>the training loop</td><td><b>Lets validation choose n_trees.</b> The only lever measured, not guessed.</td></tr>
+    <tr><td>base_score</td><td>F₀</td><td><b>The prior.</b> Start at the answer a model with no features would give.</td></tr>
+  </table>
+
+  <h2>The one-sentence version</h2>
+  <p style="font-size:22px; font-style:italic; color:var(--gold); max-width:62ch">XGBoost repeatedly asks every data point for its complaint (<span class="m hl-g">g</span>) and its credibility (<span class="m hl-h">h</span>), grows a tree whose every split separates the loudest disagreements — tolled by γ, ballasted by λ — sets each leaf to the pooled Newton step of its residents, adds the tree at a fraction η of full strength, and stops when held-out nights say the corrections have become memories.</p>
+  <p>Where next, if you want it: the 2016 paper (Chen &amp; Guestrin, <em>XGBoost: A Scalable Tree Boosting System</em>) will now read as an engineering memo about ideas you own — its cache-aware block layout and out-of-core columns are Chapter IV's scan made mechanically sympathetic. LightGBM's GOSS and histogram subtraction, CatBoost's ordered boosting and target statistics, and NGBoost's probabilistic outputs are all dialects of the same grammar: <em>g, h, gain, shrink, repeat.</em></p>
+  <hr>
+  <p class="footnote">Built as a single self-contained file. The dataset is synthesised in your browser from a seeded generator (a boundary-layer fable, not observatory data); the XGBoost inside is a faithful exact-greedy implementation in about two hundred lines of vanilla JS — view source, it's all here.</p>
+</section>
+</main>
+<script>
+'use strict';
+/* ================= core helpers ================= */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function gauss(rng){let u=0,v=0;while(u===0)u=rng();while(v===0)v=rng();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}
+const C={ink:'#eae2cf',dim:'#a79c83',faint:'#6f664f',rule:'#2a2417',brass:'#dca85c',teal:'#8bbfa8',rose:'#cf7a8e',blue:'#84abd1',gold:'#f0d9a4',bg:'#16130c'};
+const fmt=(x,d=2)=>(+x).toFixed(d);
+
+function niceStep(x){const p=Math.pow(10,Math.floor(Math.log10(x)));const d=x/p;return(d<1.5?1:d<3.5?2:d<7.5?5:10)*p}
+function ticks(a,b,n){const s=niceStep((b-a)/Math.max(1,n));const t=[];for(let v=Math.ceil(a/s-1e-9)*s;v<=b+1e-9;v+=s)t.push(+v.toFixed(8));return t}
+function frame(cv,xd,yd,opt={}){
+  const r=window.devicePixelRatio||1;
+  const w=cv.clientWidth||700;
+  const h=cv.clientHeight||parseInt(cv.getAttribute('height'))||200;
+  const bw=Math.min(4096,Math.round(w*r)),bh=Math.min(4096,Math.round(h*r));
+  if(cv.width!==bw||cv.height!==bh){cv.width=bw;cv.height=bh}
+  const ctx=cv.getContext('2d');ctx.setTransform(r,0,0,r,0,0);
+  const L=opt.L!==undefined?opt.L:48,R=opt.R!==undefined?opt.R:14,T=opt.T!==undefined?opt.T:12,B=opt.B!==undefined?opt.B:30;
+  const X=v=>L+(v-xd[0])/(xd[1]-xd[0])*(w-L-R);
+  const Y=v=>h-B-(v-yd[0])/(yd[1]-yd[0])*(h-T-B);
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle=C.bg;ctx.fillRect(0,0,w,h);
+  ctx.font='10.5px "IBM Plex Mono", monospace';
+  ctx.lineWidth=1;
+  if(!opt.noGrid){
+    for(const tv of ticks(xd[0],xd[1],opt.xt||6)){
+      ctx.strokeStyle=C.rule;ctx.beginPath();ctx.moveTo(X(tv),T);ctx.lineTo(X(tv),h-B);ctx.stroke();
+      ctx.fillStyle=C.faint;ctx.textAlign='center';ctx.fillText(String(+tv.toFixed(4)),X(tv),h-B+15);
+    }
+    for(const tv of ticks(yd[0],yd[1],opt.yt||5)){
+      ctx.strokeStyle=C.rule;ctx.beginPath();ctx.moveTo(L,Y(tv));ctx.lineTo(w-R,Y(tv));ctx.stroke();
+      ctx.fillStyle=C.faint;ctx.textAlign='right';ctx.fillText(String(+tv.toFixed(4)),L-6,Y(tv)+3.5);
+    }
+  }
+  if(opt.zero!==false && yd[0]<0 && yd[1]>0){ctx.strokeStyle='#4a4028';ctx.beginPath();ctx.moveTo(L,Y(0));ctx.lineTo(w-R,Y(0));ctx.stroke()}
+  if(opt.xl){ctx.fillStyle=C.dim;ctx.textAlign='center';ctx.fillText(opt.xl,L+(w-L-R)/2,h-4)}
+  if(opt.yl){ctx.save();ctx.translate(11,T+(h-T-B)/2);ctx.rotate(-Math.PI/2);ctx.fillStyle=C.dim;ctx.textAlign='center';ctx.fillText(opt.yl,0,0);ctx.restore()}
+  return{ctx,X,Y,w,h,L,R,T,B};
+}
+function line(fr,pts,color,lw=1.8,dash=null){const{ctx}=fr;ctx.save();if(dash)ctx.setLineDash(dash);ctx.strokeStyle=color;ctx.lineWidth=lw;ctx.beginPath();let started=false;for(const p of pts){if(p==null||!isFinite(p[1])){started=false;continue}const x=fr.X(p[0]),y=fr.Y(p[1]);if(!started){ctx.moveTo(x,y);started=true}else ctx.lineTo(x,y)}ctx.stroke();ctx.restore()}
+function dot(fr,x,y,rr,color,alpha=1){const{ctx}=fr;ctx.save();ctx.globalAlpha=alpha;ctx.fillStyle=color;ctx.beginPath();ctx.arc(fr.X(x),fr.Y(y),rr,0,7);ctx.fill();ctx.restore()}
+function vline(fr,x,color,lw=1.5,dash=null){const{ctx}=fr;ctx.save();if(dash)ctx.setLineDash(dash);ctx.strokeStyle=color;ctx.lineWidth=lw;ctx.beginPath();ctx.moveTo(fr.X(x),fr.T);ctx.lineTo(fr.X(x),fr.h-fr.B);ctx.stroke();ctx.restore()}
+function hline(fr,y,color,lw=1.2,dash=null){const{ctx}=fr;ctx.save();if(dash)ctx.setLineDash(dash);ctx.strokeStyle=color;ctx.lineWidth=lw;ctx.beginPath();ctx.moveTo(fr.L,fr.Y(y));ctx.lineTo(fr.w-fr.R,fr.Y(y));ctx.stroke();ctx.restore()}
+const $=id=>document.getElementById(id);
+function onIn(id,f){$(id).addEventListener('input',f)}
+
+/* ================= routing ================= */
+const CH=[
+ {id:'toc'},
+ {id:'ch1',n:'I',t:'The Loss Function',d:'What it costs to be wrong — and why XGBoost only ever asks your loss for two derivatives, g and h.'},
+ {id:'ch2',n:'II',t:'Boosting: a Committee of Corrections',d:'Additive models, stagewise fitting, residuals as gradients, and the learning rate as institutional humility.'},
+ {id:'ch3',n:'III',t:'The Newton Step: Deriving the Leaf',d:'The second-order Taylor trick, the regularised objective, and w★ = −G/(H+λ) derived on one page.'},
+ {id:'ch4',n:'IV',t:'Growing the Tree: the Gain',d:'The split-gain formula, the exact greedy scan, and γ, λ, min_child_weight caught in the act.'},
+ {id:'ch5',n:'V',t:'Missing Data: the Default Direction',d:'The iced anemometer, sparsity-aware splitting, and learning the meaning of absence.'},
+ {id:'ch6',n:'VI',t:'The Observatory Model',d:'A complete XGBoost running in this page: every lever, live curves, tree anatomy, ruin and rescue.'},
+ {id:'ch7',n:'VII',t:'Bells & Whistles',d:'The objective zoo, quantile sketches, randomness as regulariser, constraints, DART — and a viva.'},
+ {id:'ch8',n:'VIII',t:'The Cheat Sheet',d:'Four formulas, ten levers with job descriptions, and the one-sentence version of the whole machine.'},
+];
+const drawFns={};
+let cur='toc';
+function go(id){
+  if(!document.getElementById('pg-'+id))id='toc';
+  document.querySelectorAll('section.page').forEach(s=>s.classList.remove('on'));
+  $('pg-'+id).classList.add('on');cur=id;
+  const m=CH.find(c=>c.id===id);
+  $('whereami').textContent=id==='toc'?'Contents':('Chapter '+m.n+' · '+m.t);
+  try{if(location.hash!=='#'+id)history.replaceState(null,'','#'+id)}catch(e){}
+  window.scrollTo({top:0,behavior:'auto'});
+  requestAnimationFrame(()=>{if(drawFns[id])drawFns[id]()});
+}
+window.addEventListener('hashchange',()=>go(location.hash.slice(1)||'toc'));
+let rsz=null;window.addEventListener('resize',()=>{clearTimeout(rsz);rsz=setTimeout(()=>{if(drawFns[cur])drawFns[cur]();if(cur==='toc')drawTocGlyphs()},150)});
+
+/* build TOC cards + pagers */
+(function(){
+  const grid=$('tocGrid');
+  CH.slice(1).forEach((c,i)=>{
+    const el=document.createElement('div');el.className='toc-card';el.tabIndex=0;
+    el.innerHTML='<div class="num">CHAPTER '+c.n+'</div><div class="tt">'+c.t+'</div><div class="dd">'+c.d+'</div><canvas id="gl-'+c.id+'" height="44"></canvas>';
+    el.addEventListener('click',()=>go(c.id));
+    el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go(c.id)}});
+    grid.appendChild(el);
+  });
+  CH.slice(1).forEach((c,i)=>{
+    const sec=$('pg-'+c.id);const pg=document.createElement('div');pg.className='pager';
+    const prev=i===0?{id:'toc',t:'Contents',n:''}:CH[i];const next=CH[i+2];
+    let html='<a href="#'+prev.id+'">← '+(prev.n?'CH '+prev.n:'HOME')+'<span>'+prev.t+'</span></a>';
+    html+=next?'<a href="#'+next.id+'" style="text-align:right">CH '+next.n+' →<span>'+next.t+'</span></a>':'<a href="#toc" style="text-align:right">FIN →<span>Back to contents</span></a>';
+    pg.innerHTML=html;sec.appendChild(pg);
+  });
+})();
+
+/* ================= shared physics fable ================= */
+function calm(w){return w<=0.5?1:1/(1+0.45*w)}
+function nightLen(m){return 11+2.5*Math.cos(2*Math.PI*(m-1)/12)}
+function genNights(n,seed){
+  const rng=mulberry32(seed);const D=[];
+  for(let i=0;i<n;i++){
+    const month=1+Math.floor(rng()*12);
+    const cloud=rng()<0.38?Math.floor(rng()*3.5):Math.floor(rng()*9);
+    const wind=Math.min(12,-2.6*Math.log(1-rng()*0.985));
+    const dpd=Math.max(0,1+rng()*3.5+(8-cloud)*0.45*rng()+gauss(rng)*0.5);
+    const nl=nightLen(month);
+    const drop=0.11*nl+0.42*nl*((8-cloud)/8)*calm(wind)*(1+0.06*dpd)+0.13*dpd+gauss(rng)*0.75;
+    const winter=(month<=2||month===12);
+    const pMiss=(winter&&wind<3.5&&cloud<5)?0.55:0.05;
+    const wobs=rng()<pMiss?NaN:wind;
+    D.push({month,cloud,wind:wobs,windTrue:wind,dpd,drop:Math.max(0.2,drop)});
+  }
+  return D;
+}
+function gainFn(GL,HL,GR,HR,lam){const G=GL+GR,H=HL+HR;return 0.5*(GL*GL/(HL+lam)+GR*GR/(HR+lam)-G*G/(H+lam))}
+
+/* ================= LAB 1 · loss bench ================= */
+const L1={kind:'sq'};
+function lossFns(kind,y,d){
+  const sig=z=>1/(1+Math.exp(-z));
+  if(kind==='sq')return{l:p=>0.5*(p-y)*(p-y),g:p=>p-y,h:p=>1};
+  if(kind==='abs')return{l:p=>Math.abs(p-y),g:p=>Math.sign(p-y),h:p=>0};
+  if(kind==='hub')return{l:p=>d*d*(Math.sqrt(1+((p-y)/d)**2)-1),
+    g:p=>(p-y)/Math.sqrt(1+((p-y)/d)**2),
+    h:p=>1/Math.pow(1+((p-y)/d)**2,1.5)};
+  return{l:p=>{const q=sig(p);return -(y*Math.log(q+1e-12)+(1-y)*Math.log(1-q+1e-12))},
+    g:p=>sig(p)-y,h:p=>{const q=sig(p);return q*(1-q)}};
+}
+function drawLab1(){
+  const kind=L1.kind,isLog=kind==='log';
+  $('lossYCtl').style.display=isLog?'none':'';
+  $('logYCtl').style.display=isLog?'':'none';
+  $('hubCtl').style.display=kind==='hub'?'':'none';
+  const y=isLog?+$('logY').value:+$('lossY').value;
+  const d=+$('hubD').value, p=+$('lossP').value;
+  const F=lossFns(kind,y,d);
+  const xd=isLog?[-6,6]:[Math.min(-4,y-8),Math.max(8,y+8)];
+  const pp=Math.max(xd[0],Math.min(xd[1],p));
+  let ymax=0;const N=240,ls=[],gs=[],hs=[];
+  for(let i=0;i<=N;i++){const x=xd[0]+i*(xd[1]-xd[0])/N;ls.push([x,F.l(x)]);gs.push([x,F.g(x)]);hs.push([x,F.h(x)]);ymax=Math.max(ymax,F.l(x))}
+  const gmax=Math.max(...gs.map(q=>Math.abs(q[1])),1);
+  const yd=[-Math.max(gmax,1.15)*1.1,ymax*1.05];
+  const fr=frame($('cvLoss'),xd,yd,{xl:isLog?'raw score ŷ (log-odds)':'prediction ŷ (°C of drop)',yl:'value'});
+  line(fr,ls,C.blue,2);line(fr,gs,C.teal,1.7);line(fr,hs,C.rose,1.7);
+  if(!isLog)vline(fr,y,C.faint,1,[4,4]);
+  vline(fr,pp,C.brass,1.6);
+  dot(fr,pp,F.l(pp),4,C.blue);dot(fr,pp,F.g(pp),4,C.teal);dot(fr,pp,F.h(pp),4,C.rose);
+  const gf={sq:'g = ŷ − y',abs:'g = sign(ŷ − y)',hub:'g = (ŷ−y)/√(1+((ŷ−y)/δ)²)',log:'g = σ(ŷ) − y'}[kind];
+  const hf={sq:'h = 1',abs:'h = 0  ⚠ no curvature',hub:'h = (1+((ŷ−y)/δ)²)^(−3/2)',log:'h = σ(ŷ)(1−σ(ŷ))'}[kind];
+  $('lossRead').innerHTML='at ŷ = <b>'+fmt(pp,1)+'</b>'+(isLog?' → p = <b>'+fmt(1/(1+Math.exp(-pp)),3)+'</b>':'')+
+   ' &nbsp;·&nbsp; loss <b class="b">'+fmt(F.l(pp))+'</b> &nbsp;·&nbsp; <span class="g">'+gf+' = <b>'+fmt(F.g(pp))+'</b></span> &nbsp;·&nbsp; <span class="r">'+hf+' = <b>'+fmt(F.h(pp))+'</b></span>'+
+   '<br>Newton step −g/h → <b class="a">'+(F.h(pp)>1e-9?fmt(-F.g(pp)/F.h(pp)):'undefined (h = 0)')+'</b>'+(kind==='sq'?' — one hop to the truth, always':'');
+  $('lossYVal').textContent=fmt(+$('lossY').value,1);$('hubVal').textContent=fmt(d,1);
+  $('logYVal').textContent=$('logY').value==='1'?'1 (frost)':'0 (no frost)';$('lossPVal').textContent=fmt(p,1);
+}
+document.querySelectorAll('#lossSeg button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#lossSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');L1.kind=b.dataset.k;drawLab1();
+}));
+['lossY','hubD','logY','lossP'].forEach(id=>onIn(id,drawLab1));
+
+/* ================= LAB 2 · corrections committee ================= */
+const L2={};
+function lab2Reset(){
+  const rng=mulberry32(77);L2.pts=[];
+  for(let i=0;i<62;i++){const x=rng()*12;const y=1.8+6.6*calm(x)+gauss(rng)*0.55;L2.pts.push([x,y])}
+  L2.pts.sort((a,b)=>a[0]-b[0]);
+  L2.stumps=[];L2.F=L2.pts.map(()=>0);L2.base=L2.pts.reduce((s,p)=>s+p[1],0)/L2.pts.length;
+  L2.F=L2.pts.map(()=>L2.base);L2.last=null;
+}
+function stumpFit(xs,r){
+  const n=xs.length;let tot=0;for(const v of r)tot+=v;
+  let best=null,GL=0,nL=0;
+  for(let i=0;i<n-1;i++){GL+=r[i];nL++;if(xs[i+1][0]-xs[i][0]<1e-6)continue;
+    const GR=tot-GL,nR=n-nL;
+    const sc=GL*GL/nL+GR*GR/nR;
+    if(!best||sc>best.sc)best={sc,thr:(xs[i][0]+xs[i+1][0])/2,wl:GL/nL,wr:GR/nR};
+  }
+  return best;
+}
+function lab2Add(k){
+  const eta=+$('etaSl').value;
+  for(let j=0;j<k;j++){
+    const r=L2.pts.map((p,i)=>p[1]-L2.F[i]);
+    const s=stumpFit(L2.pts,r);if(!s)break;
+    s.eta=eta;L2.stumps.push(s);
+    L2.F=L2.F.map((f,i)=>f+eta*(L2.pts[i][0]<s.thr?s.wl:s.wr));
+    L2.last=s;
+  }
+  drawLab2();
+}
+function predL2(x){let f=L2.base;for(const s of L2.stumps)f+=s.eta*(x<s.thr?s.wl:s.wr);return f}
+function drawLab2(){
+  $('etaVal').textContent=fmt(+$('etaSl').value,2);
+  const fr=frame($('cvBoostTop'),[0,12],[0,10.5],{xl:'wind speed at 18:00 (m/s)',yl:'overnight drop (°C)'});
+  for(const p of L2.pts)dot(fr,p[0],p[1],2.6,C.dim,.7);
+  const curve=[];for(let i=0;i<=360;i++){const x=i/30;curve.push([x,predL2(x)])}
+  line(fr,curve,C.brass,2.2);
+  const r=L2.pts.map((p,i)=>p[1]-L2.F[i]);
+  const rmax=Math.max(1.2,...r.map(Math.abs));
+  const fb=frame($('cvBoostBot'),[0,12],[-rmax*1.15,rmax*1.15],{xl:'wind speed (m/s)',yl:'residual (°C)'});
+  for(let i=0;i<L2.pts.length;i++)dot(fb,L2.pts[i][0],r[i],2.4,C.rose,.75);
+  if(L2.last){const s=L2.last;
+    line(fb,[[0,s.eta*s.wl],[s.thr,s.eta*s.wl]],C.teal,2);
+    line(fb,[[s.thr,s.eta*s.wr],[12,s.eta*s.wr]],C.teal,2);
+    vline(fb,s.thr,C.teal,1,[3,3]);
+  }
+  const rmse=Math.sqrt(r.reduce((s,v)=>s+v*v,0)/r.length);
+  $('boostCount').textContent=L2.stumps.length+' trees';
+  $('boostRead').innerHTML='F(x) = <b>'+fmt(L2.base,2)+'</b> (mean)'+(L2.stumps.length?' + Σ η·stumps &nbsp;·&nbsp; last hire: <span class="g">split at wind &lt; '+fmt(L2.last.thr,2)+', leaves ('+fmt(L2.last.wl,2)+' | '+fmt(L2.last.wr,2)+') × η</span>':'')+' &nbsp;·&nbsp; training RMSE <b class="r">'+fmt(rmse,3)+'</b> °C';
+}
+$('bAdd1').addEventListener('click',()=>lab2Add(1));
+$('bAdd10').addEventListener('click',()=>lab2Add(10));
+$('bAdd50').addEventListener('click',()=>lab2Add(50));
+$('bReset').addEventListener('click',()=>{lab2Reset();drawLab2()});
+onIn('etaSl',()=>drawLab2());
+lab2Reset();
+
+/* ================= LAB 3 · one leaf ================= */
+const L3={g:[-2.4,-1.6,-2.9,-0.8,-2.0]};
+(function(){
+  const row=$('leafSliders');
+  L3.g.forEach((v,i)=>{
+    const d=document.createElement('div');d.className='ctl';d.style.minWidth='140px';
+    d.innerHTML='<label>g<sub>'+(i+1)+'</sub> <span class="val" id="lg'+i+'v">'+fmt(v,1)+'</span></label><input type="range" id="lg'+i+'" min="-4" max="4" step="0.1" value="'+v+'">';
+    row.appendChild(d);
+  });
+  L3.g.forEach((v,i)=>onIn('lg'+i,()=>{L3.g[i]=+$('lg'+i).value;$('lg'+i+'v').textContent=fmt(L3.g[i],1);drawLab3()}));
+})();
+function drawLab3(){
+  const lam=+$('lamSl').value;$('lamVal').textContent=fmt(lam,1);
+  const G=L3.g.reduce((s,v)=>s+v,0),H=5;
+  const ws=-G/(H+lam),wu=-G/H;
+  const xd=[-3.6,3.6];let ymin=0,ymax=1;
+  const tot=[],per=L3.g.map(()=>[]);
+  for(let i=0;i<=240;i++){const w=xd[0]+i*(xd[1]-xd[0])/240;
+    let s=0.5*lam*w*w;
+    L3.g.forEach((g,j)=>{const v=g*w+0.5*w*w;per[j].push([w,v]);s+=v});
+    tot.push([w,s]);ymin=Math.min(ymin,s);ymax=Math.max(ymax,s);
+  }
+  const fr=frame($('cvLeaf'),xd,[Math.min(ymin*1.2,-1),Math.min(ymax,26)],{xl:'leaf output w (°C of correction)',yl:'objective'});
+  per.forEach(p=>line(fr,p,C.faint,1));
+  line(fr,tot,C.gold,2.4);
+  vline(fr,Math.max(xd[0],Math.min(xd[1],wu)),C.teal,1.3,[4,4]);
+  vline(fr,ws,C.brass,1.8);
+  const ov=G*ws+0.5*(H+lam)*ws*ws;
+  dot(fr,ws,ov,4.5,C.brass);
+  $('leafRead').innerHTML='G = Σg = <b class="g">'+fmt(G)+'</b> &nbsp;·&nbsp; H = Σh = <b class="r">'+fmt(H,0)+'</b> (h=1 each) &nbsp;·&nbsp; λ = <b class="a">'+fmt(lam,1)+'</b>'+
+  '<br>w★ = −G/(H+λ) = <b class="a">'+fmt(ws,3)+'</b> &nbsp;·&nbsp; unregularised −G/H = <span class="g">'+fmt(wu,3)+'</span> &nbsp;·&nbsp; shrinkage factor H/(H+λ) = <b>'+fmt(H/(H+lam),3)+'</b>'+
+  '<br>this leaf improves the objective by −½G²/(H+λ) = <b class="b">'+fmt(-0.5*G*G/(H+lam),3)+'</b> (EQ 3.5, one term)';
+}
+onIn('lamSl',drawLab3);
+
+/* ================= LAB 4 · split scanner ================= */
+const L4={};
+(function(){
+  const rng=mulberry32(1204);L4.pts=[];
+  for(let i=0;i<48;i++){
+    /* winter nights, calm: radiative cooling collapses once cloud exceeds ~3 oktas */
+    const cloud=Math.min(8,Math.max(0,rng()*8));
+    const y=2.5+(cloud<3?6-0.8*cloud:1.6-0.1*cloud)+gauss(rng)*0.9;
+    L4.pts.push({x:cloud,y});
+  }
+  const mean=L4.pts.reduce((s,p)=>s+p.y,0)/L4.pts.length;
+  L4.pts.forEach(p=>p.g=mean-p.y);
+  L4.pts.sort((a,b)=>a.x-b.x);
+})();
+function scan4(lam,gam,mcw){
+  const P=L4.pts,n=P.length;const Gt=P.reduce((s,p)=>s+p.g,0);
+  const out=[];let GL=0,HL=0,best=null;
+  for(let i=0;i<n-1;i++){GL+=P[i].g;HL+=1;
+    if(P[i+1].x-P[i].x<1e-4)continue;
+    const thr=(P[i].x+P[i+1].x)/2;
+    const raw=gainFn(GL,HL,Gt-GL,n-HL,lam);
+    const ok=HL>=mcw&&(n-HL)>=mcw;
+    out.push({thr,raw,ok});
+    if(ok&&(!best||raw>best.raw))best={thr,raw};
+  }
+  return{out,best,Gt,n};
+}
+function splitAt4(thr){let GL=0,HL=0;for(const p of L4.pts)if(p.x<thr){GL+=p.g;HL++}return{GL,HL}}
+function drawLab4(){
+  const thr=+$('thrSl').value,lam=+$('lam4').value,gam=+$('gam4').value,mcw=+$('mcw4').value;
+  $('thrVal').textContent=fmt(thr,2);$('lam4Val').textContent=fmt(lam,1);$('gam4Val').textContent=fmt(gam,0);$('mcw4Val').textContent=fmt(mcw,0);
+  const gm=Math.max(...L4.pts.map(p=>Math.abs(p.g)))*1.15;
+  const fr=frame($('cvSplitTop'),[0,8],[-gm,gm],{xl:'cloud cover at 18:00 (oktas)',yl:'gradient gᵢ'});
+  fr.ctx.fillStyle='rgba(220,168,92,.05)';fr.ctx.fillRect(fr.L,fr.T,fr.X(thr)-fr.L,fr.h-fr.T-fr.B);
+  for(const p of L4.pts)dot(fr,p.x,p.g,3,p.g<0?C.teal:C.rose,.85);
+  vline(fr,thr,C.brass,1.8);
+  const{out,best,Gt,n}=scan4(lam,gam,mcw);
+  const rmax=Math.max(...out.map(o=>o.raw),gam*1.1,1);
+  const fb=frame($('cvSplitBot'),[0,8],[0,rmax*1.08],{xl:'candidate threshold (oktas)',yl:'gain (raw)'});
+  line(fb,out.filter(o=>o.ok).map(o=>[o.thr,o.raw]),C.gold,2);
+  for(const o of out)if(!o.ok)dot(fb,o.thr,o.raw,2.2,C.rose,.8);
+  hline(fb,gam,C.blue,1.4,[5,4]);
+  if(best&&best.raw>gam)vline(fb,best.thr,C.brass,1.2,[3,3]);
+  vline(fb,thr,C.brass,1.6);
+  const{GL,HL}=splitAt4(thr);const GR=Gt-GL,HR=n-HL;
+  const raw=gainFn(GL,HL,GR,HR,lam);const net=raw-gam;
+  const okc=HL>=mcw&&HR>=mcw;
+  $('splitRead').innerHTML='at your threshold: left <span class="g">G_L='+fmt(GL,1)+', H_L='+HL+'</span> · right <span class="r">G_R='+fmt(GR,1)+', H_R='+HR+'</span>'+
+   '<br>gain = ½[G_L²/(H_L+λ) + G_R²/(H_R+λ) − G²/(H+λ)] = <b class="a">'+fmt(raw,2)+'</b> &nbsp;−&nbsp; γ = <b>'+fmt(net,2)+'</b> → '+
+   (!okc?'<b class="r">forbidden — a child is below min_child_weight</b>':net>0?'<b class="g">SPLIT</b> · leaves would be w_L='+fmt(-GL/(HL+lam),2)+', w_R='+fmt(-GR/(HR+lam),2):'<b class="r">refused — argument not worth the toll</b>')+
+   '<br>best legal split: '+(best&&best.raw>gam?'<b class="a">cloud &lt; '+fmt(best.thr,2)+'</b> with net gain '+fmt(best.raw-gam,2):'<b class="r">none — this leaf stays whole</b>');
+}
+['thrSl','lam4','gam4','mcw4'].forEach(id=>onIn(id,drawLab4));
+
+/* ================= LAB 5 · iced anemometer ================= */
+const L5={dir:'L'};
+(function(){
+  const rng=mulberry32(505);L5.pres=[];L5.miss=[];
+  for(let i=0;i<40;i++){
+    const wind=Math.min(11,-2.8*Math.log(1-rng()*0.98));
+    const y=2+7.2*calm(wind)+gauss(rng)*0.75;
+    L5.pres.push({x:wind,y});
+  }
+  for(let i=0;i<9;i++){ /* iced: truly calm cold nights */
+    const wind=rng()*2.2;
+    const y=2+7.2*calm(wind)+gauss(rng)*0.75+0.6;
+    L5.miss.push({y});
+  }
+  const all=[...L5.pres,...L5.miss];const mean=all.reduce((s,p)=>s+p.y,0)/all.length;
+  L5.pres.forEach(p=>p.g=mean-p.y);L5.miss.forEach(p=>p.g=mean-p.y);
+  L5.pres.sort((a,b)=>a.x-b.x);
+})();
+function gains5(thr){
+  const lam=1;
+  let GL=0,HL=0;for(const p of L5.pres)if(p.x<thr){GL+=p.g;HL++}
+  const Gp=L5.pres.reduce((s,p)=>s+p.g,0),Hp=L5.pres.length;
+  const Gm=L5.miss.reduce((s,p)=>s+p.g,0),Hm=L5.miss.length;
+  const gl=gainFn(GL+Gm,HL+Hm,Gp-GL,Hp-HL,lam);
+  const gr=gainFn(GL,HL,Gp-GL+Gm,Hp-HL+Hm,lam);
+  return{gl,gr,Gm,Hm};
+}
+function drawLab5(){
+  const thr=+$('thr5').value;$('thr5Val').textContent=fmt(thr,2);
+  const gm=Math.max(...[...L5.pres,...L5.miss].map(p=>Math.abs(p.g)))*1.15;
+  const fr=frame($('cvMiss'),[0,13.6],[-gm,gm],{xl:'wind (m/s) — gutter at right: no reading',yl:'gradient gᵢ'});
+  const gx0=11.6;
+  fr.ctx.save();fr.ctx.setLineDash([4,4]);fr.ctx.strokeStyle=C.faint;
+  fr.ctx.strokeRect(fr.X(gx0),fr.T,fr.X(13.4)-fr.X(gx0),fr.h-fr.T-fr.B);fr.ctx.restore();
+  fr.ctx.fillStyle=C.faint;fr.ctx.textAlign='center';fr.ctx.fillText('∅ missing',fr.X(12.5),fr.T+12);
+  for(const p of L5.pres)dot(fr,p.x,p.g,3,p.g<0?C.teal:C.rose,.85);
+  L5.miss.forEach((p,i)=>dot(fr,11.9+ (i%4)*0.42,p.g,3,p.g<0?C.teal:C.rose,.85));
+  vline(fr,thr,C.brass,1.8);
+  const dir=L5.dir;
+  const ax=dir==='L'?thr-0.32:thr+0.32;
+  fr.ctx.save();fr.ctx.strokeStyle=C.gold;fr.ctx.fillStyle=C.gold;fr.ctx.lineWidth=1.4;
+  const yA=fr.T+22;fr.ctx.beginPath();fr.ctx.moveTo(fr.X(11.7),yA);fr.ctx.lineTo(fr.X(ax),yA);fr.ctx.stroke();
+  fr.ctx.beginPath();fr.ctx.moveTo(fr.X(ax),yA);fr.ctx.lineTo(fr.X(ax)+7,yA-4);fr.ctx.lineTo(fr.X(ax)+7,yA+4);fr.ctx.fill();fr.ctx.restore();
+  const{gl,gr,Gm,Hm}=gains5(thr);
+  const win=gl>=gr?'L':'R';
+  $('missRead').innerHTML='the 9 silent nights pool <span class="g">G_miss = '+fmt(Gm,1)+'</span>, H_miss = '+Hm+' — strongly "the drop was bigger than forecast"'+
+  '<br>gain with missing→<b>left</b>: <b class="'+(win==='L'?'a':'')+'">'+fmt(gl,2)+'</b> &nbsp;·&nbsp; missing→<b>right</b>: <b class="'+(win==='R'?'a':'')+'">'+fmt(gr,2)+'</b>'+
+  ' &nbsp;→&nbsp; stamp this node <b class="a">default '+(win==='L'?'LEFT':'RIGHT')+'</b>'+
+  (dir!==win?' <span class="r">(you are currently sending them the worse way)</span>':' <span class="g">(you agree with the algorithm)</span>');
+}
+document.querySelectorAll('#missSeg button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#missSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');L5.dir=b.dataset.k;drawLab5();
+}));
+$('bMissAuto').addEventListener('click',()=>{
+  let best=null;
+  for(let t=0.4;t<=10.6;t+=0.05){const{gl,gr}=gains5(t);const v=Math.max(gl,gr);if(!best||v>best.v)best={v,t,dir:gl>=gr?'L':'R'}}
+  $('thr5').value=best.t;L5.dir=best.dir;
+  document.querySelectorAll('#missSeg button').forEach(x=>x.classList.toggle('on',x.dataset.k===best.dir));
+  drawLab5();
+});
+onIn('thr5',drawLab5);
+
+/* ================= XGBoost proper ================= */
+const FEATS=['cloud','wind','dpd','month'];
+const FL={cloud:'cloud',wind:'wind',dpd:'dpd',month:'month'};
+function buildTree(rows,idx,g,prm,depth,feats,imp){
+  let Gt=0;for(const i of idx)Gt+=g[i];const Ht=idx.length;
+  const leaf=()=>({leaf:true,w:-Gt/(Ht+prm.lam),n:Ht});
+  if(depth>=prm.md||Ht<2)return leaf();
+  let best=null;
+  for(const f of feats){
+    const pres=[],missI=[];let Gm=0,Hm=0;
+    for(const i of idx){const v=rows[i][f];if(isNaN(v))
+      {missI.push(i);Gm+=g[i];Hm+=1}else pres.push(i)}
+    if(pres.length<2)continue;
+    pres.sort((a,b)=>rows[a][f]-rows[b][f]);
+    let GL=0,HL=0;
+    for(let k=0;k<pres.length-1;k++){
+      GL+=g[pres[k]];HL+=1;
+      if(rows[pres[k+1]][f]-rows[pres[k]][f]<1e-9)continue;
+      const thr=(rows[pres[k]][f]+rows[pres[k+1]][f])/2;
+      const GR=(Gt-Gm)-GL,HR=(Ht-Hm)-HL;
+      /* missing left */
+      if(HL+Hm>=prm.mcw&&HR>=prm.mcw){
+        const raw=gainFn(GL+Gm,HL+Hm,GR,HR,prm.lam)-prm.gam;
+        if(raw>1e-9&&(!best||raw>best.gain))best={gain:raw,f,thr,ml:true};
+      }
+      /* missing right */
+      if(HL>=prm.mcw&&HR+Hm>=prm.mcw){
+        const raw=gainFn(GL,HL,GR+Gm,HR+Hm,prm.lam)-prm.gam;
+        if(raw>1e-9&&(!best||raw>best.gain))best={gain:raw,f,thr,ml:false};
+      }
+    }
+  }
+  if(!best)return leaf();
+  imp[best.f]=(imp[best.f]||0)+best.gain;
+  const li=[],ri=[];
+  for(const i of idx){const v=rows[i][best.f];
+    const goL=isNaN(v)?best.ml:v<best.thr;
+    (goL?li:ri).push(i);
+  }
+  if(!li.length||!ri.length)return leaf();
+  return{leaf:false,f:best.f,thr:best.thr,ml:best.ml,gain:best.gain,n:Ht,
+    L:buildTree(rows,li,g,prm,depth+1,feats,imp),
+    R:buildTree(rows,ri,g,prm,depth+1,feats,imp)};
+}
+function predTree(node,row){let n=node;while(!n.leaf){const v=row[n.f];n=(isNaN(v)?n.ml:v<n.thr)?n.L:n.R}return n.w}
+
+/* ================= LAB 6 · training desk ================= */
+const L6={data:genNights(420,20261),trained:false,run:0};
+(function(){const rng=mulberry32(9);const idx=L6.data.map((_,i)=>i);
+  for(let i=idx.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[idx[i],idx[j]]=[idx[j],idx[i]]}
+  L6.tr=idx.slice(0,300);L6.va=idx.slice(300);
+})();
+function rmse(idx,F,data){let s=0;for(const i of idx)s+=(F[i]-data[i].drop)**2;return Math.sqrt(s/idx.length)}
+function getPrm(){return{nt:+$('p_nt').value,eta:+$('p_eta').value,md:+$('p_md').value,lam:+$('p_lam').value,gam:+$('p_gam').value,mcw:+$('p_mcw').value,ss:+$('p_ss').value,cs:+$('p_cs').value,es:+$('p_es').value}}
+function l6Init(){
+  const prm=getPrm();
+  const base=L6.tr.reduce((s,i)=>s+L6.data[i].drop,0)/L6.tr.length;
+  L6.state={prm,base,F:L6.data.map(()=>base),trees:[],trC:[],vaC:[],imp:{},rng:mulberry32(4242),bestVa:Infinity,bestRound:0,stopped:false};
+}
+function l6Round(){
+  const S=L6.state,prm=S.prm,data=L6.data;
+  if(S.trees.length>=prm.nt||S.stopped)return false;
+  let rows=L6.tr;
+  if(prm.ss<1){rows=[];for(const i of L6.tr)if(S.rng()<prm.ss)rows.push(i);if(rows.length<10)rows=L6.tr.slice()}
+  let feats=FEATS;
+  if(prm.cs<1){const k=Math.max(1,Math.round(prm.cs*4));const sh=FEATS.slice();
+    for(let i=sh.length-1;i>0;i--){const j=Math.floor(S.rng()*(i+1));[sh[i],sh[j]]=[sh[j],sh[i]]}
+    feats=sh.slice(0,k);}
+  const g2=[];for(const i of rows)g2[i]=S.F[i]-data[i].drop;
+  const tree=buildTree(data,rows,g2,prm,0,feats,S.imp);
+  S.trees.push(tree);
+  for(let i=0;i<data.length;i++)S.F[i]+=prm.eta*predTree(tree,data[i]);
+  const rt=rmse(L6.tr,S.F,data),rv=rmse(L6.va,S.F,data);
+  S.trC.push(rt);S.vaC.push(rv);
+  if(rv<S.bestVa-1e-6){S.bestVa=rv;S.bestRound=S.trees.length}
+  if(prm.es>0&&S.trees.length-S.bestRound>=prm.es)S.stopped=true;
+  return true;
+}
+function l6Train(){
+  L6.run++;const myRun=L6.run;
+  l6Init();L6.trained=true;
+  $('trainStatus').textContent='training…';
+  function step(){
+    if(myRun!==L6.run)return;
+    let go=true;
+    for(let k=0;k<5&&go;k++)go=l6Round();
+    drawLab6(false);
+    if(go)setTimeout(step,0);
+    else{
+      const S=L6.state;
+      $('trainStatus').textContent=(S.stopped?'stopped early at ':'finished at ')+S.trees.length+' trees';
+      $('p_ti').max=Math.max(1,S.trees.length);
+      drawLab6(true);
+    }
+  }
+  step();
+}
+function drawLab6(final){
+  ['nt','eta','md','lam','gam','mcw','ss','cs','es','ti'].forEach(k=>{
+    const el=$('p_'+k+'V');if(el)el.textContent=fmt(+$('p_'+k).value,{eta:2,ss:2,cs:2,lam:1,gam:1}[k]!==undefined?{eta:2,ss:2,cs:2,lam:1,gam:1}[k]:0);
+  });
+  if(!L6.state)l6Init();
+  const S=L6.state;
+  const n=S.trC.length;
+  /* curves */
+  const ymax=(S.trC.length?Math.max(...S.trC.slice(0,3),...S.vaC.slice(0,3),2):3)*1.05;
+  const fr=frame($('cvCurves'),[0,Math.max(10,S.prm.nt)],[0,ymax],{xl:'boosting round',yl:'RMSE (°C)'});
+  line(fr,S.trC.map((v,i)=>[i+1,v]),C.teal,1.8);
+  line(fr,S.vaC.map((v,i)=>[i+1,v]),C.rose,1.8);
+  if(n)vline(fr,S.bestRound,C.brass,1.2,[3,4]);
+  /* scatter */
+  const dmax=Math.max(...L6.data.map(d=>d.drop))*1.05;
+  const fs=frame($('cvScatter'),[0,dmax],[0,dmax],{xl:'observed drop (°C)',yl:'predicted',xt:5,yt:5});
+  line(fs,[[0,0],[dmax,dmax]],C.faint,1,[4,4]);
+  for(const i of L6.va)dot(fs,L6.data[i].drop,S.F[i],2.4,C.blue,.7);
+  /* importance */
+  const fi=frame($('cvImp'),[0,1],[0,1],{noGrid:true,zero:false,L:14,B:8,T:8,R:14});
+  const tot=FEATS.reduce((s,f)=>s+(S.imp[f]||0),0)||1;
+  const order=FEATS.slice().sort((a,b)=>(S.imp[b]||0)-(S.imp[a]||0));
+  order.forEach((f,k)=>{
+    const v=(S.imp[f]||0)/tot;
+    const y0=0.08+k*0.24;
+    fi.ctx.fillStyle=C.brass;fi.ctx.globalAlpha=.85;
+    fi.ctx.fillRect(fi.X(0.16),fi.Y(1-y0)-14,(fi.X(1)-fi.X(0.16))*v*0.95,14);
+    fi.ctx.globalAlpha=1;fi.ctx.fillStyle=C.dim;fi.ctx.textAlign='left';
+    fi.ctx.fillText(f,fi.X(0.005),fi.Y(1-y0)-3);
+    fi.ctx.fillStyle=C.gold;fi.ctx.fillText(fmt(v*100,0)+'%',fi.X(0.17)+(fi.X(1)-fi.X(0.16))*v*0.95+4,fi.Y(1-y0)-3);
+  });
+  /* tree */
+  const ti=Math.min(+$('p_ti').value,S.trees.length)||1;
+  drawTree($('cvTree'),S.trees[ti-1],S.prm.eta);
+  if(n){
+    $('trainRead').innerHTML='round <b>'+n+'</b> &nbsp;·&nbsp; train RMSE <b class="g">'+fmt(S.trC[n-1],3)+'</b> &nbsp;·&nbsp; val RMSE <b class="r">'+fmt(S.vaC[n-1],3)+'</b>'+
+    ' &nbsp;·&nbsp; best val <b class="a">'+fmt(S.bestVa,3)+'</b> at round <b class="a">'+S.bestRound+'</b>'+
+    ' &nbsp;·&nbsp; gap (memorisation) <b>'+fmt(S.vaC[n-1]-S.trC[n-1],3)+'</b>'+
+    '<br>inspecting tree '+ti+' of '+S.trees.length+' — leaf values shown ×η already';
+  }
+}
+function drawTree(cv,tree,eta){
+  const r=window.devicePixelRatio||1;const w=cv.clientWidth||700;
+  const h=cv.clientHeight||parseInt(cv.getAttribute('height'))||260;
+  const bw=Math.min(4096,Math.round(w*r)),bh=Math.min(4096,Math.round(h*r));
+  if(cv.width!==bw||cv.height!==bh){cv.width=bw;cv.height=bh}
+  const ctx=cv.getContext('2d');ctx.setTransform(r,0,0,r,0,0);
+  ctx.clearRect(0,0,w,h);ctx.fillStyle=C.bg;ctx.fillRect(0,0,w,h);
+  if(!tree){ctx.fillStyle=C.faint;ctx.font='12px "IBM Plex Mono",monospace';ctx.textAlign='center';ctx.fillText('train first',w/2,h/2);return}
+  let leafX=0;let maxD=0;
+  function layout(n,d){maxD=Math.max(maxD,d);if(n.leaf){n.x=leafX++;n.d=d;return n.x}
+    const a=layout(n.L,d+1),b=layout(n.R,d+1);n.x=(a+b)/2;n.d=d;return n.x}
+  layout(tree,0);
+  const nx=x=>30+(leafX<=1?w/2-30:x/(leafX-1)*(w-60));
+  const ny=d=>26+(maxD===0?0:d/(maxD)*(h-64));
+  ctx.font='10px "IBM Plex Mono",monospace';
+  function draw(n){
+    if(!n.leaf){
+      for(const ch of [n.L,n.R]){
+        ctx.strokeStyle='#4a4028';ctx.lineWidth=1;
+        ctx.beginPath();ctx.moveTo(nx(n.x),ny(n.d)+9);ctx.lineTo(nx(ch.x),ny(ch.d)-11);ctx.stroke();
+      }
+      draw(n.L);draw(n.R);
+      const t=n.f+'<'+fmt(n.thr,n.f==='month'?1:1);
+      const tw=ctx.measureText(t).width+12;
+      ctx.fillStyle='#231e15';ctx.strokeStyle='#4a4028';
+      ctx.fillRect(nx(n.x)-tw/2,ny(n.d)-11,tw,20);ctx.strokeRect(nx(n.x)-tw/2,ny(n.d)-11,tw,20);
+      ctx.fillStyle=C.gold;ctx.textAlign='center';ctx.fillText(t,nx(n.x),ny(n.d)+3);
+      ctx.fillStyle=C.blue;ctx.fillText('∅→'+(n.ml?'L':'R'),nx(n.x),ny(n.d)+21);
+    }else{
+      const v=n.w*eta;
+      const t=(v>=0?'+':'')+fmt(v,2);
+      const tw=ctx.measureText(t).width+10;
+      ctx.fillStyle=v>=0?'rgba(139,191,168,.22)':'rgba(207,122,142,.22)';
+      ctx.strokeStyle=v>=0?C.teal:C.rose;
+      ctx.fillRect(nx(n.x)-tw/2,ny(n.d)-10,tw,18);ctx.strokeRect(nx(n.x)-tw/2,ny(n.d)-10,tw,18);
+      ctx.fillStyle=v>=0?C.teal:C.rose;ctx.textAlign='center';ctx.fillText(t,nx(n.x),ny(n.d)+3);
+    }
+  }
+  draw(tree);
+}
+$('bTrain').addEventListener('click',l6Train);
+$('bStep').addEventListener('click',()=>{
+  if(!L6.state)l6Init();
+  L6.state.prm=getPrm();
+  L6.state.prm.nt=Math.max(L6.state.prm.nt,L6.state.trees.length+1);
+  L6.state.stopped=false;l6Round();
+  $('p_ti').max=Math.max(1,L6.state.trees.length);
+  $('trainStatus').textContent=L6.state.trees.length+' trees (stepping)';
+  drawLab6(true);
+});
+['p_nt','p_eta','p_md','p_lam','p_gam','p_mcw','p_ss','p_cs','p_es','p_ti'].forEach(id=>onIn(id,()=>drawLab6(false)));
+
+/* ================= LAB 7a · confidence meter ================= */
+function drawLab7a(){
+  const z=+$('zSl').value,y=+$('fySl').value;
+  $('zVal').textContent=fmt(z,1);$('fyVal').textContent=y?'yes':'no';
+  const sig=v=>1/(1+Math.exp(-v));
+  const fr=frame($('cvLogit'),[-5,5],[-1.05,1.05],{xl:'raw score z (sum of trees)',yl:''});
+  const pc=[],hc=[],gc=[];
+  for(let i=0;i<=200;i++){const x=-5+i/20;const p=sig(x);pc.push([x,p]);hc.push([x,p*(1-p)]);gc.push([x,p-y])}
+  line(fr,pc,C.blue,2);line(fr,hc,C.rose,1.8);line(fr,gc,C.teal,1.8);
+  vline(fr,z,C.brass,1.6);
+  const p=sig(z);
+  dot(fr,z,p,4,C.blue);dot(fr,z,p*(1-p),4,C.rose);dot(fr,z,p-y,4,C.teal);
+  fr.ctx.fillStyle=C.dim;fr.ctx.textAlign='left';fr.ctx.font='10.5px "IBM Plex Mono",monospace';
+  fr.ctx.fillText('p = σ(z)',fr.X(3.1),fr.Y(0.97));
+  $('logitRead').innerHTML='p = σ(z) = <b class="b">'+fmt(p,3)+'</b> &nbsp;·&nbsp; <span class="g">g = p − y = <b>'+fmt(p-y,3)+'</b></span> &nbsp;·&nbsp; <span class="r">h = p(1−p) = <b>'+fmt(p*(1-p),3)+'</b></span>'+
+  '<br>Newton pull −g/h = <b class="a">'+fmt(-(p-y)/Math.max(p*(1-p),1e-6),2)+'</b> — '+
+  (p*(1-p)<0.05?(((p>.5)===(y===1))?'confident and right: this night has almost no say in future leaves':'confident and <b class="r">wrong</b>: tiny h makes the demanded correction enormous — this is what max_delta_step and λ exist to restrain'):'uncertain: maximum authority over where its leaf goes');
+}
+onIn('zSl',drawLab7a);onIn('fySl',drawLab7a);
+
+/* ================= LAB 7b · binning desk ================= */
+const L7B={};
+(function(){
+  const rng=mulberry32(7007);L7B.pts=[];
+  for(let i=0;i<160;i++){
+    const x=Math.min(12,-2.6*Math.log(1-rng()*0.985));
+    const y=2+7.2*calm(x)+gauss(rng)*0.8;
+    L7B.pts.push({x,y});
+  }
+  const mean=L7B.pts.reduce((s,p)=>s+p.y,0)/L7B.pts.length;
+  L7B.pts.forEach(p=>p.g=mean-p.y);
+  L7B.pts.sort((a,b)=>a.x-b.x);
+})();
+function drawLab7b(){
+  const nb=+$('binSl').value;$('binVal').textContent=nb;
+  const P=L7B.pts,n=P.length,lam=1;
+  const Gt=P.reduce((s,p)=>s+p.g,0);
+  /* exact curve */
+  const exact=[];let GL=0,HL=0,bestE=null;
+  for(let i=0;i<n-1;i++){GL+=P[i].g;HL++;if(P[i+1].x-P[i].x<1e-6)continue;
+    const t=(P[i].x+P[i+1].x)/2;const v=gainFn(GL,HL,Gt-GL,n-HL,lam);
+    exact.push([t,v]);if(!bestE||v>bestE.v)bestE={t,v};}
+  /* quantile bin edges (equal count) + binned candidates */
+  const edges=[];for(let k=1;k<nb;k++){edges.push(P[Math.floor(k*n/nb)].x)}
+  const cands=[];
+  for(const e of edges){let gl=0,hl=0;for(const p of P)if(p.x<e){gl+=p.g;hl++}
+    if(hl>0&&hl<n)cands.push({t:e,v:gainFn(gl,hl,Gt-gl,n-hl,lam)})}
+  const bestB=cands.reduce((a,c)=>!a||c.v>a.v?c:a,null);
+  const vmax=bestE.v*1.1;
+  const fr=frame($('cvBins'),[0,12],[0,vmax],{xl:'threshold — wind (m/s); vertical rules are h-weighted quantile bin edges',yl:'gain'});
+  for(const e of edges)vline(fr,e,'#3d3520',1);
+  line(fr,exact,C.gold,1.6);
+  for(const c of cands)dot(fr,c.t,c.v,3.4,C.teal,.95);
+  if(bestB)dot(fr,bestB.t,bestB.v,5,C.brass);
+  dot(fr,bestE.t,bestE.v,3,C.rose);
+  $('binRead').innerHTML='exact greedy: <b class="r">'+(n-1)+'-ish candidates</b>, best gain <b>'+fmt(bestE.v,2)+'</b> at '+fmt(bestE.t,2)+' m/s'+
+  '<br>with <b>'+nb+' bins</b>: <b class="g">'+cands.length+' candidates</b>, best gain <b class="a">'+(bestB?fmt(bestB.v,2):'—')+'</b> — <b>'+fmt(100*(bestB?bestB.v:0)/bestE.v,1)+'%</b> of the exact optimum retained'+
+  '<br>the routine finding: a few dozen well-placed bins recover ~99% of the gain at a fraction of the cost — and the slight blur is itself a mild regulariser';
+}
+onIn('binSl',drawLab7b);
+
+/* ================= TOC glyphs ================= */
+function glFrame(cv){const r=window.devicePixelRatio||1;const w=cv.clientWidth||300,h=44;
+  cv.width=Math.min(4096,Math.round(w*r));cv.height=Math.round(h*r);const ctx=cv.getContext('2d');ctx.setTransform(r,0,0,r,0,0);ctx.clearRect(0,0,w,h);return{ctx,w,h}}
+function drawTocGlyphs(){
+  let f=glFrame($('gl-ch1'));if(f.w>10){const{ctx,w,h}=f; /* parabola + tangent */
+    ctx.strokeStyle=C.blue;ctx.lineWidth=1.5;ctx.beginPath();
+    for(let i=0;i<=60;i++){const x=i/60;const y=h-6-((x-0.5)**2)*4*(h-14);i?ctx.lineTo(10+x*(w-20),y):ctx.moveTo(10+x*(w-20),y)}ctx.stroke();
+    ctx.strokeStyle=C.teal;ctx.setLineDash([3,3]);ctx.beginPath();ctx.moveTo(10+0.16*(w-20),h-6-(0.02)*4*(h-14)-14);ctx.lineTo(10+0.44*(w-20),h-2);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle=C.brass;ctx.beginPath();ctx.arc(10+0.3*(w-20),h-6-((0.3-0.5)**2)*4*(h-14),3,0,7);ctx.fill();}
+  f=glFrame($('gl-ch2'));if(f.w>10){const{ctx,w,h}=f;
+    ctx.strokeStyle=C.dim;ctx.lineWidth=1;ctx.beginPath();
+    for(let i=0;i<=60;i++){const x=i/60;const y=6+(h-12)*(1-1/(1+5*x));i?ctx.lineTo(8+x*(w-16),y):ctx.moveTo(8+x*(w-16),y)}ctx.stroke();
+    ctx.strokeStyle=C.brass;ctx.lineWidth=1.6;ctx.beginPath();let px=8;
+    for(let k=0;k<7;k++){const x0=k/7,x1=(k+1)/7;const y=6+(h-12)*(1-1/(1+5*(x0+x1)/2));
+      ctx.lineTo(8+x0*(w-16),y);ctx.lineTo(8+x1*(w-16),y)}ctx.stroke();}
+  f=glFrame($('gl-ch3'));if(f.w>10){const{ctx,w,h}=f;
+    for(let j=0;j<4;j++){ctx.strokeStyle=C.faint;ctx.lineWidth=1;ctx.beginPath();
+      const c=0.3+j*0.14;
+      for(let i=0;i<=50;i++){const x=i/50;const y=h-5-((x-c)**2)*3.4*(h-12);i?ctx.lineTo(8+x*(w-16),Math.max(3,y)):ctx.moveTo(8+x*(w-16),Math.max(3,y))}ctx.stroke();}
+    ctx.strokeStyle=C.gold;ctx.lineWidth=1.8;ctx.beginPath();
+    for(let i=0;i<=50;i++){const x=i/50;const y=h-8-((x-0.5)**2)*3.8*(h-12);i?ctx.lineTo(8+x*(w-16),Math.max(3,y)):ctx.moveTo(8+x*(w-16),Math.max(3,y))}ctx.stroke();
+    ctx.strokeStyle=C.brass;ctx.beginPath();ctx.moveTo(8+0.5*(w-16),h-4);ctx.lineTo(8+0.5*(w-16),8);ctx.stroke();}
+  f=glFrame($('gl-ch4'));if(f.w>10){const{ctx,w,h}=f;
+    ctx.strokeStyle=C.gold;ctx.lineWidth=1.6;ctx.beginPath();
+    for(let i=0;i<=70;i++){const x=i/70;const y=h-5-(h-12)*Math.exp(-((x-0.34)**2)/0.02)*0.95-(h-12)*Math.exp(-((x-0.7)**2)/0.05)*0.4;
+      i?ctx.lineTo(8+x*(w-16),y):ctx.moveTo(8+x*(w-16),y)}ctx.stroke();
+    ctx.strokeStyle=C.blue;ctx.setLineDash([3,3]);ctx.beginPath();ctx.moveTo(8,h-5-(h-12)*0.3);ctx.lineTo(w-8,h-5-(h-12)*0.3);ctx.stroke();ctx.setLineDash([]);}
+  f=glFrame($('gl-ch5'));if(f.w>10){const{ctx,w,h}=f;const rng=mulberry32(3);
+    for(let i=0;i<26;i++){const x=8+rng()*(w-70);const y=6+rng()*(h-12);
+      ctx.fillStyle=rng()<0.5?C.teal:C.rose;ctx.globalAlpha=.8;ctx.beginPath();ctx.arc(x,y,2,0,7);ctx.fill()}
+    ctx.globalAlpha=1;ctx.strokeStyle=C.faint;ctx.setLineDash([3,3]);ctx.strokeRect(w-52,4,44,h-8);ctx.setLineDash([]);
+    for(let i=0;i<6;i++){const x=w-46+ (i%3)*14;const y=10+Math.floor(i/3)*14;
+      ctx.fillStyle=C.teal;ctx.beginPath();ctx.arc(x,y,2,0,7);ctx.fill()}}
+  f=glFrame($('gl-ch6'));if(f.w>10){const{ctx,w,h}=f;
+    ctx.strokeStyle=C.teal;ctx.lineWidth=1.5;ctx.beginPath();
+    for(let i=0;i<=60;i++){const x=i/60;const y=6+(h-12)*(1-Math.exp(-3*x))*0.94;i?ctx.lineTo(8+x*(w-16),y):ctx.moveTo(8+x*(w-16),y)}ctx.stroke();
+    ctx.strokeStyle=C.rose;ctx.beginPath();
+    for(let i=0;i<=60;i++){const x=i/60;const y=6+(h-12)*((1-Math.exp(-3.4*x))*0.8-0.22*Math.max(0,x-0.42));i?ctx.lineTo(8+x*(w-16),y):ctx.moveTo(8+x*(w-16),y)}ctx.stroke();
+    ctx.strokeStyle=C.brass;ctx.setLineDash([3,3]);ctx.beginPath();ctx.moveTo(8+0.42*(w-16),4);ctx.lineTo(8+0.42*(w-16),h-4);ctx.stroke();ctx.setLineDash([]);}
+  f=glFrame($('gl-ch7'));if(f.w>10){const{ctx,w,h}=f;
+    ctx.strokeStyle=C.blue;ctx.lineWidth=1.5;ctx.beginPath();
+    for(let i=0;i<=60;i++){const x=i/60;const s=1/(1+Math.exp(-(x-0.5)*10));const y=h-5-s*(h-12);i?ctx.lineTo(8+x*(w-16),y):ctx.moveTo(8+x*(w-16),y)}ctx.stroke();
+    ctx.strokeStyle=C.rose;ctx.beginPath();
+    for(let i=0;i<=60;i++){const x=i/60;const s=1/(1+Math.exp(-(x-0.5)*10));const y=h-5-(s*(1-s))*4*(h-12)*0.9;i?ctx.lineTo(8+x*(w-16),y):ctx.moveTo(8+x*(w-16),y)}ctx.stroke();}
+  f=glFrame($('gl-ch8'));if(f.w>10){const{ctx,w,h}=f;const rng=mulberry32(8);
+    const vals=[0.9,0.62,0.4,0.22];
+    vals.forEach((v,k)=>{ctx.fillStyle=C.brass;ctx.globalAlpha=.35+0.16*k;
+      ctx.fillRect(10+k*(w-20)/4,h-6-v*(h-14),(w-20)/4-8,v*(h-14))});
+    ctx.globalAlpha=1;}
+}
+
+/* ================= page draw registry + init ================= */
+drawFns.ch1=()=>drawLab1();
+drawFns.ch2=()=>drawLab2();
+drawFns.ch3=()=>drawLab3();
+drawFns.ch4=()=>drawLab4();
+drawFns.ch5=()=>drawLab5();
+drawFns.ch6=()=>drawLab6(true);
+drawFns.ch7=()=>{drawLab7a();drawLab7b()};
+drawFns.toc=()=>drawTocGlyphs();
+go(location.hash.slice(1)||'toc');
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{if(drawFns[cur])drawFns[cur]();if(cur==='toc')drawTocGlyphs()});
+</script>
+</body>
+</html>
