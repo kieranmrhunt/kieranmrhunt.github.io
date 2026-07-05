@@ -3,30 +3,30 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="dark">
+<meta name="color-scheme" content="light">
 <title>The Oscillarium — a cabinet of climate indices</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Mulish:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#0C111B; --panel:#121826; --panel2:#0E1420; --line:#232E45; --grid:#1A2336;
-  --ink:#EDE7D9; --mut:#96A1B5; --dim:#5D6A82;
-  --amber:#F2A65A; --sky:#6FC3E8; --sea:#83DBB4; --rose:#E88FB4; --violet:#B49CF4;
-  --straw:#EDD35E; --coral:#EF7E6B; --teal:#5ED0C9; --moss:#C7D08C; --peri:#8FA8F4;
-  --neg:#4C9BE0; --pos:#EF7E5B;
+  --bg:#f7f0e4; --panel:#fffaf2; --panel2:#efe4d2; --line:#d8cbb7; --grid:#e8dccb;
+  --ink:#241c2f; --mut:#685f73; --dim:#938a9f;
+  --amber:#9d5d00; --sky:#1f7894; --sea:#2c8768; --rose:#ba3e73; --violet:#6f52ad;
+  --straw:#8a7312; --coral:#bf4a35; --teal:#16877f; --moss:#6f7d2c; --peri:#4f66b2;
+  --neg:#1f70b7; --pos:#c24d37;
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:"EB Garamond",Georgia,serif;font-size:17px;line-height:1.5}
-::selection{background:#33415e;color:var(--ink)}
+body{margin:0;background:linear-gradient(180deg,#fffaf2 0%,var(--bg) 58%,#eee2cf 100%);color:var(--ink);font-family:"EB Garamond",Georgia,serif;font-size:17px;line-height:1.5}
+::selection{background:#d8c3a2;color:var(--ink)}
 a{color:var(--sky);text-decoration:none}a:hover{text-decoration:underline}
 .mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace}
 button,select,input{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12.5px;color:var(--ink);background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
 button{cursor:pointer}button:hover{border-color:var(--dim)}
 button:focus-visible,select:focus-visible,input:focus-visible,.tab:focus-visible{outline:2px solid var(--sky);outline-offset:1px}
-button.pri{background:#1c2a45;border-color:#31446b}
-input[type=date]{color-scheme:dark}
+button.pri{background:#3b194f;border-color:#5d2a78;color:#fffaf2}
+input[type=date]{color-scheme:light}
 input[type=number]{width:5.4em}
 label.opt{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--mut);display:inline-flex;align-items:center;gap:5px;margin-right:8px}
 hr{border:0;border-top:1px solid var(--line);margin:16px 0}
@@ -70,7 +70,7 @@ h1.title{font-size:64px}
 .chart{position:relative;height:340px;margin:8px 0 2px}
 .chart.tall{height:420px}.chart.short{height:230px}
 .chart canvas{width:100%;height:100%;display:block;touch-action:pan-y}
-.tip{position:absolute;pointer-events:none;background:#0b101ce8;border:1px solid var(--line);border-radius:7px;padding:7px 9px;font-family:"IBM Plex Mono",monospace;font-size:11.5px;line-height:1.55;display:none;max-width:280px;z-index:5}
+.tip{position:absolute;pointer-events:none;background:rgba(255,250,242,.96);border:1px solid var(--line);border-radius:7px;padding:7px 9px;font-family:"IBM Plex Mono",monospace;font-size:11.5px;line-height:1.55;display:none;max-width:280px;z-index:5;box-shadow:0 12px 30px -24px rgba(36,28,47,.75)}
 .tip .d{color:var(--amber)}
 .legend{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
 .chip{display:inline-flex;align-items:center;gap:7px;font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:var(--panel2);border:1px solid var(--line);border-radius:20px;padding:4px 10px;color:var(--ink)}
@@ -95,7 +95,7 @@ h1.title{font-size:64px}
 table.t{border-collapse:collapse;width:100%;font-family:"IBM Plex Mono",monospace;font-size:12px}
 table.t th{font-weight:500;color:var(--mut);text-align:left;border-bottom:1px solid var(--line);padding:5px 8px;white-space:nowrap}
 table.t td{border-bottom:1px solid var(--grid);padding:5px 8px;white-space:nowrap}
-table.t tr:hover td{background:#151d30}
+table.t tr:hover td{background:#f2e8d7}
 table.t td.r,table.t th.r{text-align:right}
 .tw{overflow-x:auto}
 .lnk{color:var(--sky);cursor:pointer}

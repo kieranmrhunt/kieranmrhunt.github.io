@@ -58,19 +58,19 @@
     text-decoration:none;
     min-width:0;
   }
-  .sigil{
-    width:38px;
-    height:38px;
-    display:grid;
-    place-items:center;
-    color:#fff;
-    background:linear-gradient(135deg, var(--red), var(--gold));
-    border:1px solid rgba(0,0,0,.12);
-    box-shadow:inset 0 0 0 4px rgba(255,255,255,.26);
-    font-family:var(--serif);
-    font-weight:700;
-    border-radius:8px;
+  .uor-logo{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:148px;
+    height:46px;
+    padding:6px 9px;
+    background:#24112f;
+    border-radius:3px;
+    box-shadow:var(--shadow);
+    flex:none;
   }
+  .uor-logo img{display:block;width:100%;height:auto}
   .mark span:last-child{
     font-family:var(--mono);
     font-size:12px;
@@ -352,7 +352,7 @@
   <div class="wrap">
     <header class="topbar">
       <a class="mark" href="./" aria-label="Kieran Hunt projects home">
-        <span class="sigil">KH</span>
+        <span class="uor-logo"><img src="./assets/uor-logo.png" alt="University of Reading"></span>
         <span>kieranmrhunt.github.io</span>
       </a>
       <nav class="nav" aria-label="Project sections">
@@ -366,7 +366,7 @@
         <div>
           <div class="eyebrow">Interactive pages</div>
           <h1>Kieran Hunt projects</h1>
-          <p class="standfirst">A gathered front door for meteorology, research, and teaching pages, with games and other oddments kept on their own shelf.</p>
+          <p class="standfirst">A collection of meteorology and other pages.</p>
           <div class="hero-links">
             <button class="button" type="button" data-filter="meteorology" aria-controls="hero-projects" aria-pressed="true">Meteorology / research</button>
             <button class="button" type="button" data-filter="games" aria-controls="hero-projects" aria-pressed="false">Games / other</button>
