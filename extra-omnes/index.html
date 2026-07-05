@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Extra Omnes — Conclave Directory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=EB+Garamond:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#131019;
+    --panel:#1b1722;
+    --panel2:#241e2e;
+    --line:#3a3147;
+    --parch:#efe3c4;
+    --muted:#cdbd97;
+    --faint:#9c8f72;
+    --scarlet:#971722;
+    --gold:#c9a14f;
+    --green:#7fae6f;
+    --serif:"EB Garamond",Georgia,"Times New Roman",serif;
+    --disp:"Fraunces","EB Garamond",Georgia,serif;
+    --mono:"IBM Plex Mono","Courier New",monospace;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    min-height:100vh;
+    color:var(--parch);
+    background:
+      linear-gradient(90deg, rgba(239,227,196,.035) 1px, transparent 1px) 0 0/54px 54px,
+      radial-gradient(ellipse 90% 58% at 50% -12%, #2a2138 0%, transparent 62%),
+      var(--ink);
+    font-family:var(--serif);
+    font-size:18px;
+    line-height:1.55;
+  }
+  a{color:inherit}
+  .wrap{width:min(1120px, calc(100% - 32px));margin:0 auto;padding:24px 0 54px}
+  header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:20px;
+    padding:0 0 22px;
+    border-bottom:1px solid var(--line);
+  }
+  .brand{
+    text-decoration:none;
+    font-family:var(--mono);
+    font-size:12px;
+    letter-spacing:.18em;
+    text-transform:uppercase;
+    color:var(--gold);
+  }
+  .home{
+    text-decoration:none;
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--muted);
+  }
+  .hero{padding:62px 0 36px;max-width:820px}
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:12px;
+    letter-spacing:.26em;
+    text-transform:uppercase;
+    color:var(--gold);
+    margin-bottom:14px;
+  }
+  h1{
+    font-family:var(--disp);
+    font-weight:700;
+    font-size:72px;
+    line-height:.96;
+    margin:0;
+    color:var(--parch);
+  }
+  .lede{margin:20px 0 0;max-width:60ch;color:var(--muted);font-size:20px}
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(4, minmax(0, 1fr));
+    gap:12px;
+    margin-top:22px;
+  }
+  .card{
+    min-height:238px;
+    display:flex;
+    flex-direction:column;
+    text-decoration:none;
+    background:linear-gradient(160deg,var(--panel),var(--panel2));
+    border:1px solid var(--line);
+    border-top:4px solid var(--gold);
+    border-radius:6px;
+    padding:16px;
+  }
+  .card:hover{border-color:var(--gold)}
+  .card.beta{border-top-color:var(--scarlet)}
+  .year{
+    font-family:var(--disp);
+    font-size:42px;
+    font-weight:700;
+    line-height:1;
+  }
+  .status{
+    margin-top:10px;
+    width:max-content;
+    font-family:var(--mono);
+    font-size:10.5px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--ink);
+    background:var(--gold);
+    border-radius:3px;
+    padding:3px 7px;
+  }
+  .beta .status{background:var(--scarlet);color:var(--parch)}
+  h2{
+    font-family:var(--disp);
+    font-weight:700;
+    font-size:25px;
+    line-height:1.05;
+    margin:18px 0 8px;
+  }
+  p{margin:0;color:var(--muted);font-size:15.5px}
+  .open{
+    margin-top:auto;
+    padding-top:22px;
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--gold);
+  }
+  footer{
+    margin-top:34px;
+    padding-top:18px;
+    border-top:1px solid var(--line);
+    color:var(--faint);
+    font-family:var(--mono);
+    font-size:12px;
+  }
+  @media(max-width:880px){.grid{grid-template-columns:1fr 1fr}h1{font-size:54px}}
+  @media(max-width:560px){header{display:block}.home{display:inline-block;margin-top:10px}.grid{grid-template-columns:1fr}h1{font-size:42px}.hero{padding-top:42px}}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <a class="brand" href="./">Extra Omnes</a>
+      <a class="home" href="https://kieranmrhunt.github.io/">All projects</a>
+    </header>
+    <main>
+      <section class="hero">
+        <div class="eyebrow">Conclave simulations</div>
+        <h1>Choose a year</h1>
+        <p class="lede">The 1492 simulation is the stable build. The other historical conclaves are beta versions: playable, but still being tuned for balance, copy, and edge cases.</p>
+      </section>
+      <section class="grid" aria-label="Available Extra Omnes years">
+        <a class="card" href="./1492.html">
+          <span class="year">1492</span>
+          <span class="status">Stable</span>
+          <h2>Conclave 1492</h2>
+          <p>The original Extra Omnes simulation.</p>
+          <span class="open">Open year</span>
+        </a>
+        <a class="card beta" href="./viterbo-1268.html">
+          <span class="year">1268</span>
+          <span class="status">Beta</span>
+          <h2>Viterbo</h2>
+          <p>The long election under pressure.</p>
+          <span class="open">Open beta</span>
+        </a>
+        <a class="card beta" href="./carafa-winter-1559.html">
+          <span class="year">1559</span>
+          <span class="status">Beta</span>
+          <h2>The Carafa Winter</h2>
+          <p>A colder, sharper conclave scenario.</p>
+          <span class="open">Open beta</span>
+        </a>
+        <a class="card beta" href="./october-1978.html">
+          <span class="year">1978</span>
+          <span class="status">Beta</span>
+          <h2>October 1978</h2>
+          <p>The second conclave of a volatile year.</p>
+          <span class="open">Open beta</span>
+        </a>
+      </section>
+    </main>
+    <footer>Extra Omnes year directory.</footer>
+  </div>
+</body>
+</html>
