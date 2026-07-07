@@ -7,6 +7,7 @@ Contents:
 - `index.html` - the category index page.
 - `oscillarium/index.html` - attached Oscillarium page.
 - `the-boosted-forecast/index.html` - attached Boosted Forecast page.
+- `gb-grid-weather-cockpit/index.html` - attached GB Grid Weather Cockpit page.
 - `crow-flies-pubs-uk/index.html` - attached Crow Crawls page.
 - `extra-omnes/*.html` - attached Extra Omnes year pages for local preview or for copying into the existing `extra-omnes` repo.
 
@@ -16,4 +17,3 @@ Existing live project links:
 - `https://kieranmrhunt.github.io/heatwave-2026/`
 - `https://kieranmrhunt.github.io/five-days-to-impact/`
 - `https://kieranmrhunt.github.io/extra-omnes/`
-
