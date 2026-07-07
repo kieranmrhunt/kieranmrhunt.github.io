@@ -316,6 +316,54 @@
 			letter-spacing: -0.02em;
 		}
 
+		.panel-title-row {
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			min-width: 0;
+		}
+
+		.help-button {
+			display: inline-grid;
+			place-items: center;
+			width: 25px;
+			height: 25px;
+			padding: 0;
+			border: 1px solid var(--line-strong);
+			border-radius: 50%;
+			background: rgba(255, 255, 255, 0.08);
+			color: var(--text);
+			font-size: 0.88rem;
+			font-weight: 900;
+			box-shadow: none;
+		}
+
+		.help-button[aria-expanded="true"] {
+			background: rgba(103, 232, 249, 0.18);
+			border-color: rgba(103, 232, 249, 0.56);
+		}
+
+		.help-panel {
+			margin: -4px 0 14px;
+			border: 1px solid var(--line);
+			border-radius: 14px;
+			padding: 12px;
+			background: rgba(4, 12, 24, 0.58);
+			color: var(--muted);
+			font-size: 0.84rem;
+			line-height: 1.5;
+		}
+
+		.help-panel strong {
+			display: block;
+			color: var(--text);
+			margin-bottom: 4px;
+		}
+
+		.help-panel p {
+			margin: 0;
+		}
+
 		.panel-subtitle {
 			margin: 4px 0 0;
 			font-size: 0.86rem;
@@ -509,6 +557,46 @@
 			display: block;
 			width: 100%;
 			height: 260px;
+			touch-action: manipulation;
+		}
+
+		.chart-tooltip {
+			position: absolute;
+			z-index: 4;
+			display: none;
+			min-width: 170px;
+			max-width: min(300px, calc(100% - 24px));
+			padding: 10px 11px;
+			border: 1px solid var(--line-strong);
+			border-radius: 12px;
+			background: rgba(5, 12, 22, 0.96);
+			box-shadow: 0 16px 30px rgba(0, 0, 0, 0.30);
+			color: var(--text);
+			font-size: 0.78rem;
+			line-height: 1.35;
+			pointer-events: none;
+		}
+
+		.chart-tooltip strong {
+			display: block;
+			margin-bottom: 6px;
+		}
+
+		.chart-tooltip span {
+			display: flex;
+			justify-content: space-between;
+			gap: 14px;
+			color: var(--muted);
+		}
+
+		.chart-tooltip i {
+			font-style: normal;
+		}
+
+		.chart-tooltip em {
+			color: var(--text);
+			font-style: normal;
+			font-variant-numeric: tabular-nums;
 		}
 
 		.chart-legend {
@@ -539,6 +627,15 @@
 			grid-template-columns: minmax(220px, 280px) 1fr;
 			gap: 18px;
 			align-items: center;
+		}
+
+		.span-5 .mix-layout {
+			grid-template-columns: 1fr;
+			justify-items: center;
+		}
+
+		.span-5 .mix-table {
+			width: 100%;
 		}
 
 		.donut {
@@ -584,10 +681,18 @@
 
 		.mix-row {
 			display: grid;
-			grid-template-columns: 94px 1fr 64px;
+			grid-template-columns: 86px 1fr 76px 78px;
 			gap: 10px;
 			align-items: center;
 			font-size: 0.86rem;
+		}
+
+		.mix-row.header {
+			color: var(--muted);
+			font-size: 0.75rem;
+			text-transform: uppercase;
+			letter-spacing: 0.06em;
+			font-weight: 900;
 		}
 
 		.mix-row span:first-child {
@@ -647,6 +752,40 @@
 			cursor: pointer;
 			font-weight: 900;
 			color: #cfe8ff;
+		}
+
+		.diagnostics-details {
+			padding: 16px 18px;
+		}
+
+		.diagnostics-details[open] {
+			padding-bottom: 0;
+		}
+
+		.diagnostics-details > summary {
+			display: list-item;
+			font-size: 1rem;
+		}
+
+		.history-controls {
+			display: flex;
+			gap: 10px;
+			align-items: end;
+			flex-wrap: wrap;
+			margin: -2px 0 12px;
+		}
+
+		.history-controls label {
+			display: grid;
+			gap: 5px;
+			min-width: 150px;
+			max-width: 190px;
+			letter-spacing: 0.05em;
+		}
+
+		.history-controls input {
+			padding: 8px 10px;
+			border-radius: 12px;
 		}
 
 		.endpoint-list {
@@ -749,6 +888,17 @@
 				grid-template-columns: 1fr;
 			}
 
+			.mix-row {
+				grid-template-columns: 72px 1fr 60px 64px;
+				gap: 8px;
+				font-size: 0.8rem;
+			}
+
+			.history-controls label {
+				max-width: none;
+				width: 100%;
+			}
+
 			.driver-list li {
 				grid-template-columns: 1fr;
 			}
@@ -765,7 +915,7 @@
 			<div class="hero-title">
 				<p class="kicker">GB electricity · weather · markets · anomalies</p>
 				<h1>Grid Weather Cockpit</h1>
-				<p>One page for “what is the GB grid doing, why, what happens next, and what looks weird?”. It blends carbon intensity, demand, generation mix, renewable ramps, weather-driven nowcasting, balancing/price context and anomaly detection.</p>
+				<p>One page for “what is the GB grid doing, why, what happens next, and what looks weird?”. It blends carbon intensity, demand, generation mix, renewable ramps, weather-driven forecasting, balancing/price context and anomaly detection.</p>
 			</div>
 			<div class="hero-actions">
 				<button id="refreshBtn">Refresh live data</button>
@@ -803,12 +953,10 @@
 			<div class="field">
 				<label for="windCap">Wind capacity (GW)</label>
 				<input id="windCap" type="number" min="1" max="120" step="0.1" value="39.3">
-				<span class="field-note">Fallback only; live capacity feeds override this where available.</span>
 			</div>
 			<div class="field">
 				<label for="solarCap">Solar capacity (GW)</label>
 				<input id="solarCap" type="number" min="1" max="120" step="0.1" value="34.1">
-				<span class="field-note">Fallback only; live capacity feeds override this where available.</span>
 			</div>
 		</section>
 
@@ -872,9 +1020,16 @@
 			<section class="panel pad span-4">
 				<div class="panel-head">
 					<div>
-						<h2 class="panel-title">Grid stress index</h2>
+						<div class="panel-title-row">
+							<h2 class="panel-title">Grid stress index</h2>
+							<button class="help-button" type="button" data-help-target="stressHelp" aria-label="How the grid stress index is computed">?</button>
+						</div>
 						<p class="panel-subtitle">Transparent heuristic, 0–100. Not an official security-of-supply measure.</p>
 					</div>
+				</div>
+				<div id="stressHelp" class="help-panel" hidden>
+					<strong>Stress index recipe</strong>
+					<p>The score is a weighted 0-100 blend of loaded live inputs only: demand vs recent p90 (20%), residual demand after wind/solar (17%), carbon intensity (15%), low wind vs capacity (15%), low solar vs capacity (9%), price vs recent p90 (9%), largest 3-hour wind/solar ramp (8%), and frequency deviation (7%). Missing inputs are skipped and the remaining weights are renormalised.</p>
 				</div>
 				<div class="gauge-wrap">
 					<div id="stressGauge" class="gauge">
@@ -887,7 +1042,7 @@
 			<section class="panel pad span-7">
 				<div class="panel-head">
 					<div>
-						<h2 class="panel-title">48-hour cockpit</h2>
+						<h2 class="panel-title">Carbon and stress outlook</h2>
 						<p class="panel-subtitle">Carbon forecast, derived stress outlook, and clean/stress windows.</p>
 					</div>
 					<span id="bestWindow" class="pill"><span class="dot ok"></span><strong>—</strong></span>
@@ -900,11 +1055,11 @@
 				<div class="panel-head">
 					<div>
 						<h2 class="panel-title">Generation mix</h2>
-						<p class="panel-subtitle">Current fuel mix from Carbon Intensity or nearest Elexon actual generation data.</p>
+						<p class="panel-subtitle">Current fuel mix from recent complete Elexon/NESO MW data where usable, otherwise Carbon Intensity percentages.</p>
 					</div>
 				</div>
 				<div class="mix-layout">
-					<div id="mixDonut" class="donut"><div class="donut-inner"><div><strong id="cleanShare">—</strong><span>low-carbon share</span></div></div></div>
+					<div id="mixDonut" class="donut"><div class="donut-inner"><div><strong id="cleanShare">—</strong><span>low-carbon %</span></div></div></div>
 					<div id="mixTable" class="mix-table"></div>
 				</div>
 			</section>
@@ -912,9 +1067,13 @@
 			<section class="panel pad span-12">
 				<div class="panel-head">
 					<div>
-						<h2 class="panel-title">Generation mix over the last 48 hours</h2>
-						<p class="panel-subtitle">Elexon actual generation by fuel type in GW, with Carbon Intensity percentage history as a fallback.</p>
+						<h2 class="panel-title">Generation mix history</h2>
+						<p class="panel-subtitle">Stacked Elexon actual generation by fuel type in GW. Defaults to the last 4 days; older ranges load where the public APIs return data.</p>
 					</div>
+				</div>
+				<div class="history-controls" aria-label="Generation history date range">
+					<label for="mixFromDate">From <input id="mixFromDate" type="date"></label>
+					<label for="mixToDate">To <input id="mixToDate" type="date"></label>
 				</div>
 				<div class="chart-legend" id="generationHistoryLegend"></div>
 				<div class="chart-wrap"><canvas id="generationHistoryChart"></canvas></div>
@@ -924,7 +1083,7 @@
 				<div class="panel-head">
 					<div>
 						<h2 class="panel-title">Renewable ramp & curtailment tracker</h2>
-						<p class="panel-subtitle">Upcoming wind/solar ramps plus “weather says more than actual” underperformance flags.</p>
+						<p class="panel-subtitle">Upcoming grid wind/solar forecast ramps in GW plus “weather says more than actual” underperformance flags.</p>
 					</div>
 				</div>
 				<div class="mini-card-grid">
@@ -939,9 +1098,16 @@
 			<section class="panel pad span-6">
 				<div class="panel-head">
 					<div>
-						<h2 class="panel-title">Weather-driven nowcast</h2>
-						<p class="panel-subtitle">Open-Meteo GFS/UKMO/ECMWF probe blend: wind power proxy, solar radiation proxy, and synoptic risk drivers.</p>
+						<div class="panel-title-row">
+							<h2 class="panel-title">Weather-driven renewable forecast</h2>
+							<button class="help-button" type="button" data-help-target="weatherHelp" aria-label="How the weather-driven renewable forecast is computed">?</button>
+						</div>
+						<p class="panel-subtitle">Open-Meteo GFS/UKMO/ECMWF variables for the selected region/postcode: wind power proxy, solar radiation proxy, and synoptic risk drivers.</p>
 					</div>
+				</div>
+				<div id="weatherHelp" class="help-panel" hidden>
+					<strong>Weather proxy recipe</strong>
+					<p>Each weather call asks Open-Meteo for GFS seamless, UKMO seamless and ECMWF IFS hourly fields. Wind weather uses model-averaged 100 m wind speed passed through a simple turbine power curve: 0 below 3 m/s, 100% from 12-25 m/s, and cut-out above 25 m/s. Solar weather uses shortwave radiation scaled against 750 W/m2 with a cloud-cover penalty. The percentages are weather potential indices, not grid generation shares; the adjacent ramp chart uses grid/Elexon/NESO GW forecasts where available.</p>
 				</div>
 				<div class="mini-card-grid">
 					<div class="mini-card"><small>Wind weather</small><strong id="windProxyMetric">—</strong><span id="windProxyDetail">—</span></div>
@@ -969,7 +1135,7 @@
 				<div class="panel-head">
 					<div>
 						<h2 class="panel-title">Demand, residual demand and price</h2>
-						<p class="panel-subtitle">Residual demand is approximated as demand minus wind and solar generation/nowcast.</p>
+						<p class="panel-subtitle">Residual demand is approximated as demand minus wind and solar generation or forecast.</p>
 					</div>
 				</div>
 				<div class="chart-legend" id="demandLegend"></div>
@@ -977,7 +1143,9 @@
 			</section>
 
 			<section class="panel span-12">
-				<div class="pad">
+				<details class="diagnostics-details">
+					<summary>Data feed diagnostics and API links</summary>
+					<div class="pad">
 					<div class="panel-head">
 						<div>
 							<h2 class="panel-title">Data feed diagnostics and API links</h2>
@@ -985,8 +1153,8 @@
 						</div>
 					</div>
 					<ul id="diagnostics" class="endpoint-list"></ul>
-				</div>
-				<div class="details">
+					</div>
+					<div class="details">
 					<details>
 						<summary>Source links, model assumptions and deployment notes</summary>
 						<p class="footer-note">This is a client-side cockpit using public APIs directly. Wind and solar capacity inputs are GW fallback values used only when live NESO/Elexon capacity data cannot be read; they convert weather indices into approximate MW. The stress index is explanatory: it is not an official grid adequacy, security-of-supply or balancing-cost metric.</p>
@@ -997,7 +1165,8 @@
 							<li><strong>Open-Meteo Forecast API</strong><span>GFS/UKMO/ECMWF weather variables for weather-derived wind and solar proxies.</span><span class="code">https://api.open-meteo.com/v1/forecast</span></li>
 						</ul>
 					</details>
-				</div>
+					</div>
+				</details>
 			</section>
 		</main>
 	</div>
@@ -1010,7 +1179,8 @@
 			elexon: "https://data.elexon.co.uk/bmrs/api/v1",
 			neso: "https://api.neso.energy/api/3/action",
 			nesoEmbeddedResource: "db6c038f-98af-4570-ab60-24d71ebd0ae5",
-			openMeteo: "https://api.open-meteo.com/v1/forecast"
+			openMeteo: "https://api.open-meteo.com/v1/forecast",
+			postcodes: "https://api.postcodes.io"
 		};
 
 		const COLOURS = {
@@ -1023,6 +1193,7 @@
 			solar: "#facc15",
 			clean: "#34d399",
 			gas: "#fb7185",
+			purple: "#c084fc",
 			nuclear: "#a78bfa",
 			imports: "#94a3b8",
 			other: "#e2e8f0"
@@ -1050,10 +1221,31 @@
 			{ name: "South West wind/solar", lat: 50.85, lon: -3.60, windWeight: 0.14, solarWeight: 0.33 }
 		];
 
+		const WEATHER_REGIONS = {
+			"1": { name: "North Scotland", lat: 58.10, lon: -4.20 },
+			"2": { name: "South Scotland", lat: 55.80, lon: -3.80 },
+			"3": { name: "North West England", lat: 53.70, lon: -2.70 },
+			"4": { name: "North East England", lat: 54.80, lon: -1.60 },
+			"5": { name: "South Yorkshire", lat: 53.40, lon: -1.30 },
+			"6": { name: "North Wales, Merseyside & Cheshire", lat: 53.10, lon: -3.10 },
+			"7": { name: "South Wales", lat: 51.70, lon: -3.50 },
+			"8": { name: "West Midlands", lat: 52.50, lon: -2.00 },
+			"9": { name: "East Midlands", lat: 52.90, lon: -1.10 },
+			"10": { name: "East England", lat: 52.30, lon: 0.60 },
+			"11": { name: "South West England", lat: 51.00, lon: -3.30 },
+			"12": { name: "South England", lat: 51.00, lon: -1.20 },
+			"13": { name: "London", lat: 51.51, lon: -0.12 },
+			"14": { name: "South East England", lat: 51.20, lon: 0.60 },
+			"15": { name: "England", lat: 52.60, lon: -1.50 },
+			"16": { name: "Scotland", lat: 56.70, lon: -4.00 },
+			"17": { name: "Wales", lat: 52.30, lon: -3.80 }
+		};
+
 		const app = {
 			model: null,
 			feeds: {},
-			loading: false
+			loading: false,
+			charts: {}
 		};
 
 		const $ = id => document.getElementById(id);
@@ -1067,9 +1259,36 @@
 		const isoZ = date => date.toISOString().replace(/\.\d{3}Z$/, "Z");
 		const gw = mw => finite(mw) ? `${(Number(mw) / 1000).toFixed(1)} GW` : "—";
 		const pct = x => finite(x) ? `${Math.round(Number(x))}%` : "—";
+		const pct1 = x => finite(x) ? `${Number(x).toFixed(1)}%` : "—";
 		const round = (x, d = 0) => finite(x) ? Number(x).toFixed(d) : "—";
 		const normaliseText = x => String(x ?? "").trim().toLowerCase().replace(/[_\-]+/g, " ");
 		const signedGw = mw => finite(mw) ? `${Number(mw) >= 0 ? "+" : ""}${gw(mw)}` : "—";
+
+		function dateInputValue(date) {
+			return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+		}
+
+		function parseDateInput(value, endOfDay = false) {
+			if (!value) return null;
+			const parts = value.split("-").map(Number);
+			if (parts.length !== 3 || parts.some(n => !Number.isFinite(n))) return null;
+			return new Date(parts[0], parts[1] - 1, parts[2], endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0);
+		}
+
+		function ensureHistoryDateDefaults(now) {
+			if (!$("mixFromDate").value) $("mixFromDate").value = dateInputValue(addHours(now, -96));
+			if (!$("mixToDate").value) $("mixToDate").value = dateInputValue(now);
+			$("mixToDate").max = dateInputValue(now);
+		}
+
+		function selectedHistoryRange(now) {
+			ensureHistoryDateDefaults(now);
+			const from = parseDateInput($("mixFromDate").value, false) || addHours(now, -96);
+			let to = parseDateInput($("mixToDate").value, true) || now;
+			if (to > now) to = now;
+			if (to <= from) to = addHours(from, 24);
+			return { from, to };
+		}
 
 		function inputCapacityMw(kind) {
 			const fallback = kind === "wind" ? 39.3 : 34.1;
@@ -1365,7 +1584,7 @@
 					bucket.byFuel[fuel] = (bucket.byFuel[fuel] || 0) + Number(y);
 				}
 			}
-			const grouped = Array.from(byTime.values()).sort((a, b) => a.t - b.t);
+			const grouped = Array.from(byTime.values()).filter(isUsableGenerationGroup).sort((a, b) => a.t - b.t);
 			const fuelSeries = {};
 			for (const g of grouped) {
 				for (const [fuel, value] of Object.entries(g.byFuel)) {
@@ -1374,6 +1593,16 @@
 				}
 			}
 			return { grouped, fuelSeries };
+		}
+
+		function isUsableGenerationGroup(group) {
+			const byFuel = group?.byFuel || {};
+			const values = Object.values(byFuel).map(Number).filter(Number.isFinite);
+			const total = values.reduce((a, v) => a + Math.max(0, v), 0);
+			const activeFuels = values.filter(v => v > 1).length;
+			const windSolar = Number(byFuel.wind || 0) + Number(byFuel.solar || 0);
+			const nonWindSolar = total - windSolar;
+			return total > 1000 && (activeFuels >= 4 || nonWindSolar > 1000);
 		}
 
 		function parseGenerationMixHistory(json) {
@@ -1495,17 +1724,49 @@
 			return Number.isNaN(parsed.getTime()) ? null : parsed;
 		}
 
-		async function fetchWeatherProbes() {
+		async function resolveWeatherProbes(postcode, carbonArea) {
+			if (postcode) {
+				const geo = await fetchJson("Postcode geocode", `${API.postcodes}/outcodes/${encodeURIComponent(postcode)}`, "Outward postcode location");
+				const result = geo.ok ? geo.json?.result : null;
+				if (result && finite(result.latitude) && finite(result.longitude)) {
+					return {
+						label: `${postcode} local weather`,
+						probes: [{ name: `${postcode} local weather`, lat: Number(result.latitude), lon: Number(result.longitude), windWeight: 1, solarWeight: 1 }]
+					};
+				}
+				return { label: `${postcode} local weather`, probes: [] };
+			}
+			if (carbonArea !== "national" && WEATHER_REGIONS[carbonArea]) {
+				const region = WEATHER_REGIONS[carbonArea];
+				return {
+					label: `${region.name} regional weather`,
+					probes: [{ name: `${region.name} regional weather`, lat: region.lat, lon: region.lon, windWeight: 1, solarWeight: 1 }]
+				};
+			}
+			return { label: "GB national weather blend", probes: WEATHER_PROBES };
+		}
+
+		async function fetchWeatherProbes({ postcode, carbonArea }) {
+			const scope = await resolveWeatherProbes(postcode, carbonArea);
+			if (!scope.probes.length) {
+				setFeed("Open-Meteo GFS/UKMO/ECMWF blend", "unavailable", `${scope.label} unavailable: no usable latitude/longitude`, API.openMeteo);
+				return null;
+			}
 			const vars = "temperature_2m,relative_humidity_2m,dew_point_2m,precipitation,cloud_cover,shortwave_radiation,wind_speed_100m,wind_direction_100m,wind_gusts_10m,pressure_msl,weather_code";
 			const models = "gfs_seamless,ukmo_seamless,ecmwf_ifs025";
-			const calls = WEATHER_PROBES.map(probe => {
+			const calls = scope.probes.map(probe => {
 				const url = `${API.openMeteo}?latitude=${probe.lat}&longitude=${probe.lon}&hourly=${vars}&timezone=UTC&forecast_days=3&past_days=2&wind_speed_unit=ms&models=${models}`;
-				return fetchJson(`Weather · ${probe.name}`, url, probe.name).then(result => ({ probe, result }));
+				return { probe, url };
 			});
-			const results = await Promise.all(calls);
+			const results = [];
+			for (const call of calls) {
+				if (results.length) await new Promise(resolve => setTimeout(resolve, 140));
+				const result = await fetchJson(`Weather · ${call.probe.name}`, call.url, call.probe.name);
+				results.push({ probe: call.probe, result });
+			}
 			const successful = results.filter(r => r.result.ok);
 			if (!successful.length) return null;
-			setFeed("Open-Meteo GFS/UKMO/ECMWF blend", "live", `${successful.length}/${WEATHER_PROBES.length} weather probes loaded`, API.openMeteo);
+			setFeed("Open-Meteo GFS/UKMO/ECMWF blend", "live", `${successful.length}/${scope.probes.length} weather probes loaded · ${scope.label}`, API.openMeteo);
 			const buckets = new Map();
 			for (const { probe, result } of successful) {
 				const hourly = result.json.hourly || {};
@@ -1549,6 +1810,8 @@
 				windDir: b.n ? b.windDir / b.n : 0
 			}));
 			return {
+				scope: scope.label,
+				models: "GFS seamless, UKMO seamless, ECMWF IFS",
 				windIndex: rows.map(r => ({ t: r.t, y: r.windIndex })),
 				solarIndex: rows.map(r => ({ t: r.t, y: r.solarIndex })),
 				precip: rows.map(r => ({ t: r.t, y: r.precip })),
@@ -1570,6 +1833,7 @@
 			$("refreshBtn").textContent = "Refreshing…";
 			try {
 				const now = new Date();
+				ensureHistoryDateDefaults(now);
 				const loaded = await loadLiveBundle(now);
 				let model = applyLiveBundle(makeEmptyModel(now), loaded, now);
 				model = deriveModel(model, now);
@@ -1587,9 +1851,13 @@
 			const past = isoZ(addHours(now, -48));
 			const past24 = isoZ(addHours(now, -24));
 			const future = isoZ(addHours(now, 48));
+			const historyRange = selectedHistoryRange(now);
+			const historyFrom = isoZ(historyRange.from);
+			const historyTo = isoZ(historyRange.to);
 			const nowIso = isoZ(now);
 			const carbonNow = `${now.toISOString().slice(0, 16)}Z`;
-			const carbonPast = `${addHours(now, -48).toISOString().slice(0, 16)}Z`;
+			const carbonHistoryFrom = `${historyRange.from.toISOString().slice(0, 16)}Z`;
+			const carbonHistoryTo = `${historyRange.to.toISOString().slice(0, 16)}Z`;
 			const capacityFrom = isoZ(addHours(now, -24 * 731));
 			const postcode = $("postcode").value.trim().replace(/\s+/g, "").toUpperCase();
 			const carbonArea = $("carbonArea").value;
@@ -1614,9 +1882,10 @@
 				ciHistory: fetchJson("Carbon past 24h", ciHistoryUrl, "Historic carbon intensity"),
 				ciForecast: fetchJson("Carbon 48h", ciForecastUrl, "Forecast carbon intensity"),
 				ciGeneration: fetchJson("Carbon generation mix", `${API.ci}/generation`, "Current generation mix"),
-				ciGenerationHistory: fetchJson("Carbon generation mix history", `${API.ci}/generation/${carbonPast}/${carbonNow}`, "48h generation mix history"),
+				ciGenerationHistory: fetchJson("Carbon generation mix history", `${API.ci}/generation/${carbonHistoryFrom}/${carbonHistoryTo}`, "Generation mix history"),
 				elexonDemand: fetchJson("Elexon demand", `${API.elexon}/demand/outturn?from=${encodeURIComponent(past)}&to=${encodeURIComponent(nowIso)}&format=json`, "Demand outturn"),
 				elexonGeneration: fetchJson("Elexon actual generation", `${API.elexon}/generation/actual/per-type?from=${encodeURIComponent(past)}&to=${encodeURIComponent(nowIso)}&format=json`, "Actual generation by type"),
+				elexonGenerationHistory: fetchJson("Elexon generation history", `${API.elexon}/generation/actual/per-type?from=${encodeURIComponent(historyFrom)}&to=${encodeURIComponent(historyTo)}&format=json`, "Actual generation history by type"),
 				elexonActualWS: fetchJson("Elexon actual wind/solar", `${API.elexon}/generation/actual/per-type/wind-and-solar?from=${encodeURIComponent(past)}&to=${encodeURIComponent(nowIso)}&format=json`, "Actual wind/solar generation"),
 				elexonForecastWS: fetchJson("Elexon wind/solar forecast", `${API.elexon}/forecast/generation/wind-and-solar/day-ahead?from=${encodeURIComponent(past24)}&to=${encodeURIComponent(future)}&settlementPeriodFrom=1&settlementPeriodTo=50&processType=all&format=json`, "Day-ahead wind/solar"),
 				elexonMarket: fetchJson("Elexon market index", `${API.elexon}/balancing/pricing/market-index?from=${encodeURIComponent(past)}&to=${encodeURIComponent(nowIso)}&format=json`, "Market index price"),
@@ -1624,7 +1893,7 @@
 				elexonFrequency: fetchJson("Elexon frequency", `${API.elexon}/datasets/FREQ/stream?from=${encodeURIComponent(past)}&to=${encodeURIComponent(nowIso)}&format=json`, "System frequency"),
 				elexonCapacity: fetchJson("Elexon installed capacity", `${API.elexon}/datasets/IGCA/stream?publishDateTimeFrom=${encodeURIComponent(capacityFrom)}&publishDateTimeTo=${encodeURIComponent(nowIso)}&format=json`, "Installed capacity by type"),
 				nesoEmbedded: fetchJson("NESO embedded wind/solar", `${API.neso}/datastore_search?resource_id=${encodeURIComponent(API.nesoEmbeddedResource)}&limit=1000`, "Embedded wind/solar forecast and capacity"),
-				weather: fetchWeatherProbes()
+				weather: fetchWeatherProbes({ postcode, carbonArea })
 			};
 			const resolved = {};
 			await Promise.all(Object.entries(calls).map(async ([key, promise]) => { resolved[key] = await promise; }));
@@ -1675,6 +1944,15 @@
 					const solar = gen.fuelSeries.solar || [];
 					if (wind.length) model.renewables.windActual = mergeFutureEstimate(wind, model.renewables.windActual, now);
 					if (solar.length) model.renewables.solarActual = mergeFutureEstimate(solar, model.renewables.solarActual, now);
+				}
+			}
+
+			if (bundle.elexonGenerationHistory?.ok) {
+				const genHistory = parseGenerationPerType(bundle.elexonGenerationHistory.json);
+				if (genHistory.grouped.length) {
+					model.generation.historyGrouped = genHistory.grouped;
+					model.generation.historyFuelSeries = genHistory.fuelSeries;
+					model.sources.mixHistory = "live";
 				}
 			}
 
@@ -1790,7 +2068,7 @@
 				capacity: {},
 				carbon: { series: [] },
 				demand: { series: [] },
-				generation: { mixPercent: {}, mixHistoryPercent: [], actualGrouped: [], fuelSeries: {} },
+				generation: { mixPercent: {}, mixHistoryPercent: [], mixPowerMw: {}, actualGrouped: [], fuelSeries: {}, historyGrouped: [], historyFuelSeries: {} },
 				renewables: { windActual: [], solarActual: [], windForecast: [], solarForecast: [], embeddedWindForecast: [], embeddedSolarForecast: [] },
 				weather: { windIndex: [], solarIndex: [], temp: [], cloud: [], precip: [], humidity: [], dewPoint: [], pressure: [], gust: [], windDir: [], windMw: [], solarMw: [] },
 				price: { series: [] },
@@ -1813,6 +2091,8 @@
 			model.renewables.solarCurrent = latestBefore(model.renewables.solarActual, now) || nearestPoint(model.renewables.solarActual, now, 2);
 			model.weather.windCurrent = latestBefore(model.weather.windIndex, now) || nearestPoint(model.weather.windIndex, now, 2);
 			model.weather.solarCurrent = latestBefore(model.weather.solarIndex, now) || nearestPoint(model.weather.solarIndex, now, 2);
+			model.generation.mixPowerMw = buildCurrentMixPower(model, now);
+			if (Object.keys(model.generation.mixPowerMw).length) model.sources.mix = "live";
 
 			if (!Object.keys(model.generation.mixPercent || {}).length && model.generation.actualGrouped.length) {
 				const latest = latestGroupedBefore(model.generation.actualGrouped, now) || model.generation.actualGrouped[model.generation.actualGrouped.length - 1];
@@ -1843,6 +2123,21 @@
 			model.headline = buildHeadline(model);
 			model.narrative = buildNarrative(model);
 			return model;
+		}
+
+		function buildCurrentMixPower(model, now) {
+			const latest = latestGroupedBefore(model.generation.actualGrouped, now) || model.generation.actualGrouped[model.generation.actualGrouped.length - 1];
+			if (!latest?.byFuel) return {};
+			if (now - latest.t > 2.25 * 3600_000) return {};
+			const byFuel = Object.fromEntries(Object.entries(latest.byFuel).map(([fuel, value]) => [fuel, Number(value) || 0]));
+			const embeddedWind = latestBefore(model.renewables.embeddedWindForecast, now)?.y;
+			const embeddedSolar = latestBefore(model.renewables.embeddedSolarForecast, now)?.y;
+			if (finite(embeddedWind)) byFuel.wind = (byFuel.wind || 0) + Number(embeddedWind);
+			if (finite(embeddedSolar)) byFuel.solar = (byFuel.solar || 0) + Number(embeddedSolar);
+			for (const key of Object.keys(byFuel)) {
+				if (!finite(byFuel[key]) || byFuel[key] <= 0) delete byFuel[key];
+			}
+			return byFuel;
 		}
 
 		function chooseBestForecast(apiForecast, weatherForecast, actual, now) {
@@ -1971,7 +2266,7 @@
 				const windAbs = finite(windDelta6) ? Math.abs(windDelta6) : 0;
 				const solarAbs = finite(solarDelta6) ? Math.abs(solarDelta6) : 0;
 				const dominant = windAbs >= solarAbs ? ["wind", windDelta6] : ["solar", solarDelta6];
-				reasons.push({ title: `A ${dominant[0]} ramp is coming`, detail: `${signedGw(dominant[1])} over the next 6 hours in the chosen forecast/nowcast blend.` });
+				reasons.push({ title: `A ${dominant[0]} ramp is coming`, detail: `${signedGw(dominant[1])} over the next 6 hours in the chosen forecast blend.` });
 			}
 
 			if (finite(carbon) && carbon > 190) reasons.push({ title: "Carbon intensity is elevated", detail: `${Math.round(carbon)} gCO2/kWh suggests a fossil-heavy residual mix or low renewable output.` });
@@ -2135,16 +2430,22 @@
 		}
 
 		function renderMix(model) {
-			const mix = model.generation.mixPercent || {};
 			const order = ["wind", "solar", "nuclear", "hydro", "biomass", "gas", "coal", "imports", "storage", "other"];
-			const entries = order.map(fuel => [fuel, mix[fuel] || 0]).filter(([, v]) => v > 0.1);
+			const powerMix = model.generation.mixPowerMw || {};
+			const hasPowerMix = Object.values(powerMix).some(v => finite(v) && v > 0);
+			const mix = model.generation.mixPercent || {};
+			const entries = hasPowerMix
+				? order.map(fuel => [fuel, powerMix[fuel] || 0]).filter(([, v]) => v > 1)
+				: order.map(fuel => [fuel, mix[fuel] || 0]).filter(([, v]) => v > 0.1);
 			if (!entries.length) {
 				$("mixDonut").style.background = "conic-gradient(rgba(255,255,255,0.12) 0deg 360deg)";
 				$("cleanShare").textContent = "—";
-				$("mixTable").innerHTML = `<div class="mix-row"><span>data</span><span>No generation mix loaded</span><span>—</span></div>`;
+				$("mixTable").innerHTML = `<div class="mix-row"><span>data</span><span>No generation mix loaded</span><span>—</span><span>—</span></div>`;
 				return;
 			}
-			const total = entries.reduce((a, [, v]) => a + v, 0) || 1;
+			const total = entries.reduce((a, [, v]) => a + Number(v || 0), 0) || 1;
+			const percentDenominator = total;
+			const percentLabel = "% mix";
 			let deg = 0;
 			const stops = [];
 			for (const [fuel, value] of entries) {
@@ -2153,13 +2454,18 @@
 				stops.push(`${FUEL_COLOURS[fuel] || FUEL_COLOURS.other} ${start.toFixed(1)}deg ${deg.toFixed(1)}deg`);
 			}
 			$("mixDonut").style.background = `conic-gradient(${stops.join(", ")})`;
-			const clean = (mix.wind || 0) + (mix.solar || 0) + (mix.nuclear || 0) + (mix.hydro || 0) + (mix.biomass || 0);
-			$("cleanShare").textContent = pct(clean);
-			$("mixTable").innerHTML = entries.map(([fuel, value]) => `
+			const clean = hasPowerMix
+				? ["wind", "solar", "nuclear", "hydro", "biomass"].reduce((a, fuel) => a + Number(powerMix[fuel] || 0), 0)
+				: (mix.wind || 0) + (mix.solar || 0) + (mix.nuclear || 0) + (mix.hydro || 0) + (mix.biomass || 0);
+			$("cleanShare").textContent = pct1(hasPowerMix ? clean / percentDenominator * 100 : clean);
+			$("mixTable").innerHTML = `
+				<div class="mix-row header"><span>Fuel</span><span></span><span>GW</span><span>${percentLabel}</span></div>
+			` + entries.map(([fuel, value]) => `
 				<div class="mix-row">
 					<span>${escapeHtml(fuel)}</span>
 					<span class="bar"><span style="width: ${Math.round(value / total * 100)}%; background: ${FUEL_COLOURS[fuel] || FUEL_COLOURS.other};"></span></span>
-					<span>${pct(value / total * 100)}</span>
+					<span>${hasPowerMix ? gw(value) : "—"}</span>
+					<span>${pct1(value / percentDenominator * 100)}</span>
 				</div>
 			`).join("");
 		}
@@ -2169,8 +2475,7 @@
 			const order = ["wind", "solar", "nuclear", "hydro", "biomass", "gas", "coal", "imports", "storage", "other"];
 			const elexonSpecs = order
 				.map(fuel => {
-					const series = (model.generation.fuelSeries[fuel] || [])
-						.filter(p => p.t >= addHours(now, -48) && p.t <= now)
+					const series = (model.generation.historyFuelSeries[fuel] || [])
 						.map(p => ({ t: p.t, y: p.y / 1000 }));
 					return series.length ? { name: fuel, colour: FUEL_COLOURS[fuel] || FUEL_COLOURS.other, series } : null;
 				})
@@ -2178,11 +2483,11 @@
 
 			if (elexonSpecs.length) {
 				renderLegend("generationHistoryLegend", elexonSpecs.map(spec => [labelise(spec.name), spec.colour]));
-				drawChart("generationHistoryChart", elexonSpecs, { leftLabel: "GW", now });
+				drawStackedAreaChart("generationHistoryChart", elexonSpecs, { leftLabel: "GW", now });
 				return;
 			}
 
-			const percentRows = (model.generation.mixHistoryPercent || []).filter(row => row.t >= addHours(now, -48) && row.t <= now);
+			const percentRows = model.generation.mixHistoryPercent || [];
 			const percentSpecs = order
 				.map(fuel => {
 					const series = percentRows
@@ -2192,8 +2497,8 @@
 				})
 				.filter(Boolean);
 
-			renderLegend("generationHistoryLegend", percentSpecs.length ? percentSpecs.map(spec => [labelise(spec.name), spec.colour]) : [["No 48h generation mix loaded", "rgba(238,246,255,0.5)"]]);
-			drawChart("generationHistoryChart", percentSpecs, { leftLabel: percentSpecs.length ? "%" : "", now });
+			renderLegend("generationHistoryLegend", percentSpecs.length ? percentSpecs.map(spec => [labelise(spec.name), spec.colour]) : [["No generation mix history loaded", "rgba(238,246,255,0.5)"]]);
+			drawStackedAreaChart("generationHistoryChart", percentSpecs, { leftLabel: percentSpecs.length ? "%" : "", now });
 		}
 
 		function renderRamps(model) {
@@ -2205,9 +2510,9 @@
 			const solarActual = model.renewables.solarCurrent?.y;
 			const solarExpected = latestBefore(model.weather.solarMw, now)?.y;
 			$("windRampMetric").textContent = windRamp ? `${windRamp.delta >= 0 ? "+" : ""}${gw(windRamp.delta)}` : "—";
-			$("windRampDetail").textContent = windRamp ? `${fmtDayTime(windRamp.from.t)} → ${fmtTime(windRamp.to.t)} over 3h` : "No wind forecast/nowcast loaded";
+			$("windRampDetail").textContent = windRamp ? `${fmtDayTime(windRamp.from.t)} → ${fmtTime(windRamp.to.t)} over 3h` : "No wind forecast loaded";
 			$("solarRampMetric").textContent = solarRamp ? `${solarRamp.delta >= 0 ? "+" : ""}${gw(solarRamp.delta)}` : "—";
-			$("solarRampDetail").textContent = solarRamp ? `${fmtDayTime(solarRamp.from.t)} → ${fmtTime(solarRamp.to.t)} over 3h` : "No solar forecast/nowcast loaded";
+			$("solarRampDetail").textContent = solarRamp ? `${fmtDayTime(solarRamp.from.t)} → ${fmtTime(solarRamp.to.t)} over 3h` : "No solar forecast loaded";
 			let score = "Low";
 			let detail = "No strong weather-vs-actual renewable gap.";
 			if (finite(windActual) && finite(windExpected) && windExpected > 4500 && windActual < 0.62 * windExpected) {
@@ -2244,9 +2549,9 @@
 			const precipPoints = model.weather.precip.filter(p => p.t >= model.now && p.t <= addHours(model.now, 6));
 			const precip6 = precipPoints.length ? precipPoints.reduce((a, p) => a + Number(p.y || 0), 0) : undefined;
 			$("windProxyMetric").textContent = pct(wind);
-			$("windProxyDetail").textContent = `Power-curve proxy · calibrated nowcast ${gw(latestBefore(model.weather.windMw, model.now)?.y)}`;
+			$("windProxyDetail").textContent = `100 m wind power curve · ${model.weather.scope || "selected area"} · approx ${gw(latestBefore(model.weather.windMw, model.now)?.y)}`;
 			$("solarProxyMetric").textContent = pct(solar);
-			$("solarProxyDetail").textContent = `Radiation/cloud proxy · calibrated nowcast ${gw(latestBefore(model.weather.solarMw, model.now)?.y)}`;
+			$("solarProxyDetail").textContent = `Shortwave radiation/cloud proxy · approx ${gw(latestBefore(model.weather.solarMw, model.now)?.y)}`;
 			const combined = (Number(windDelta || 0) + Number(solarDelta || 0));
 			$("nextSixMetric").textContent = finite(windDelta) || finite(solarDelta) ? signedGw(combined) : "—";
 			$("nextSixDetail").textContent = `Wind ${signedGw(windDelta)} · solar ${signedGw(solarDelta)} over 6h.`;
@@ -2293,8 +2598,8 @@
 			const windBest = model.renewables.windBest.filter(p => p.t >= addHours(now, -18) && p.t <= addHours(now, 36)).map(p => ({ t: p.t, y: p.y / 1000 }));
 			const solarBest = model.renewables.solarBest.filter(p => p.t >= addHours(now, -18) && p.t <= addHours(now, 36)).map(p => ({ t: p.t, y: p.y / 1000 }));
 			renderLegend("renewableLegend", [
-				["Wind best forecast/nowcast", COLOURS.wind],
-				["Solar best forecast/nowcast", COLOURS.solar]
+				["Wind grid forecast (GW)", COLOURS.wind],
+				["Solar grid forecast (GW)", COLOURS.solar]
 			]);
 			drawChart("renewableChart", [
 				{ name: "Wind", colour: COLOURS.wind, series: windBest },
@@ -2306,15 +2611,15 @@
 			const cloud = model.weather.cloud.filter(p => p.t >= addHours(now, -12) && p.t <= addHours(now, 48));
 			const pressure = model.weather.pressure.filter(p => p.t >= addHours(now, -12) && p.t <= addHours(now, 48));
 			renderLegend("weatherLegend", [
-				["Wind proxy", COLOURS.wind],
-				["Solar proxy", COLOURS.solar],
-				["Cloud", "#94a3b8"],
+				["Wind weather index (%)", COLOURS.wind],
+				["Solar weather index (%)", COLOURS.solar],
+				["Cloud cover (%)", "#94a3b8"],
 				["Pressure", COLOURS.purple]
 			]);
 			drawChart("weatherChart", [
-				{ name: "Wind proxy", colour: COLOURS.wind, series: windIndex, yMin: 0, yMax: 100 },
-				{ name: "Solar proxy", colour: COLOURS.solar, series: solarIndex, yMin: 0, yMax: 100 },
-				{ name: "Cloud", colour: "#94a3b8", series: cloud, yMin: 0, yMax: 100, dashed: true },
+				{ name: "Wind weather index", colour: COLOURS.wind, series: windIndex, yMin: 0, yMax: 100 },
+				{ name: "Solar weather index", colour: COLOURS.solar, series: solarIndex, yMin: 0, yMax: 100 },
+				{ name: "Cloud cover", colour: "#94a3b8", series: cloud, yMin: 0, yMax: 100, dashed: true },
 				{ name: "Pressure", colour: COLOURS.purple, series: pressure, yScale: "right", dashed: true }
 			], { leftLabel: "index / %", rightLabel: "hPa", now });
 
@@ -2337,6 +2642,115 @@
 			$(id).innerHTML = items.map(([label, colour]) => `<span class="legend-item"><span class="swatch" style="background:${colour}"></span>${escapeHtml(label)}</span>`).join("");
 		}
 
+		function axisTickHours(rangeHours) {
+			if (rangeHours <= 12) return 2;
+			if (rangeHours <= 30) return 6;
+			if (rangeHours <= 72) return 12;
+			if (rangeHours <= 168) return 24;
+			return 48;
+		}
+
+		function timeTicks(minT, maxT) {
+			const rangeHours = Math.max(1, (maxT - minT) / 3600_000);
+			const step = axisTickHours(rangeHours);
+			const ticks = [];
+			const cursor = new Date(minT);
+			cursor.setMinutes(0, 0, 0);
+			while (cursor.getTime() < minT || cursor.getHours() % step !== 0) cursor.setHours(cursor.getHours() + 1);
+			while (cursor.getTime() <= maxT) {
+				ticks.push(new Date(cursor));
+				cursor.setHours(cursor.getHours() + step);
+			}
+			return ticks.length >= 2 ? ticks : [new Date(minT), new Date(maxT)];
+		}
+
+		function fmtAxisTime(date, minT, maxT) {
+			const hours = (maxT - minT) / 3600_000;
+			if (hours > 36) return new Intl.DateTimeFormat("en-GB", { weekday: "short", hour: "2-digit" }).format(date);
+			return new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit" }).format(date);
+		}
+
+		function chartUnitFor(spec, opts) {
+			if (spec.unit) return spec.unit;
+			if (spec.yScale === "right") return opts.rightLabel || "";
+			return opts.leftLabel || "";
+		}
+
+		function formatChartValue(value, unit, name = "") {
+			if (!finite(value)) return "—";
+			const label = `${unit} ${name}`.toLowerCase();
+			if (label.includes("gw")) return `${Number(value).toFixed(1)} GW`;
+			if (label.includes("hpa")) return `${Number(value).toFixed(0)} hPa`;
+			if (label.includes("mwh")) return `£${Number(value).toFixed(0)}/MWh`;
+			if (label.includes("stress")) return `${Math.round(value)}/100`;
+			if (label.includes("%") || label.includes("proxy") || label.includes("cloud") || label.includes("index")) return `${Number(value).toFixed(1)}%`;
+			if (label.includes("co")) return `${Math.round(value)} g`;
+			return Number(value).toFixed(Math.abs(value) < 10 ? 1 : 0);
+		}
+
+		function colourWithAlpha(colour, alpha) {
+			const hex = String(colour || "").trim();
+			if (/^#[0-9a-f]{6}$/i.test(hex)) {
+				const r = parseInt(hex.slice(1, 3), 16);
+				const g = parseInt(hex.slice(3, 5), 16);
+				const b = parseInt(hex.slice(5, 7), 16);
+				return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+			}
+			return colour || `rgba(255,255,255,${alpha})`;
+		}
+
+		function storeChartState(id, state) {
+			app.charts[id] = state;
+			const canvas = $(id);
+			if (!canvas.dataset.tooltipReady) {
+				canvas.dataset.tooltipReady = "true";
+				canvas.addEventListener("pointermove", event => showChartTooltip(canvas, event));
+				canvas.addEventListener("pointerdown", event => showChartTooltip(canvas, event));
+				canvas.addEventListener("pointerleave", () => {
+					const tip = canvas.parentElement?.querySelector(".chart-tooltip");
+					if (tip) tip.style.display = "none";
+				});
+			}
+		}
+
+		function showChartTooltip(canvas, event) {
+			const chart = app.charts[canvas.id];
+			if (!chart) return;
+			const rect = canvas.getBoundingClientRect();
+			const wrap = canvas.parentElement;
+			let tip = wrap.querySelector(".chart-tooltip");
+			if (!tip) {
+				tip = document.createElement("div");
+				tip.className = "chart-tooltip";
+				wrap.appendChild(tip);
+			}
+			for (const otherTip of document.querySelectorAll(".chart-tooltip")) {
+				if (otherTip !== tip) otherTip.style.display = "none";
+			}
+			const relX = event.clientX - rect.left;
+			const ratio = clamp((relX - chart.plot.x) / Math.max(1, chart.plot.w), 0, 1);
+			const targetTime = new Date(chart.minT + (chart.maxT - chart.minT) * ratio);
+			const toleranceHours = Math.max(0.75, (chart.maxT - chart.minT) / 3600_000 / 70);
+			const rows = [];
+			let displayTime = targetTime;
+			for (const spec of chart.seriesSpecs) {
+				const point = nearestPoint(spec.series || [], targetTime, toleranceHours);
+				if (!point) continue;
+				displayTime = point.t;
+				rows.push(`<span><i style="color:${spec.colour}">${escapeHtml(labelise(spec.name))}</i><em>${formatChartValue(point.y, chartUnitFor(spec, chart.opts), spec.name)}</em></span>`);
+			}
+			if (!rows.length) {
+				tip.style.display = "none";
+				return;
+			}
+			tip.innerHTML = `<strong>${fmtDayTime(displayTime)}</strong>${rows.join("")}`;
+			tip.style.display = "block";
+			const x = Math.min(Math.max(event.clientX - wrap.getBoundingClientRect().left + 12, 8), wrap.clientWidth - tip.offsetWidth - 8);
+			const y = Math.min(Math.max(event.clientY - wrap.getBoundingClientRect().top + 12, 8), wrap.clientHeight - tip.offsetHeight - 8);
+			tip.style.left = `${x}px`;
+			tip.style.top = `${y}px`;
+		}
+
 		function drawChart(id, seriesSpecs, opts = {}) {
 			const canvas = $(id);
 			const parentWidth = canvas.clientWidth || 720;
@@ -2349,10 +2763,11 @@
 			const w = parentWidth;
 			const h = parentHeight;
 			ctx.clearRect(0, 0, w, h);
-			const pad = { l: 48, r: opts.rightLabel ? 46 : 18, t: 16, b: 34 };
+			const pad = { l: 54, r: opts.rightLabel ? 54 : 22, t: 28, b: 34 };
 			const plot = { x: pad.l, y: pad.t, w: w - pad.l - pad.r, h: h - pad.t - pad.b };
 			const allPoints = seriesSpecs.flatMap(spec => spec.series || []);
 			if (!allPoints.length) {
+				delete app.charts[id];
 				drawNoData(ctx, w, h);
 				return;
 			}
@@ -2384,10 +2799,7 @@
 				}
 			}
 
-			const hours = (maxT - minT) / 3600_000;
-			const ticks = hours > 48 ? 6 : hours > 24 ? 8 : 6;
-			for (let i = 0; i <= ticks; i++) {
-				const tt = new Date(minT + (maxT - minT) * i / ticks);
+			for (const tt of timeTicks(minT, maxT)) {
 				const xx = x(tt);
 				ctx.strokeStyle = "rgba(255,255,255,0.07)";
 				ctx.beginPath();
@@ -2395,7 +2807,7 @@
 				ctx.lineTo(xx, plot.y + plot.h);
 				ctx.stroke();
 				ctx.fillStyle = "rgba(238,246,255,0.62)";
-				ctx.fillText(fmtTime(tt), xx - 16, plot.y + plot.h + 23);
+				ctx.fillText(fmtAxisTime(tt, minT, maxT), xx - 18, plot.y + plot.h + 23);
 			}
 
 			if (opts.now) {
@@ -2438,8 +2850,114 @@
 
 			ctx.fillStyle = "rgba(238,246,255,0.7)";
 			ctx.font = "10px " + getComputedStyle(document.body).fontFamily;
-			if (opts.leftLabel) ctx.fillText(opts.leftLabel, 8, 14);
-			if (opts.rightLabel) ctx.fillText(opts.rightLabel, plot.x + plot.w - 24, 14);
+			if (opts.leftLabel) ctx.fillText(opts.leftLabel, 8, 12);
+			if (opts.rightLabel) ctx.fillText(opts.rightLabel, plot.x + plot.w + 6, 12);
+			storeChartState(id, { kind: "line", seriesSpecs, opts, plot, minT, maxT });
+		}
+
+		function drawStackedAreaChart(id, seriesSpecs, opts = {}) {
+			const canvas = $(id);
+			const parentWidth = canvas.clientWidth || 720;
+			const parentHeight = canvas.clientHeight || 260;
+			const ratio = window.devicePixelRatio || 1;
+			canvas.width = parentWidth * ratio;
+			canvas.height = parentHeight * ratio;
+			const ctx = canvas.getContext("2d");
+			ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+			const w = parentWidth;
+			const h = parentHeight;
+			ctx.clearRect(0, 0, w, h);
+			const pad = { l: 54, r: 22, t: 28, b: 34 };
+			const plot = { x: pad.l, y: pad.t, w: w - pad.l - pad.r, h: h - pad.t - pad.b };
+			const allPoints = seriesSpecs.flatMap(spec => spec.series || []);
+			if (!allPoints.length) {
+				delete app.charts[id];
+				drawNoData(ctx, w, h);
+				return;
+			}
+			const minT = Math.min(...allPoints.map(p => p.t.getTime()));
+			const maxT = Math.max(...allPoints.map(p => p.t.getTime()));
+			const times = Array.from(new Set(allPoints.map(p => p.t.toISOString()))).sort().map(t => new Date(t));
+			const x = t => plot.x + (t.getTime() - minT) / Math.max(1, maxT - minT) * plot.w;
+			const aligned = seriesSpecs.map(spec => {
+				const byTime = new Map((spec.series || []).map(p => [p.t.toISOString(), Number(p.y) || 0]));
+				return { ...spec, values: times.map(t => byTime.get(t.toISOString()) || 0) };
+			});
+			const totals = times.map((_, i) => aligned.reduce((a, spec) => a + spec.values[i], 0));
+			const maxY = Math.max(...totals, 1);
+			const y = value => plot.y + plot.h - value / (maxY * 1.08) * plot.h;
+
+			ctx.strokeStyle = "rgba(255,255,255,0.11)";
+			ctx.lineWidth = 1;
+			ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
+			ctx.fillStyle = "rgba(238,246,255,0.64)";
+			for (let i = 0; i <= 4; i++) {
+				const yy = plot.y + plot.h * i / 4;
+				ctx.beginPath();
+				ctx.moveTo(plot.x, yy);
+				ctx.lineTo(plot.x + plot.w, yy);
+				ctx.stroke();
+				const val = maxY * 1.08 * (1 - i / 4);
+				ctx.fillText(compactNumber(val), 6, yy + 4);
+			}
+
+			for (const tt of timeTicks(minT, maxT)) {
+				const xx = x(tt);
+				ctx.strokeStyle = "rgba(255,255,255,0.07)";
+				ctx.beginPath();
+				ctx.moveTo(xx, plot.y);
+				ctx.lineTo(xx, plot.y + plot.h);
+				ctx.stroke();
+				ctx.fillStyle = "rgba(238,246,255,0.62)";
+				ctx.fillText(fmtAxisTime(tt, minT, maxT), xx - 18, plot.y + plot.h + 23);
+			}
+
+			if (opts.now) {
+				const xx = x(opts.now);
+				if (xx >= plot.x && xx <= plot.x + plot.w) {
+					ctx.strokeStyle = "rgba(255,255,255,0.45)";
+					ctx.setLineDash([4, 4]);
+					ctx.beginPath();
+					ctx.moveTo(xx, plot.y);
+					ctx.lineTo(xx, plot.y + plot.h);
+					ctx.stroke();
+					ctx.setLineDash([]);
+					ctx.fillStyle = "rgba(255,255,255,0.72)";
+					ctx.fillText("now", xx + 5, plot.y + 12);
+				}
+			}
+
+			const base = Array(times.length).fill(0);
+			for (const spec of aligned) {
+				const top = spec.values.map((v, i) => base[i] + v);
+				ctx.beginPath();
+				times.forEach((t, i) => {
+					const xx = x(t);
+					const yy = y(top[i]);
+					if (i === 0) ctx.moveTo(xx, yy);
+					else ctx.lineTo(xx, yy);
+				});
+				for (let i = times.length - 1; i >= 0; i--) ctx.lineTo(x(times[i]), y(base[i]));
+				ctx.closePath();
+				ctx.fillStyle = colourWithAlpha(spec.colour, 0.72);
+				ctx.fill();
+				ctx.strokeStyle = colourWithAlpha(spec.colour, 0.95);
+				ctx.lineWidth = 1.2;
+				ctx.beginPath();
+				times.forEach((t, i) => {
+					const xx = x(t);
+					const yy = y(top[i]);
+					if (i === 0) ctx.moveTo(xx, yy);
+					else ctx.lineTo(xx, yy);
+				});
+				ctx.stroke();
+				for (let i = 0; i < base.length; i++) base[i] = top[i];
+			}
+
+			ctx.fillStyle = "rgba(238,246,255,0.7)";
+			ctx.font = "10px " + getComputedStyle(document.body).fontFamily;
+			if (opts.leftLabel) ctx.fillText(opts.leftLabel, 8, 12);
+			storeChartState(id, { kind: "stacked", seriesSpecs, opts, plot, minT, maxT });
 		}
 
 		function valueRange(specs) {
@@ -2475,8 +2993,19 @@
 			return String(value ?? "").replace(/[&<>'"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", "\"": "&quot;" }[char]));
 		}
 
+		for (const button of document.querySelectorAll("[data-help-target]")) {
+			button.setAttribute("aria-expanded", "false");
+			button.addEventListener("click", () => {
+				const panel = $(button.dataset.helpTarget);
+				if (!panel) return;
+				const willOpen = panel.hasAttribute("hidden");
+				panel.toggleAttribute("hidden", !willOpen);
+				button.setAttribute("aria-expanded", String(willOpen));
+			});
+		}
+
 		$("refreshBtn").addEventListener("click", refresh);
-		for (const id of ["carbonArea", "postcode", "windCap", "solarCap"]) {
+		for (const id of ["carbonArea", "postcode", "windCap", "solarCap", "mixFromDate", "mixToDate"]) {
 			$(id).addEventListener("change", () => refresh());
 		}
 		window.addEventListener("resize", () => app.model && renderCharts(app.model));
