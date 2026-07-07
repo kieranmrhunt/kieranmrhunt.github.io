@@ -477,6 +477,28 @@
 			width: 100%;
 		}
 
+		.stress-recipe {
+			width: 100%;
+			margin: 14px 0 16px;
+			padding: 12px 13px;
+			border: 1px solid rgba(96, 165, 250, 0.30);
+			border-radius: 18px;
+			background: rgba(96, 165, 250, 0.08);
+			line-height: 1.45;
+		}
+
+		.stress-recipe strong {
+			display: block;
+			margin-bottom: 4px;
+			font-size: 0.88rem;
+		}
+
+		.stress-recipe span {
+			display: block;
+			color: var(--muted);
+			font-size: 0.8rem;
+		}
+
 		.gauge {
 			--angle: 0deg;
 			width: 210px;
@@ -522,10 +544,40 @@
 
 		.driver-list li {
 			display: grid;
-			grid-template-columns: 150px 1fr auto;
+			grid-template-columns: minmax(130px, 1.25fr) minmax(96px, 1fr) auto;
 			gap: 10px;
 			align-items: center;
 			font-size: 0.86rem;
+		}
+
+		.driver-list li.is-muted {
+			opacity: 0.54;
+		}
+
+		.driver-list li > span {
+			min-width: 0;
+		}
+
+		.driver-list small {
+			color: var(--muted);
+			line-height: 1.34;
+		}
+
+		.factor-weight {
+			display: inline-block;
+			margin-left: 5px;
+			font-family: var(--mono);
+			font-size: 0.72rem;
+			color: #9bd5ff;
+			white-space: nowrap;
+		}
+
+		.factor-points {
+			font-family: var(--mono);
+			font-size: 0.8rem;
+			font-weight: 800;
+			text-align: right;
+			white-space: nowrap;
 		}
 
 		.bar {
@@ -903,6 +955,10 @@
 				grid-template-columns: 1fr;
 			}
 
+			.factor-points {
+				text-align: left;
+			}
+
 			canvas {
 				height: 220px;
 			}
@@ -1024,12 +1080,16 @@
 							<h2 class="panel-title">Grid stress index</h2>
 							<button class="help-button" type="button" data-help-target="stressHelp" aria-label="How the grid stress index is computed">?</button>
 						</div>
-						<p class="panel-subtitle">Transparent heuristic, 0–100. Not an official security-of-supply measure.</p>
+						<p class="panel-subtitle">Transparent 0-100 heuristic: loaded pressure factors are weighted, renormalised, and summed. Not an official security-of-supply measure.</p>
 					</div>
 				</div>
 				<div id="stressHelp" class="help-panel" hidden>
 					<strong>Stress index recipe</strong>
 					<p>The score is a weighted 0-100 blend of loaded live inputs only: demand vs recent p90 (20%), residual demand after wind/solar (17%), carbon intensity (15%), low wind vs capacity (15%), low solar vs capacity (9%), price vs recent p90 (9%), largest 3-hour wind/solar ramp (8%), and frequency deviation (7%). Missing inputs are skipped and the remaining weights are renormalised.</p>
+				</div>
+				<div class="stress-recipe">
+					<strong>How this score combines</strong>
+					<span id="stressRecipeSummary">Each row below becomes a 0-100 pressure score; the cockpit multiplies it by the active weight and sums the contributions.</span>
 				</div>
 				<div class="gauge-wrap">
 					<div id="stressGauge" class="gauge">
@@ -2114,8 +2174,10 @@
 			model.renewables.solarBest = chooseBestForecast(model.renewables.solarForecast, model.weather.solarMw, model.renewables.solarActual, now);
 
 			model.stress.series = buildStressSeries(model, now);
-			model.stress.current = nearestPoint(model.stress.series, now, 2)?.y;
-			model.stress.drivers = buildStressDrivers(model, now);
+			model.stress.currentPoint = nearestPoint(model.stress.series, now, 2);
+			model.stress.current = model.stress.currentPoint?.y;
+			model.stress.breakdown = buildStressComponents(model, model.stress.currentPoint?.t || now, stressReferenceStats(model, now));
+			model.stress.drivers = model.stress.breakdown.rows;
 			model.reasons = buildReasons(model, now);
 			model.anomalies = detectAnomalies(model, now);
 			model.bestWindow = findBestWindow(model, now);
@@ -2174,65 +2236,72 @@
 					if (p.t >= addHours(now, -24) && p.t <= addHours(now, 48)) times.set(p.t.toISOString(), p.t);
 				}
 			}
-			const demandQ90 = quantile(model.demand.series.filter(p => p.t <= now), 0.90);
-			const priceQ90 = quantile(model.price.series.filter(p => p.t <= now), 0.90);
-			const windCap = capacityMw(model, "wind");
-			const solarCap = capacityMw(model, "solar");
+			const stats = stressReferenceStats(model, now);
 			const stress = [];
 			for (const t of Array.from(times.values()).sort((a, b) => a - b)) {
-				const demand = nearestPoint(model.demand.series, t, 1.2)?.y;
-				const wind = nearestPoint(model.renewables.windBest, t, 1.2)?.y;
-				const solar = nearestPoint(model.renewables.solarBest, t, 1.2)?.y;
-				const carbon = nearestPoint(model.carbon.series, t, 1.4)?.y;
-				const price = nearestPoint(model.price.series, t, 1.4)?.y;
-				const frequency = nearestPoint(model.frequency.series, t, 0.4)?.y;
-				const residual = finite(demand) && finite(wind) && finite(solar) ? demand - wind - solar : undefined;
-				const components = [];
-				const add = (weight, value) => { if (finite(value)) components.push({ weight, value: clamp(value, 0, 1) }); };
-				add(0.20, finite(demand) && finite(demandQ90) ? clamp(demand / demandQ90, 0, 1.35) / 1.35 : undefined);
-				add(0.17, finite(residual) ? clamp((residual - 13000) / 23000, 0, 1) : undefined);
-				add(0.15, finite(carbon) ? clamp((carbon - 70) / 250, 0, 1) : undefined);
-				add(0.15, finite(wind) && finite(windCap) ? 1 - (wind / Math.max(1, windCap)) / 0.45 : undefined);
-				add(0.09, finite(solar) && finite(solarCap) ? 1 - (solar / Math.max(1, solarCap)) / 0.35 : undefined);
-				add(0.09, finite(price) && finite(priceQ90) ? clamp(price / priceQ90, 0, 1.5) / 1.5 : undefined);
-				const windRamp = Math.abs(rollingDelta(model.renewables.windBest, 3, t)?.delta || 0) / 6500;
-				const solarRamp = Math.abs(rollingDelta(model.renewables.solarBest, 3, t)?.delta || 0) / 6500;
-				if (windRamp || solarRamp) add(0.08, Math.max(windRamp, solarRamp));
-				add(0.07, finite(frequency) ? clamp((Math.abs(frequency - 50) - 0.05) / 0.22, 0, 1) : undefined);
-				const totalWeight = components.reduce((a, c) => a + c.weight, 0);
-				if (totalWeight >= 0.20) {
-					const score = 100 * components.reduce((a, c) => a + c.weight * c.value, 0) / totalWeight;
-					stress.push({ t, y: clamp(score, 0, 100) });
-				}
+				const breakdown = buildStressComponents(model, t, stats);
+				if (finite(breakdown.score)) stress.push({ t, y: clamp(breakdown.score, 0, 100) });
 			}
 			return sortSeries(stress);
 		}
 
-		function buildStressDrivers(model, now) {
-			const demand = model.demand.current?.y;
-			const carbon = model.carbon.current?.y;
-			const price = model.price.current?.y;
-			const wind = model.renewables.windCurrent?.y;
-			const solar = model.renewables.solarCurrent?.y;
-			const windCap = capacityMw(model, "wind");
-			const solarCap = capacityMw(model, "solar");
+		function stressReferenceStats(model, now) {
+			return {
+				demandQ90: quantile(model.demand.series.filter(p => p.t <= now), 0.90),
+				priceQ90: quantile(model.price.series.filter(p => p.t <= now), 0.90),
+				windCap: capacityMw(model, "wind"),
+				solarCap: capacityMw(model, "solar")
+			};
+		}
+
+		function buildStressComponents(model, t, stats = stressReferenceStats(model, t)) {
+			const demand = nearestPoint(model.demand.series, t, 1.2)?.y;
+			const wind = nearestPoint(model.renewables.windBest, t, 1.2)?.y;
+			const solar = nearestPoint(model.renewables.solarBest, t, 1.2)?.y;
+			const carbon = nearestPoint(model.carbon.series, t, 1.4)?.y;
+			const price = nearestPoint(model.price.series, t, 1.4)?.y;
+			const frequency = nearestPoint(model.frequency.series, t, 0.4)?.y;
 			const residual = finite(demand) && finite(wind) && finite(solar) ? demand - wind - solar : undefined;
-			const demandRank = percentileRank(model.demand.series.filter(p => p.t <= now), demand);
-			const priceRank = percentileRank(model.price.series.filter(p => p.t <= now), price);
-			const windDrop = rollingDelta(model.renewables.windBest, 6, now)?.delta;
-			const solarDrop = rollingDelta(model.renewables.solarBest, 6, now)?.delta;
-			const frequency = model.frequency.current?.y;
-			const drivers = [];
-			if (finite(demand) && finite(demandRank)) drivers.push({ label: "Demand", value: demandRank, detail: `${gw(demand)} · p${Math.round(demandRank * 100)}` });
-			if (finite(residual)) drivers.push({ label: "Residual", value: clamp((residual - 12000) / 26000, 0, 1), detail: `${gw(residual)} after wind/solar` });
-			if (finite(wind) && finite(windCap)) drivers.push({ label: "Low wind", value: clamp(1 - wind / Math.max(windCap * 0.45, 1), 0, 1), detail: `${gw(wind)} of ${gw(windCap)} capacity` });
-			if (finite(solar) && finite(solarCap)) drivers.push({ label: "Low solar", value: clamp(1 - solar / Math.max(solarCap * 0.35, 1), 0, 1), detail: `${gw(solar)} of ${gw(solarCap)} capacity` });
-			if (finite(carbon)) drivers.push({ label: "Carbon", value: clamp((carbon - 70) / 250, 0, 1), detail: `${Math.round(carbon)} gCO2/kWh` });
-			if (finite(price) && finite(priceRank)) drivers.push({ label: "Price", value: priceRank, detail: `GBP ${round(price, 0)}/MWh · p${Math.round(priceRank * 100)}` });
-			const maxRamp = Math.max(finite(windDrop) ? Math.abs(windDrop) : 0, finite(solarDrop) ? Math.abs(solarDrop) : 0);
-			if (maxRamp > 0) drivers.push({ label: "Ramp", value: clamp(maxRamp / 8000, 0, 1), detail: `6h max ${gw(maxRamp)}` });
-			if (finite(frequency)) drivers.push({ label: "Frequency", value: clamp((Math.abs(frequency - 50) - 0.05) / 0.22, 0, 1), detail: `${frequency.toFixed(3)} Hz` });
-			return drivers.length ? drivers : [{ label: "Data", value: 0, detail: "No stress inputs loaded" }];
+			const windRamp = rollingDelta(model.renewables.windBest, 3, t);
+			const solarRamp = rollingDelta(model.renewables.solarBest, 3, t);
+			const maxRamp = Math.max(
+				finite(windRamp?.delta) ? Math.abs(windRamp.delta) : 0,
+				finite(solarRamp?.delta) ? Math.abs(solarRamp.delta) : 0
+			);
+			const rows = [];
+			const add = (label, weight, value, detail, missingDetail) => {
+				const loaded = finite(value);
+				rows.push({
+					label,
+					weight,
+					value: loaded ? clamp(value, 0, 1) : undefined,
+					detail: loaded ? detail : missingDetail,
+					loaded
+				});
+			};
+			add("Demand", 0.20, finite(demand) && finite(stats.demandQ90) ? clamp(demand / stats.demandQ90, 0, 1.35) / 1.35 : undefined, `${gw(demand)} vs recent p90 ${gw(stats.demandQ90)}`, "Needs demand plus recent p90");
+			add("Residual", 0.17, finite(residual) ? clamp((residual - 13000) / 23000, 0, 1) : undefined, `${gw(residual)} after wind/solar`, "Needs demand, wind and solar");
+			add("Carbon", 0.15, finite(carbon) ? clamp((carbon - 70) / 250, 0, 1) : undefined, `${Math.round(carbon)} gCO2/kWh`, "Needs carbon intensity");
+			add("Low wind", 0.15, finite(wind) && finite(stats.windCap) ? 1 - (wind / Math.max(1, stats.windCap)) / 0.45 : undefined, `${gw(wind)} of ${gw(stats.windCap)} capacity`, "Needs wind output and capacity");
+			add("Low solar", 0.09, finite(solar) && finite(stats.solarCap) ? 1 - (solar / Math.max(1, stats.solarCap)) / 0.35 : undefined, `${gw(solar)} of ${gw(stats.solarCap)} capacity`, "Needs solar output and capacity");
+			add("Price", 0.09, finite(price) && finite(stats.priceQ90) ? clamp(price / stats.priceQ90, 0, 1.5) / 1.5 : undefined, `GBP ${round(price, 0)}/MWh vs recent p90 ${round(stats.priceQ90, 0)}`, "Needs price plus recent p90");
+			add("Ramp", 0.08, (windRamp || solarRamp) ? maxRamp / 6500 : undefined, `largest 3h wind/solar move ${gw(maxRamp)}`, "Needs a 3h wind or solar path");
+			add("Frequency", 0.07, finite(frequency) ? clamp((Math.abs(frequency - 50) - 0.05) / 0.22, 0, 1) : undefined, finite(frequency) ? `${frequency.toFixed(3)} Hz` : "Frequency unavailable", "Needs system frequency");
+			const totalWeight = rows.reduce((a, row) => a + (row.loaded ? row.weight : 0), 0);
+			const weightedSum = rows.reduce((a, row) => a + (row.loaded ? row.weight * row.value : 0), 0);
+			const score = totalWeight >= 0.20 ? 100 * weightedSum / totalWeight : undefined;
+			for (const row of rows) {
+				row.activeWeight = row.loaded && totalWeight > 0 ? row.weight / totalWeight : undefined;
+				row.points = row.loaded && finite(score) ? 100 * row.activeWeight * row.value : undefined;
+			}
+			return {
+				rows,
+				score,
+				time: t,
+				activeCount: rows.filter(row => row.loaded).length,
+				totalCount: rows.length,
+				totalWeight
+			};
 		}
 
 		function buildReasons(model, now) {
@@ -2415,18 +2484,28 @@
 
 		function renderStress(model) {
 			const stress = finite(model.stress.current) ? Math.round(model.stress.current) : undefined;
+			const breakdown = model.stress.breakdown || { rows: model.stress.drivers || [], activeCount: 0, totalCount: 0 };
 			const gauge = $("stressGauge");
 			gauge.style.setProperty("--angle", `${finite(stress) ? stress * 3.6 : 0}deg`);
 			gauge.style.setProperty("--gauge-colour", finite(stress) ? (stress >= 72 ? "var(--bad)" : stress >= 50 ? "var(--warn)" : "var(--good)") : "var(--info)");
 			$("stressValue").textContent = finite(stress) ? stress : "—";
 			$("stressLabel").textContent = finite(stress) ? (stress >= 72 ? "High" : stress >= 50 ? "Watch" : "Comfortable") : "Unavailable";
-			$("drivers").innerHTML = model.stress.drivers.map(d => `
-				<li>
-					<span><strong>${escapeHtml(d.label)}</strong><br><small>${escapeHtml(d.detail)}</small></span>
-					<span class="bar"><span style="width: ${Math.round(clamp(d.value, 0, 1) * 100)}%"></span></span>
-					<span>${Math.round(clamp(d.value, 0, 1) * 100)}</span>
+			$("stressRecipeSummary").textContent = finite(breakdown.score)
+				? `Using ${breakdown.activeCount}/${breakdown.totalCount} inputs at ${fmtDayTime(breakdown.time)}. Score ${round(breakdown.score, 1)} = sum(active weight x 0-100 pressure). Missing feeds are skipped and the remaining weights are renormalised.`
+				: `Not enough inputs are loaded yet. Once at least 20% of the base weights are available, the score is sum(active weight x 0-100 pressure).`;
+			$("drivers").innerHTML = (breakdown.rows || []).map(d => {
+				const pressure = finite(d.value) ? Math.round(clamp(d.value, 0, 1) * 100) : 0;
+				const baseWeight = `${Math.round(d.weight * 100)}%`;
+				const activeWeight = finite(d.activeWeight) ? `${Math.round(d.activeWeight * 100)}% active` : "skipped";
+				const points = finite(d.points) ? `${round(d.points, 1)} pts` : "skipped";
+				return `
+				<li class="${d.loaded ? "" : "is-muted"}">
+					<span><strong>${escapeHtml(d.label)}</strong> <span class="factor-weight">${escapeHtml(baseWeight)}</span> <br><small>${escapeHtml(activeWeight)}; ${escapeHtml(d.detail)}</small></span>
+					<span class="bar" title="${pressure}/100 pressure"><span style="width: ${pressure}%"></span></span>
+					<span class="factor-points">${escapeHtml(points)}</span>
 				</li>
-			`).join("");
+			`;
+			}).join("");
 		}
 
 		function renderMix(model) {
