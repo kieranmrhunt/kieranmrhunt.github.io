@@ -199,7 +199,7 @@
 
 		.controls {
 			display: grid;
-			grid-template-columns: repeat(6, minmax(160px, 1fr));
+			grid-template-columns: repeat(4, minmax(160px, 1fr));
 			gap: 12px;
 			margin: 16px 0;
 			padding: 16px;
@@ -212,6 +212,12 @@
 		.field {
 			display: grid;
 			gap: 6px;
+		}
+
+		.field-note {
+			font-size: 0.76rem;
+			line-height: 1.35;
+			color: var(--muted);
 		}
 
 		label {
@@ -414,6 +420,15 @@
 			align-items: center;
 		}
 
+		.span-4 .gauge-wrap {
+			grid-template-columns: 1fr;
+			justify-items: center;
+		}
+
+		.span-4 .driver-list {
+			width: 100%;
+		}
+
 		.gauge {
 			--angle: 0deg;
 			width: 210px;
@@ -435,13 +450,21 @@
 			text-align: center;
 		}
 
+		.gauge-inner > div {
+			display: grid;
+			gap: 7px;
+			justify-items: center;
+		}
+
 		.gauge-inner strong {
+			display: block;
 			font-size: 3.1rem;
 			letter-spacing: -0.07em;
 			line-height: 0.95;
 		}
 
 		.gauge-inner span {
+			display: block;
 			font-size: 0.76rem;
 			letter-spacing: 0.1em;
 			text-transform: uppercase;
@@ -746,7 +769,6 @@
 			</div>
 			<div class="hero-actions">
 				<button id="refreshBtn">Refresh live data</button>
-				<button id="demoBtn" class="secondary">Generate demo scenario</button>
 			</div>
 		</header>
 
@@ -779,19 +801,14 @@
 				<input id="postcode" placeholder="e.g. SW1A, M1, EH1" autocomplete="postal-code">
 			</div>
 			<div class="field">
-				<label for="windCap">Assumed wind capacity</label>
-				<input id="windCap" type="number" min="1" max="80" step="0.5" value="32">
+				<label for="windCap">Wind capacity (GW)</label>
+				<input id="windCap" type="number" min="1" max="120" step="0.1" value="39.3">
+				<span class="field-note">Fallback only; live capacity feeds override this where available.</span>
 			</div>
 			<div class="field">
-				<label for="solarCap">Assumed solar capacity</label>
-				<input id="solarCap" type="number" min="1" max="80" step="0.5" value="20">
-			</div>
-			<div class="field">
-				<label for="proxyPrefix">Optional proxy prefix</label>
-				<input id="proxyPrefix" placeholder="https://your-proxy/?url=">
-			</div>
-			<div class="field checkbox-field">
-				<label class="checkbox"><input id="demoOnly" type="checkbox"> Demo only</label>
+				<label for="solarCap">Solar capacity (GW)</label>
+				<input id="solarCap" type="number" min="1" max="120" step="0.1" value="34.1">
+				<span class="field-note">Fallback only; live capacity feeds override this where available.</span>
 			</div>
 		</section>
 
@@ -808,7 +825,7 @@
 				<div class="panel-head">
 					<div>
 						<h2 class="panel-title">Current state</h2>
-						<p class="panel-subtitle">Live where the browser can reach the feeds; otherwise clearly marked sample estimates.</p>
+						<p class="panel-subtitle">Live feeds only; unavailable data stays empty and is listed in diagnostics.</p>
 					</div>
 					<span id="scenarioBadge" class="pill"><span class="dot info"></span><strong>Initialising</strong></span>
 				</div>
@@ -846,7 +863,7 @@
 				<div class="explainer">
 					<div class="big-callout">
 						<h2 id="headline">Building the first view…</h2>
-						<p id="narrative">The app will combine live API data with a fallback scenario so the reasoning panels still work without a backend.</p>
+						<p id="narrative">The app will combine live grid, market and weather APIs. Missing feeds will be left unavailable rather than filled with a sample scenario.</p>
 					</div>
 					<ul id="reasons" class="reason-list"></ul>
 				</div>
@@ -883,13 +900,24 @@
 				<div class="panel-head">
 					<div>
 						<h2 class="panel-title">Generation mix</h2>
-						<p class="panel-subtitle">Current fuel mix from live generation where available, otherwise carbon API/demo proportions.</p>
+						<p class="panel-subtitle">Current fuel mix from Carbon Intensity or nearest Elexon actual generation data.</p>
 					</div>
 				</div>
 				<div class="mix-layout">
 					<div id="mixDonut" class="donut"><div class="donut-inner"><div><strong id="cleanShare">—</strong><span>low-carbon share</span></div></div></div>
 					<div id="mixTable" class="mix-table"></div>
 				</div>
+			</section>
+
+			<section class="panel pad span-12">
+				<div class="panel-head">
+					<div>
+						<h2 class="panel-title">Generation mix over the last 48 hours</h2>
+						<p class="panel-subtitle">Elexon actual generation by fuel type in GW, with Carbon Intensity percentage history as a fallback.</p>
+					</div>
+				</div>
+				<div class="chart-legend" id="generationHistoryLegend"></div>
+				<div class="chart-wrap"><canvas id="generationHistoryChart"></canvas></div>
 			</section>
 
 			<section class="panel pad span-6">
@@ -912,13 +940,16 @@
 				<div class="panel-head">
 					<div>
 						<h2 class="panel-title">Weather-driven nowcast</h2>
-						<p class="panel-subtitle">UKMO-style probe blend: wind power proxy, solar radiation proxy, and weather risk drivers.</p>
+						<p class="panel-subtitle">Open-Meteo GFS/UKMO/ECMWF probe blend: wind power proxy, solar radiation proxy, and synoptic risk drivers.</p>
 					</div>
 				</div>
 				<div class="mini-card-grid">
 					<div class="mini-card"><small>Wind weather</small><strong id="windProxyMetric">—</strong><span id="windProxyDetail">—</span></div>
 					<div class="mini-card"><small>Solar weather</small><strong id="solarProxyMetric">—</strong><span id="solarProxyDetail">—</span></div>
 					<div class="mini-card"><small>Next 6 hours</small><strong id="nextSixMetric">—</strong><span id="nextSixDetail">—</span></div>
+					<div class="mini-card"><small>Pressure</small><strong id="pressureMetric">—</strong><span id="pressureDetail">—</span></div>
+					<div class="mini-card"><small>Air mass</small><strong id="airMassMetric">—</strong><span id="airMassDetail">—</span></div>
+					<div class="mini-card"><small>Rain / cloud</small><strong id="rainCloudMetric">—</strong><span id="rainCloudDetail">—</span></div>
 				</div>
 				<div class="chart-legend" id="weatherLegend" style="margin-top: 14px;"></div>
 				<div class="chart-wrap"><canvas id="weatherChart"></canvas></div>
@@ -950,7 +981,7 @@
 					<div class="panel-head">
 						<div>
 							<h2 class="panel-title">Data feed diagnostics and API links</h2>
-							<p class="panel-subtitle">Use this to see exactly which live feeds worked. A server-side proxy can be added later for feeds that do not allow direct browser CORS.</p>
+							<p class="panel-subtitle">Use this to see exactly which live feeds worked and which ones returned no usable data.</p>
 						</div>
 					</div>
 					<ul id="diagnostics" class="endpoint-list"></ul>
@@ -958,12 +989,12 @@
 				<div class="details">
 					<details>
 						<summary>Source links, model assumptions and deployment notes</summary>
-						<p class="footer-note">This is a client-side cockpit. For production, put the API calls behind a small cache/proxy to respect rate limits, reduce CORS problems, and preserve a consistent data model. The stress index is explanatory: it is not an official grid adequacy, security-of-supply or balancing-cost metric.</p>
+						<p class="footer-note">This is a client-side cockpit using public APIs directly. Wind and solar capacity inputs are GW fallback values used only when live NESO/Elexon capacity data cannot be read; they convert weather indices into approximate MW. The stress index is explanatory: it is not an official grid adequacy, security-of-supply or balancing-cost metric.</p>
 						<ul class="endpoint-list">
 							<li><strong>Carbon Intensity API</strong><span>National/regional carbon intensity and generation mix.</span><span class="code">https://api.carbonintensity.org.uk/</span></li>
 							<li><strong>Elexon Insights API</strong><span>Demand outturn, actual generation, wind/solar forecasts, market prices and system prices.</span><span class="code">https://data.elexon.co.uk/bmrs/api/v1/</span></li>
-							<li><strong>NESO Data Portal</strong><span>CKAN/DataStore datasets; good production source for demand, embedded wind/solar and frequency data.</span><span class="code">https://api.neso.energy/api/3/action/</span></li>
-							<li><strong>Open-Meteo UKMO API</strong><span>UKMO Global/UKV-style forecasts for weather-derived wind and solar proxies.</span><span class="code">https://api.open-meteo.com/v1/ukmo</span></li>
+							<li><strong>NESO Data Portal</strong><span>Embedded wind/solar forecasts and embedded capacity fields in MW.</span><span class="code">https://api.neso.energy/api/3/action/</span></li>
+							<li><strong>Open-Meteo Forecast API</strong><span>GFS/UKMO/ECMWF weather variables for weather-derived wind and solar proxies.</span><span class="code">https://api.open-meteo.com/v1/forecast</span></li>
 						</ul>
 					</details>
 				</div>
@@ -978,7 +1009,8 @@
 			ci: "https://api.carbonintensity.org.uk",
 			elexon: "https://data.elexon.co.uk/bmrs/api/v1",
 			neso: "https://api.neso.energy/api/3/action",
-			openMeteo: "https://api.open-meteo.com/v1/ukmo"
+			nesoEmbeddedResource: "db6c038f-98af-4570-ab60-24d71ebd0ae5",
+			openMeteo: "https://api.open-meteo.com/v1/forecast"
 		};
 
 		const COLOURS = {
@@ -1021,8 +1053,7 @@
 		const app = {
 			model: null,
 			feeds: {},
-			loading: false,
-			scenarioCounter: 0
+			loading: false
 		};
 
 		const $ = id => document.getElementById(id);
@@ -1038,11 +1069,17 @@
 		const pct = x => finite(x) ? `${Math.round(Number(x))}%` : "—";
 		const round = (x, d = 0) => finite(x) ? Number(x).toFixed(d) : "—";
 		const normaliseText = x => String(x ?? "").trim().toLowerCase().replace(/[_\-]+/g, " ");
+		const signedGw = mw => finite(mw) ? `${Number(mw) >= 0 ? "+" : ""}${gw(mw)}` : "—";
 
-		function proxyUrl(url) {
-			const prefix = $("proxyPrefix").value.trim();
-			if (!prefix) return url;
-			return `${prefix}${encodeURIComponent(url)}`;
+		function inputCapacityMw(kind) {
+			const fallback = kind === "wind" ? 39.3 : 34.1;
+			const value = Number($(kind === "wind" ? "windCap" : "solarCap")?.value || fallback);
+			return Number.isFinite(value) && value > 0 ? value * 1000 : undefined;
+		}
+
+		function capacityMw(model, kind) {
+			const live = model?.capacity?.[`${kind}Mw`];
+			return finite(live) && live > 0 ? live : inputCapacityMw(kind);
 		}
 
 		function showToast(title, detail) {
@@ -1056,8 +1093,8 @@
 
 		function getStatusClass(status) {
 			if (status === "live") return "ok";
-			if (status === "demo" || status === "estimated") return "warn";
-			if (status === "off") return "bad";
+			if (status === "derived" || status === "partial") return "warn";
+			if (status === "off" || status === "unavailable") return "bad";
 			return "info";
 		}
 
@@ -1068,7 +1105,7 @@
 		async function fetchJson(key, url, detail) {
 			const started = performance.now();
 			try {
-				const response = await fetch(proxyUrl(url), {
+				const response = await fetch(url, {
 					headers: { "Accept": "application/json" },
 					cache: "no-store"
 				});
@@ -1077,7 +1114,7 @@
 				setFeed(key, "live", `${detail} · ${Math.round(performance.now() - started)} ms`, url);
 				return { ok: true, json, url };
 			} catch (error) {
-				setFeed(key, "demo", `${detail} unavailable: ${error.message}`, url);
+				setFeed(key, "unavailable", `${detail} unavailable: ${error.message}`, url);
 				return { ok: false, error, url };
 			}
 		}
@@ -1108,10 +1145,17 @@
 		}
 
 		function pickNumber(obj, keys) {
-			const val = pick(obj, keys);
-			if (val === undefined || val === null || val === "") return undefined;
-			const n = Number(String(val).replace(/,/g, ""));
-			return Number.isFinite(n) ? n : undefined;
+			if (!obj || typeof obj !== "object") return undefined;
+			const lowerMap = Object.fromEntries(Object.keys(obj).map(k => [k.toLowerCase(), k]));
+			for (const key of keys) {
+				const realKey = key in obj ? key : lowerMap[String(key).toLowerCase()];
+				if (!realKey) continue;
+				const val = obj[realKey];
+				if (val === undefined || val === null || val === "") continue;
+				const n = Number(String(val).replace(/,/g, ""));
+				if (Number.isFinite(n)) return n;
+			}
+			return undefined;
 		}
 
 		function timeFromSettlement(settlementDate, settlementPeriod) {
@@ -1147,6 +1191,14 @@
 			let best = null;
 			for (const p of series || []) {
 				if (p.t <= when && finite(p.y)) best = p;
+			}
+			return best;
+		}
+
+		function latestGroupedBefore(groups, when = new Date()) {
+			let best = null;
+			for (const item of groups || []) {
+				if (item.t <= when) best = item;
 			}
 			return best;
 		}
@@ -1246,6 +1298,7 @@
 				if (Array.isArray(nested) && nested.length) mix = nested;
 				for (const key of ["data", "regions", "results", "items"]) {
 					if (Array.isArray(value[key])) visit(value[key]);
+					else if (value[key] && typeof value[key] === "object") visit(value[key]);
 				}
 			};
 			visit(json);
@@ -1299,14 +1352,18 @@
 			const rows = recordsFrom(json);
 			const byTime = new Map();
 			for (const record of rows) {
-				const t = timeFromRecord(record);
-				const fuel = normaliseFuel(pick(record, ["powerSystemResourceType", "psrType", "fuelType", "generationType", "businessType", "type"]));
-				const y = pickNumber(record, ["quantity", "generation", "value", "mw", "output", "actualGeneration"]);
-				if (!t || !finite(y)) continue;
-				const key = t.toISOString();
-				if (!byTime.has(key)) byTime.set(key, { t, byFuel: {} });
-				const bucket = byTime.get(key);
-				bucket.byFuel[fuel] = (bucket.byFuel[fuel] || 0) + Number(y);
+				const children = Array.isArray(record.data) ? record.data : [record];
+				for (const child of children) {
+					const merged = child === record ? record : { ...record, ...child };
+					const t = timeFromRecord(merged);
+					const fuel = normaliseFuel(pick(merged, ["powerSystemResourceType", "psrType", "fuelType", "generationType", "businessType", "type"]));
+					const y = pickNumber(merged, ["quantity", "generation", "value", "mw", "output", "actualGeneration"]);
+					if (!t || !finite(y)) continue;
+					const key = t.toISOString();
+					if (!byTime.has(key)) byTime.set(key, { t, byFuel: {} });
+					const bucket = byTime.get(key);
+					bucket.byFuel[fuel] = (bucket.byFuel[fuel] || 0) + Number(y);
+				}
 			}
 			const grouped = Array.from(byTime.values()).sort((a, b) => a.t - b.t);
 			const fuelSeries = {};
@@ -1319,13 +1376,31 @@
 			return { grouped, fuelSeries };
 		}
 
+		function parseGenerationMixHistory(json) {
+			const rows = recordsFrom(json);
+			const grouped = [];
+			for (const record of rows) {
+				const mix = generationMixRowsFrom(record);
+				const t = timeFromRecord(record);
+				if (!t || !mix.length) continue;
+				const byFuel = {};
+				for (const row of mix) {
+					const fuel = normaliseFuel(pick(row, ["fuel", "fuelType", "powerSystemResourceType", "psrType"]));
+					const value = pickNumber(row, ["perc", "percentage", "value", "quantity"]);
+					if (finite(value)) byFuel[fuel] = (byFuel[fuel] || 0) + Number(value);
+				}
+				if (Object.keys(byFuel).length) grouped.push({ t, byFuel });
+			}
+			return grouped.sort((a, b) => a.t - b.t);
+		}
+
 		function parseWindSolarForecast(json) {
 			const rows = recordsFrom(json);
 			const byTime = new Map();
 			for (const record of rows) {
 				const t = timeFromRecord(record);
 				if (!t) continue;
-				let wind = pickNumber(record, ["wind", "windGeneration", "windPower", "forecastWindGeneration", "windAndSolar", "quantity"]);
+				let wind = pickNumber(record, ["wind", "windGeneration", "windPower", "forecastWindGeneration", "windAndSolar"]);
 				let solar = pickNumber(record, ["solar", "solarGeneration", "solarPower", "forecastSolarGeneration"]);
 				const fuel = normaliseFuel(pick(record, ["fuelType", "powerSystemResourceType", "psrType", "generationType", "resourceType"]));
 				if (fuel === "wind") wind = pickNumber(record, ["quantity", "generation", "value", "forecastGeneration", "wind"]);
@@ -1345,6 +1420,51 @@
 			return { windSeries, solarSeries };
 		}
 
+		function parseEmbeddedWindSolar(json) {
+			const rows = recordsFrom(json);
+			const windSeries = [];
+			const solarSeries = [];
+			let windCapacity;
+			let solarCapacity;
+			for (const record of rows) {
+				const t = timeFromRecord(record);
+				const wind = pickNumber(record, ["EMBEDDED_WIND_FORECAST", "embeddedWindForecast", "windForecast"]);
+				const solar = pickNumber(record, ["EMBEDDED_SOLAR_FORECAST", "embeddedSolarForecast", "solarForecast"]);
+				const windCap = pickNumber(record, ["EMBEDDED_WIND_CAPACITY", "embeddedWindCapacity", "windCapacity"]);
+				const solarCap = pickNumber(record, ["EMBEDDED_SOLAR_CAPACITY", "embeddedSolarCapacity", "solarCapacity"]);
+				if (t && finite(wind)) windSeries.push({ t, y: Number(wind) });
+				if (t && finite(solar)) solarSeries.push({ t, y: Number(solar) });
+				if (finite(windCap)) windCapacity = Number(windCap);
+				if (finite(solarCap)) solarCapacity = Number(solarCap);
+			}
+			return {
+				windSeries: sortSeries(windSeries),
+				solarSeries: sortSeries(solarSeries),
+				windCapacity,
+				solarCapacity
+			};
+		}
+
+		function parseInstalledCapacity(json) {
+			const rows = recordsFrom(json).filter(record => finite(pickNumber(record, ["quantity", "installedCapacity", "value"])));
+			if (!rows.length) return {};
+			const latestYear = Math.max(...rows.map(record => pickNumber(record, ["year"])).filter(Number.isFinite));
+			const usable = Number.isFinite(latestYear) ? rows.filter(record => pickNumber(record, ["year"]) === latestYear) : rows;
+			let windMetered = 0;
+			let solarMetered = 0;
+			for (const record of usable) {
+				const fuel = normaliseFuel(pick(record, ["psrType", "powerSystemResourceType", "fuelType", "generationType"]));
+				const quantity = pickNumber(record, ["quantity", "installedCapacity", "value"]);
+				if (fuel === "wind") windMetered += Number(quantity);
+				if (fuel === "solar") solarMetered += Number(quantity);
+			}
+			return {
+				year: latestYear,
+				windMetered: windMetered || undefined,
+				solarMetered: solarMetered || undefined
+			};
+		}
+
 		function windPowerCurve(speed) {
 			const v = Number(speed);
 			if (!Number.isFinite(v) || v < 3 || v > 25) return 0;
@@ -1358,35 +1478,60 @@
 			return clamp((rad / 750) * cloudPenalty * (isDayHint ? 1 : 0.2), 0, 1);
 		}
 
+		function hourlyValue(hourly, base, i) {
+			const values = [];
+			if (Array.isArray(hourly[base]) && finite(hourly[base][i])) values.push(Number(hourly[base][i]));
+			for (const key of Object.keys(hourly || {})) {
+				if (key.startsWith(`${base}_`) && Array.isArray(hourly[key]) && finite(hourly[key][i])) values.push(Number(hourly[key][i]));
+			}
+			if (!values.length) return undefined;
+			return values.reduce((a, v) => a + v, 0) / values.length;
+		}
+
+		function meteoTime(value) {
+			if (!value) return null;
+			const text = String(value);
+			const parsed = new Date(/[zZ]|[+\-]\d\d:?\d\d$/.test(text) ? text : `${text}Z`);
+			return Number.isNaN(parsed.getTime()) ? null : parsed;
+		}
+
 		async function fetchWeatherProbes() {
-			const vars = "temperature_2m,precipitation,cloud_cover,shortwave_radiation,wind_speed_100m,wind_gusts_10m";
+			const vars = "temperature_2m,relative_humidity_2m,dew_point_2m,precipitation,cloud_cover,shortwave_radiation,wind_speed_100m,wind_direction_100m,wind_gusts_10m,pressure_msl,weather_code";
+			const models = "gfs_seamless,ukmo_seamless,ecmwf_ifs025";
 			const calls = WEATHER_PROBES.map(probe => {
-				const url = `${API.openMeteo}?latitude=${probe.lat}&longitude=${probe.lon}&hourly=${vars}&timezone=Europe%2FLondon&forecast_days=3&past_days=1&wind_speed_unit=ms`;
+				const url = `${API.openMeteo}?latitude=${probe.lat}&longitude=${probe.lon}&hourly=${vars}&timezone=UTC&forecast_days=3&past_days=2&wind_speed_unit=ms&models=${models}`;
 				return fetchJson(`Weather · ${probe.name}`, url, probe.name).then(result => ({ probe, result }));
 			});
 			const results = await Promise.all(calls);
 			const successful = results.filter(r => r.result.ok);
 			if (!successful.length) return null;
-			setFeed("Open-Meteo UKMO blend", "live", `${successful.length}/${WEATHER_PROBES.length} weather probes loaded`, API.openMeteo);
+			setFeed("Open-Meteo GFS/UKMO/ECMWF blend", "live", `${successful.length}/${WEATHER_PROBES.length} weather probes loaded`, API.openMeteo);
 			const buckets = new Map();
 			for (const { probe, result } of successful) {
 				const hourly = result.json.hourly || {};
 				const times = hourly.time || [];
 				for (let i = 0; i < times.length; i++) {
-					const t = new Date(times[i]);
-					if (Number.isNaN(t.getTime())) continue;
+					const t = meteoTime(times[i]);
+					if (!t) continue;
 					const key = t.toISOString();
-					if (!buckets.has(key)) buckets.set(key, { t, wind: 0, solar: 0, windW: 0, solarW: 0, precip: 0, cloud: 0, temp: 0, n: 0 });
+					if (!buckets.has(key)) buckets.set(key, { t, wind: 0, solar: 0, windW: 0, solarW: 0, precip: 0, cloud: 0, temp: 0, humidity: 0, dewPoint: 0, pressure: 0, gust: 0, windDir: 0, n: 0 });
 					const bucket = buckets.get(key);
-					const wind = windPowerCurve(hourly.wind_speed_100m?.[i]);
-					const sol = solarProxy(hourly.shortwave_radiation?.[i], hourly.cloud_cover?.[i], true);
+					const windSpeed = hourlyValue(hourly, "wind_speed_100m", i);
+					const wind = windPowerCurve(windSpeed);
+					const cloudCover = hourlyValue(hourly, "cloud_cover", i);
+					const sol = solarProxy(hourlyValue(hourly, "shortwave_radiation", i), cloudCover, true);
 					bucket.wind += wind * probe.windWeight;
 					bucket.solar += sol * probe.solarWeight;
 					bucket.windW += probe.windWeight;
 					bucket.solarW += probe.solarWeight;
-					bucket.precip += Number(hourly.precipitation?.[i] || 0);
-					bucket.cloud += Number(hourly.cloud_cover?.[i] || 0);
-					bucket.temp += Number(hourly.temperature_2m?.[i] || 0);
+					bucket.precip += Number(hourlyValue(hourly, "precipitation", i) || 0);
+					bucket.cloud += Number(cloudCover || 0);
+					bucket.temp += Number(hourlyValue(hourly, "temperature_2m", i) || 0);
+					bucket.humidity += Number(hourlyValue(hourly, "relative_humidity_2m", i) || 0);
+					bucket.dewPoint += Number(hourlyValue(hourly, "dew_point_2m", i) || 0);
+					bucket.pressure += Number(hourlyValue(hourly, "pressure_msl", i) || 0);
+					bucket.gust += Number(hourlyValue(hourly, "wind_gusts_10m", i) || 0);
+					bucket.windDir += Number(hourlyValue(hourly, "wind_direction_100m", i) || 0);
 					bucket.n += 1;
 				}
 			}
@@ -1396,14 +1541,24 @@
 				solarIndex: b.solarW ? clamp(100 * b.solar / b.solarW, 0, 100) : 0,
 				precip: b.n ? b.precip / b.n : 0,
 				cloud: b.n ? b.cloud / b.n : 0,
-				temp: b.n ? b.temp / b.n : 0
+				temp: b.n ? b.temp / b.n : 0,
+				humidity: b.n ? b.humidity / b.n : 0,
+				dewPoint: b.n ? b.dewPoint / b.n : 0,
+				pressure: b.n ? b.pressure / b.n : 0,
+				gust: b.n ? b.gust / b.n : 0,
+				windDir: b.n ? b.windDir / b.n : 0
 			}));
 			return {
 				windIndex: rows.map(r => ({ t: r.t, y: r.windIndex })),
 				solarIndex: rows.map(r => ({ t: r.t, y: r.solarIndex })),
 				precip: rows.map(r => ({ t: r.t, y: r.precip })),
 				cloud: rows.map(r => ({ t: r.t, y: r.cloud })),
-				temp: rows.map(r => ({ t: r.t, y: r.temp }))
+				temp: rows.map(r => ({ t: r.t, y: r.temp })),
+				humidity: rows.map(r => ({ t: r.t, y: r.humidity })),
+				dewPoint: rows.map(r => ({ t: r.t, y: r.dewPoint })),
+				pressure: rows.map(r => ({ t: r.t, y: r.pressure })),
+				gust: rows.map(r => ({ t: r.t, y: r.gust })),
+				windDir: rows.map(r => ({ t: r.t, y: r.windDir }))
 			};
 		}
 
@@ -1414,17 +1569,13 @@
 			$("refreshBtn").disabled = true;
 			$("refreshBtn").textContent = "Refreshing…";
 			try {
-				const demoOnly = $("demoOnly").checked;
 				const now = new Date();
-				let model = makeDemoModel(now, demoOnly ? "Demo-only scenario" : "Live with fallback");
-				if (!demoOnly) {
-					const loaded = await loadLiveBundle(now);
-					model = applyLiveBundle(model, loaded, now);
-				}
+				const loaded = await loadLiveBundle(now);
+				let model = applyLiveBundle(makeEmptyModel(now), loaded, now);
 				model = deriveModel(model, now);
 				app.model = model;
 				render(model);
-				showToast("Cockpit refreshed", model.liveShare > 0 ? `${model.liveShare}% of primary feeds are live.` : "Using generated demo data only.");
+				showToast("Cockpit refreshed", model.liveShare > 0 ? `${model.liveShare}% of primary feeds are live.` : "No primary feeds returned usable data.");
 			} finally {
 				app.loading = false;
 				$("refreshBtn").disabled = false;
@@ -1433,10 +1584,13 @@
 		}
 
 		async function loadLiveBundle(now) {
-			const past = isoZ(addHours(now, -36));
+			const past = isoZ(addHours(now, -48));
 			const past24 = isoZ(addHours(now, -24));
 			const future = isoZ(addHours(now, 48));
 			const nowIso = isoZ(now);
+			const carbonNow = `${now.toISOString().slice(0, 16)}Z`;
+			const carbonPast = `${addHours(now, -48).toISOString().slice(0, 16)}Z`;
+			const capacityFrom = isoZ(addHours(now, -24 * 731));
 			const postcode = $("postcode").value.trim().replace(/\s+/g, "").toUpperCase();
 			const carbonArea = $("carbonArea").value;
 			const ciCurrentUrl = postcode
@@ -1445,27 +1599,31 @@
 					? `${API.ci}/regional/regionid/${encodeURIComponent(carbonArea)}`
 					: `${API.ci}/intensity`;
 			const ciHistoryUrl = postcode
-				? `${API.ci}/regional/intensity/${encodeURIComponent(nowIso)}/pt24h/postcode/${encodeURIComponent(postcode)}`
+				? `${API.ci}/regional/intensity/${carbonNow}/pt24h/postcode/${encodeURIComponent(postcode)}`
 				: carbonArea !== "national"
-					? `${API.ci}/regional/intensity/${encodeURIComponent(nowIso)}/pt24h/regionid/${encodeURIComponent(carbonArea)}`
-					: `${API.ci}/intensity/${encodeURIComponent(nowIso)}/pt24h`;
+					? `${API.ci}/regional/intensity/${carbonNow}/pt24h/regionid/${encodeURIComponent(carbonArea)}`
+					: `${API.ci}/intensity/${carbonNow}/pt24h`;
 			const ciForecastUrl = postcode
-				? `${API.ci}/regional/intensity/${encodeURIComponent(nowIso)}/fw48h/postcode/${encodeURIComponent(postcode)}`
+				? `${API.ci}/regional/intensity/${carbonNow}/fw48h/postcode/${encodeURIComponent(postcode)}`
 				: carbonArea !== "national"
-					? `${API.ci}/regional/intensity/${encodeURIComponent(nowIso)}/fw48h/regionid/${encodeURIComponent(carbonArea)}`
-					: `${API.ci}/intensity/${encodeURIComponent(nowIso)}/fw48h`;
+					? `${API.ci}/regional/intensity/${carbonNow}/fw48h/regionid/${encodeURIComponent(carbonArea)}`
+					: `${API.ci}/intensity/${carbonNow}/fw48h`;
 
 			const calls = {
 				ciCurrent: fetchJson("Carbon current", ciCurrentUrl, "Current carbon intensity"),
 				ciHistory: fetchJson("Carbon past 24h", ciHistoryUrl, "Historic carbon intensity"),
 				ciForecast: fetchJson("Carbon 48h", ciForecastUrl, "Forecast carbon intensity"),
 				ciGeneration: fetchJson("Carbon generation mix", `${API.ci}/generation`, "Current generation mix"),
+				ciGenerationHistory: fetchJson("Carbon generation mix history", `${API.ci}/generation/${carbonPast}/${carbonNow}`, "48h generation mix history"),
 				elexonDemand: fetchJson("Elexon demand", `${API.elexon}/demand/outturn?from=${encodeURIComponent(past)}&to=${encodeURIComponent(nowIso)}&format=json`, "Demand outturn"),
 				elexonGeneration: fetchJson("Elexon actual generation", `${API.elexon}/generation/actual/per-type?from=${encodeURIComponent(past)}&to=${encodeURIComponent(nowIso)}&format=json`, "Actual generation by type"),
-				elexonForecastWS: fetchJson("Elexon wind/solar forecast", `${API.elexon}/forecast/generation/wind-and-solar/day-ahead?from=${encodeURIComponent(past24)}&to=${encodeURIComponent(future)}&format=json`, "Day-ahead wind/solar"),
+				elexonActualWS: fetchJson("Elexon actual wind/solar", `${API.elexon}/generation/actual/per-type/wind-and-solar?from=${encodeURIComponent(past)}&to=${encodeURIComponent(nowIso)}&format=json`, "Actual wind/solar generation"),
+				elexonForecastWS: fetchJson("Elexon wind/solar forecast", `${API.elexon}/forecast/generation/wind-and-solar/day-ahead?from=${encodeURIComponent(past24)}&to=${encodeURIComponent(future)}&settlementPeriodFrom=1&settlementPeriodTo=50&processType=all&format=json`, "Day-ahead wind/solar"),
 				elexonMarket: fetchJson("Elexon market index", `${API.elexon}/balancing/pricing/market-index?from=${encodeURIComponent(past)}&to=${encodeURIComponent(nowIso)}&format=json`, "Market index price"),
 				elexonSystemPrices: fetchJson("Elexon system prices", `${API.elexon}/balancing/settlement/system-prices/${fmtDate(now)}?format=json`, "System prices"),
 				elexonFrequency: fetchJson("Elexon frequency", `${API.elexon}/datasets/FREQ/stream?from=${encodeURIComponent(past)}&to=${encodeURIComponent(nowIso)}&format=json`, "System frequency"),
+				elexonCapacity: fetchJson("Elexon installed capacity", `${API.elexon}/datasets/IGCA/stream?publishDateTimeFrom=${encodeURIComponent(capacityFrom)}&publishDateTimeTo=${encodeURIComponent(nowIso)}&format=json`, "Installed capacity by type"),
+				nesoEmbedded: fetchJson("NESO embedded wind/solar", `${API.neso}/datastore_search?resource_id=${encodeURIComponent(API.nesoEmbeddedResource)}&limit=1000`, "Embedded wind/solar forecast and capacity"),
 				weather: fetchWeatherProbes()
 			};
 			const resolved = {};
@@ -1491,6 +1649,14 @@
 				}
 			}
 
+			if (bundle.ciGenerationHistory?.ok) {
+				const history = parseGenerationMixHistory(bundle.ciGenerationHistory.json);
+				if (history.length) {
+					model.generation.mixHistoryPercent = history;
+					model.sources.mixHistory = "live";
+				}
+			}
+
 			if (bundle.elexonDemand?.ok) {
 				const series = parseDemand(bundle.elexonDemand.json);
 				if (series.length >= 2) {
@@ -1512,6 +1678,18 @@
 				}
 			}
 
+			if (bundle.elexonActualWS?.ok) {
+				const actual = parseWindSolarForecast(bundle.elexonActualWS.json);
+				if (actual.windSeries.length) {
+					model.renewables.windActual = mergeFutureEstimate(actual.windSeries, model.renewables.windActual, now);
+					model.sources.generation = "live";
+				}
+				if (actual.solarSeries.length) {
+					model.renewables.solarActual = mergeFutureEstimate(actual.solarSeries, model.renewables.solarActual, now);
+					model.sources.generation = "live";
+				}
+			}
+
 			if (bundle.elexonForecastWS?.ok) {
 				const forecast = parseWindSolarForecast(bundle.elexonForecastWS.json);
 				if (forecast.windSeries.length) {
@@ -1522,6 +1700,40 @@
 					model.renewables.solarForecast = forecast.solarSeries;
 					model.sources.renewableForecast = "live";
 				}
+			}
+
+			if (bundle.nesoEmbedded?.ok) {
+				const embedded = parseEmbeddedWindSolar(bundle.nesoEmbedded.json);
+				model.renewables.embeddedWindForecast = embedded.windSeries;
+				model.renewables.embeddedSolarForecast = embedded.solarSeries;
+				if (embedded.windSeries.length && !model.renewables.windForecast.length) {
+					model.renewables.windForecast = embedded.windSeries;
+					model.sources.renewableForecast = "live";
+				}
+				if (embedded.solarSeries.length && !model.renewables.solarForecast.length) {
+					model.renewables.solarForecast = embedded.solarSeries;
+					model.sources.renewableForecast = "live";
+				}
+				if (finite(embedded.windCapacity)) model.capacity.embeddedWindMw = embedded.windCapacity;
+				if (finite(embedded.solarCapacity)) model.capacity.embeddedSolarMw = embedded.solarCapacity;
+			}
+
+			if (bundle.elexonCapacity?.ok) {
+				const capacity = parseInstalledCapacity(bundle.elexonCapacity.json);
+				if (finite(capacity.windMetered)) model.capacity.meteredWindMw = capacity.windMetered;
+				if (finite(capacity.solarMetered)) model.capacity.meteredSolarMw = capacity.solarMetered;
+				if (capacity.year) model.capacity.year = capacity.year;
+			}
+
+			const windPieces = [model.capacity.meteredWindMw, model.capacity.embeddedWindMw].filter(finite);
+			const solarPieces = [model.capacity.meteredSolarMw, model.capacity.embeddedSolarMw].filter(finite);
+			if (windPieces.length) {
+				model.capacity.windMw = windPieces.reduce((a, v) => a + v, 0);
+				model.sources.capacity = "live";
+			}
+			if (solarPieces.length) {
+				model.capacity.solarMw = solarPieces.reduce((a, v) => a + v, 0);
+				model.sources.capacity = "live";
 			}
 
 			const pricePieces = [];
@@ -1559,86 +1771,39 @@
 			return Array.from(map.values()).sort((a, b) => a.t - b.t);
 		}
 
-		function makeDemoModel(now, label = "Demo scenario") {
-			const windCap = Number($("windCap")?.value || 32) * 1000;
-			const solarCap = Number($("solarCap")?.value || 20) * 1000;
-			const anchor = new Date(now);
-			anchor.setMinutes(0, 0, 0);
-			const demand = [];
-			const carbon = [];
-			const price = [];
-			const windActual = [];
-			const solarActual = [];
-			const windForecast = [];
-			const solarForecast = [];
-			const windIndex = [];
-			const solarIndex = [];
-			const temp = [];
-			const cloud = [];
-			const precip = [];
-
-			for (let h = -36; h <= 54; h++) {
-				const t = addHours(anchor, h);
-				const localHour = Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hour12: false, timeZone: "Europe/London" }).format(t));
-				const dayShape = Math.sin((localHour - 7) / 24 * Math.PI * 2);
-				const eveningPeak = Math.exp(-Math.pow((localHour - 18.2) / 3.1, 2));
-				const morningPeak = 0.55 * Math.exp(-Math.pow((localHour - 8.0) / 2.7, 2));
-				const solarDay = Math.max(0, Math.sin((localHour - 5.2) / 14.8 * Math.PI));
-				const slowWind = clamp(0.48 + 0.30 * Math.sin((h + app.scenarioCounter * 5) / 8.5) + 0.20 * Math.sin((h - 4) / 17) + 0.08 * Math.cos(h / 2.8), 0.03, 0.96);
-				const cloudIndex = clamp(42 + 32 * Math.sin((h + 8) / 11) + 18 * Math.cos(h / 5.3), 5, 98);
-				const solarWeather = clamp(solarDay * (1 - 0.52 * cloudIndex / 100) + 0.08 * Math.sin(h / 2), 0, 1);
-				const demandMw = 24500 + 3800 * eveningPeak + 2000 * morningPeak - 1100 * solarDay + 700 * Math.max(0, -dayShape) + 550 * Math.sin((h + 3) / 6);
-				const windMw = windCap * (0.06 + 0.78 * slowWind) * (0.93 + 0.04 * Math.sin(h));
-				const solarMw = solarCap * solarWeather * (0.93 + 0.03 * Math.cos(h / 2));
-				const residualMw = demandMw - windMw - solarMw;
-				const carbonVal = clamp(42 + 0.0044 * residualMw + 96 * Math.max(0, 0.50 - slowWind) + 36 * eveningPeak + 18 * Math.sin((h + 1) / 6), 28, 390);
-				const rampRisk = h > -36 ? Math.abs((windMw + solarMw) - ((windActual[windActual.length - 1]?.y || windMw) + (solarActual[solarActual.length - 1]?.y || solarMw))) / 1000 : 0;
-				const priceVal = clamp(42 + 0.0049 * residualMw + 10 * eveningPeak + 5 * rampRisk + 15 * Math.max(0, carbonVal - 190) / 100, -20, 420);
-
-				demand.push({ t, y: demandMw });
-				carbon.push({ t, y: carbonVal, forecast: carbonVal, index: carbonVal < 100 ? "low" : carbonVal < 200 ? "moderate" : "high" });
-				price.push({ t, y: priceVal });
-				windActual.push({ t, y: windMw });
-				solarActual.push({ t, y: solarMw });
-				windForecast.push({ t, y: windMw * (1 + 0.10 * Math.sin((h + 2) / 4)) });
-				solarForecast.push({ t, y: solarMw * (1 + 0.08 * Math.cos((h - 1) / 3)) });
-				windIndex.push({ t, y: slowWind * 100 });
-				solarIndex.push({ t, y: solarWeather * 100 });
-				temp.push({ t, y: 11 + 6 * solarDay + 2 * Math.sin((h + 6) / 11) });
-				cloud.push({ t, y: cloudIndex });
-				precip.push({ t, y: cloudIndex > 70 ? clamp((cloudIndex - 70) / 18, 0, 3) : 0 });
-			}
-
+		function makeEmptyModel(now) {
 			return {
-				label,
+				label: "Live public feeds",
 				now,
-				sources: { carbon: "demo", demand: "demo", mix: "demo", generation: "demo", renewableForecast: "demo", weather: "demo", price: "demo", frequency: "demo" },
-				carbon: { series: carbon },
-				demand: { series: demand },
-				generation: { mixPercent: {}, actualGrouped: [], fuelSeries: {} },
-				renewables: { windActual, solarActual, windForecast, solarForecast },
-				weather: { windIndex, solarIndex, temp, cloud, precip },
-				price: { series: price },
-				frequency: { series: makeDemoFrequency(anchor) },
-				stress: { current: 0, series: [], drivers: [] },
+				sources: {
+					carbon: "unavailable",
+					demand: "unavailable",
+					mix: "unavailable",
+					mixHistory: "unavailable",
+					generation: "unavailable",
+					renewableForecast: "unavailable",
+					weather: "unavailable",
+					price: "unavailable",
+					frequency: "unavailable",
+					capacity: "unavailable"
+				},
+				capacity: {},
+				carbon: { series: [] },
+				demand: { series: [] },
+				generation: { mixPercent: {}, mixHistoryPercent: [], actualGrouped: [], fuelSeries: {} },
+				renewables: { windActual: [], solarActual: [], windForecast: [], solarForecast: [], embeddedWindForecast: [], embeddedSolarForecast: [] },
+				weather: { windIndex: [], solarIndex: [], temp: [], cloud: [], precip: [], humidity: [], dewPoint: [], pressure: [], gust: [], windDir: [], windMw: [], solarMw: [] },
+				price: { series: [] },
+				frequency: { series: [] },
+				stress: { current: undefined, series: [], drivers: [] },
 				anomalies: [],
 				reasons: []
 			};
 		}
 
-		function makeDemoFrequency(anchor) {
-			const series = [];
-			for (let m = -36 * 60; m <= 54 * 60; m += 10) {
-				const t = addMinutes(anchor, m);
-				const wiggle = 0.035 * Math.sin(m / 37) + 0.018 * Math.sin(m / 11) + 0.006 * Math.cos(m / 5);
-				series.push({ t, y: 50 + wiggle });
-			}
-			return series;
-		}
-
 		function deriveModel(model, now) {
-			const windCap = Number($("windCap").value || 32) * 1000;
-			const solarCap = Number($("solarCap").value || 20) * 1000;
+			const windCap = capacityMw(model, "wind");
+			const solarCap = capacityMw(model, "solar");
 
 			model.carbon.current = latestBefore(model.carbon.series, now) || nearestPoint(model.carbon.series, now, 2);
 			model.demand.current = latestBefore(model.demand.series, now) || nearestPoint(model.demand.series, now, 2);
@@ -1649,31 +1814,19 @@
 			model.weather.windCurrent = latestBefore(model.weather.windIndex, now) || nearestPoint(model.weather.windIndex, now, 2);
 			model.weather.solarCurrent = latestBefore(model.weather.solarIndex, now) || nearestPoint(model.weather.solarIndex, now, 2);
 
-			if (!Object.keys(model.generation.mixPercent || {}).length) {
-				const wind = model.renewables.windCurrent?.y || 0;
-				const solar = model.renewables.solarCurrent?.y || 0;
-				const demand = model.demand.current?.y || 30000;
-				const nuclear = 4800;
-				const biomass = 1700;
-				const hydro = 600;
-				const imports = Math.max(0, demand * 0.07);
-				const gas = Math.max(1000, demand - wind - solar - nuclear - biomass - hydro - imports);
-				const total = wind + solar + nuclear + biomass + hydro + imports + gas;
-				model.generation.mixPercent = {
-					wind: 100 * wind / total,
-					solar: 100 * solar / total,
-					nuclear: 100 * nuclear / total,
-					biomass: 100 * biomass / total,
-					hydro: 100 * hydro / total,
-					imports: 100 * imports / total,
-					gas: 100 * gas / total
-				};
+			if (!Object.keys(model.generation.mixPercent || {}).length && model.generation.actualGrouped.length) {
+				const latest = latestGroupedBefore(model.generation.actualGrouped, now) || model.generation.actualGrouped[model.generation.actualGrouped.length - 1];
+				const total = Object.values(latest.byFuel || {}).reduce((a, v) => a + Number(v || 0), 0);
+				if (total > 0) {
+					model.generation.mixPercent = Object.fromEntries(Object.entries(latest.byFuel).map(([fuel, value]) => [fuel, 100 * value / total]));
+					model.sources.mix = "live";
+				}
 			}
 
 			model.residual = buildResidualSeries(model.demand.series, model.renewables.windActual, model.renewables.solarActual);
 
-			const weatherWindMw = model.weather.windIndex.map(p => ({ t: p.t, y: p.y / 100 * windCap }));
-			const weatherSolarMw = model.weather.solarIndex.map(p => ({ t: p.t, y: p.y / 100 * solarCap }));
+			const weatherWindMw = finite(windCap) ? model.weather.windIndex.map(p => ({ t: p.t, y: p.y / 100 * windCap })) : [];
+			const weatherSolarMw = finite(solarCap) ? model.weather.solarIndex.map(p => ({ t: p.t, y: p.y / 100 * solarCap })) : [];
 			model.weather.windMw = calibrateWeatherToActual(weatherWindMw, model.renewables.windActual, now);
 			model.weather.solarMw = calibrateWeatherToActual(weatherSolarMw, model.renewables.solarActual, now);
 
@@ -1681,7 +1834,7 @@
 			model.renewables.solarBest = chooseBestForecast(model.renewables.solarForecast, model.weather.solarMw, model.renewables.solarActual, now);
 
 			model.stress.series = buildStressSeries(model, now);
-			model.stress.current = nearestPoint(model.stress.series, now, 2)?.y ?? 50;
+			model.stress.current = nearestPoint(model.stress.series, now, 2)?.y;
 			model.stress.drivers = buildStressDrivers(model, now);
 			model.reasons = buildReasons(model, now);
 			model.anomalies = detectAnomalies(model, now);
@@ -1711,8 +1864,9 @@
 		function buildResidualSeries(demand, wind, solar) {
 			const result = [];
 			for (const d of demand || []) {
-				const w = nearestPoint(wind, d.t, 1.1)?.y || 0;
-				const s = nearestPoint(solar, d.t, 1.1)?.y || 0;
+				const w = nearestPoint(wind, d.t, 1.1)?.y;
+				const s = nearestPoint(solar, d.t, 1.1)?.y;
+				if (!finite(w) || !finite(s)) continue;
 				result.push({ t: d.t, y: d.y - w - s });
 			}
 			return sortSeries(result);
@@ -1725,38 +1879,36 @@
 					if (p.t >= addHours(now, -24) && p.t <= addHours(now, 48)) times.set(p.t.toISOString(), p.t);
 				}
 			}
-			const demandQ90 = quantile(model.demand.series.filter(p => p.t <= now), 0.90) || 39000;
-			const priceQ90 = quantile(model.price.series.filter(p => p.t <= now), 0.90) || 160;
+			const demandQ90 = quantile(model.demand.series.filter(p => p.t <= now), 0.90);
+			const priceQ90 = quantile(model.price.series.filter(p => p.t <= now), 0.90);
+			const windCap = capacityMw(model, "wind");
+			const solarCap = capacityMw(model, "solar");
 			const stress = [];
 			for (const t of Array.from(times.values()).sort((a, b) => a - b)) {
 				const demand = nearestPoint(model.demand.series, t, 1.2)?.y;
-				const wind = nearestPoint(model.renewables.windBest, t, 1.2)?.y || 0;
-				const solar = nearestPoint(model.renewables.solarBest, t, 1.2)?.y || 0;
+				const wind = nearestPoint(model.renewables.windBest, t, 1.2)?.y;
+				const solar = nearestPoint(model.renewables.solarBest, t, 1.2)?.y;
 				const carbon = nearestPoint(model.carbon.series, t, 1.4)?.y;
 				const price = nearestPoint(model.price.series, t, 1.4)?.y;
 				const frequency = nearestPoint(model.frequency.series, t, 0.4)?.y;
-				const residual = finite(demand) ? demand - wind - solar : undefined;
-				const lowWind = clamp(1 - (wind / Math.max(1, Number($("windCap").value || 32) * 1000)) / 0.45, 0, 1);
-				const lowSolarDay = clamp(1 - (solar / Math.max(1, Number($("solarCap").value || 20) * 1000)) / 0.35, 0, 1);
-				const demandPressure = clamp((demand || 0) / demandQ90, 0, 1.35) / 1.35;
-				const residualPressure = finite(residual) ? clamp((residual - 13000) / 23000, 0, 1) : 0.45;
-				const carbonPressure = finite(carbon) ? clamp((carbon - 70) / 250, 0, 1) : 0.45;
-				const pricePressure = finite(price) ? clamp(price / priceQ90, 0, 1.5) / 1.5 : 0.40;
+				const residual = finite(demand) && finite(wind) && finite(solar) ? demand - wind - solar : undefined;
+				const components = [];
+				const add = (weight, value) => { if (finite(value)) components.push({ weight, value: clamp(value, 0, 1) }); };
+				add(0.20, finite(demand) && finite(demandQ90) ? clamp(demand / demandQ90, 0, 1.35) / 1.35 : undefined);
+				add(0.17, finite(residual) ? clamp((residual - 13000) / 23000, 0, 1) : undefined);
+				add(0.15, finite(carbon) ? clamp((carbon - 70) / 250, 0, 1) : undefined);
+				add(0.15, finite(wind) && finite(windCap) ? 1 - (wind / Math.max(1, windCap)) / 0.45 : undefined);
+				add(0.09, finite(solar) && finite(solarCap) ? 1 - (solar / Math.max(1, solarCap)) / 0.35 : undefined);
+				add(0.09, finite(price) && finite(priceQ90) ? clamp(price / priceQ90, 0, 1.5) / 1.5 : undefined);
 				const windRamp = Math.abs(rollingDelta(model.renewables.windBest, 3, t)?.delta || 0) / 6500;
 				const solarRamp = Math.abs(rollingDelta(model.renewables.solarBest, 3, t)?.delta || 0) / 6500;
-				const rampRisk = clamp(Math.max(windRamp, solarRamp), 0, 1);
-				const frequencyRisk = finite(frequency) ? clamp((Math.abs(frequency - 50) - 0.05) / 0.22, 0, 1) : 0.18;
-				const score = 100 * (
-					0.20 * demandPressure +
-					0.17 * residualPressure +
-					0.15 * carbonPressure +
-					0.15 * lowWind +
-					0.09 * lowSolarDay +
-					0.09 * pricePressure +
-					0.08 * rampRisk +
-					0.07 * frequencyRisk
-				);
-				stress.push({ t, y: clamp(score, 0, 100) });
+				if (windRamp || solarRamp) add(0.08, Math.max(windRamp, solarRamp));
+				add(0.07, finite(frequency) ? clamp((Math.abs(frequency - 50) - 0.05) / 0.22, 0, 1) : undefined);
+				const totalWeight = components.reduce((a, c) => a + c.weight, 0);
+				if (totalWeight >= 0.20) {
+					const score = 100 * components.reduce((a, c) => a + c.weight * c.value, 0) / totalWeight;
+					stress.push({ t, y: clamp(score, 0, 100) });
+				}
 			}
 			return sortSeries(stress);
 		}
@@ -1765,26 +1917,27 @@
 			const demand = model.demand.current?.y;
 			const carbon = model.carbon.current?.y;
 			const price = model.price.current?.y;
-			const wind = model.renewables.windCurrent?.y || 0;
-			const solar = model.renewables.solarCurrent?.y || 0;
-			const windCap = Number($("windCap").value || 32) * 1000;
-			const solarCap = Number($("solarCap").value || 20) * 1000;
-			const residual = finite(demand) ? demand - wind - solar : undefined;
+			const wind = model.renewables.windCurrent?.y;
+			const solar = model.renewables.solarCurrent?.y;
+			const windCap = capacityMw(model, "wind");
+			const solarCap = capacityMw(model, "solar");
+			const residual = finite(demand) && finite(wind) && finite(solar) ? demand - wind - solar : undefined;
 			const demandRank = percentileRank(model.demand.series.filter(p => p.t <= now), demand);
 			const priceRank = percentileRank(model.price.series.filter(p => p.t <= now), price);
-			const windDrop = rollingDelta(model.renewables.windBest, 6, now)?.delta || 0;
-			const solarDrop = rollingDelta(model.renewables.solarBest, 6, now)?.delta || 0;
+			const windDrop = rollingDelta(model.renewables.windBest, 6, now)?.delta;
+			const solarDrop = rollingDelta(model.renewables.solarBest, 6, now)?.delta;
 			const frequency = model.frequency.current?.y;
-			return [
-				{ label: "Demand", value: demandRank, detail: `${gw(demand)} · p${Math.round(demandRank * 100)}` },
-				{ label: "Residual", value: finite(residual) ? clamp((residual - 12000) / 26000, 0, 1) : 0.5, detail: finite(residual) ? `${gw(residual)} after wind/solar` : "estimated" },
-				{ label: "Low wind", value: clamp(1 - wind / Math.max(windCap * 0.45, 1), 0, 1), detail: `${gw(wind)} of ${gw(windCap)} assumption` },
-				{ label: "Low solar", value: clamp(1 - solar / Math.max(solarCap * 0.35, 1), 0, 1), detail: `${gw(solar)} of ${gw(solarCap)} assumption` },
-				{ label: "Carbon", value: finite(carbon) ? clamp((carbon - 70) / 250, 0, 1) : 0.5, detail: finite(carbon) ? `${Math.round(carbon)} gCO₂/kWh` : "estimated" },
-				{ label: "Price", value: priceRank, detail: finite(price) ? `£${round(price, 0)}/MWh · p${Math.round(priceRank * 100)}` : "estimated" },
-				{ label: "Ramp", value: clamp(Math.max(Math.abs(windDrop), Math.abs(solarDrop)) / 8000, 0, 1), detail: `6h max ${gw(Math.max(Math.abs(windDrop), Math.abs(solarDrop)))}` },
-				{ label: "Frequency", value: finite(frequency) ? clamp((Math.abs(frequency - 50) - 0.05) / 0.22, 0, 1) : 0.18, detail: finite(frequency) ? `${frequency.toFixed(3)} Hz` : "estimated" }
-			];
+			const drivers = [];
+			if (finite(demand) && finite(demandRank)) drivers.push({ label: "Demand", value: demandRank, detail: `${gw(demand)} · p${Math.round(demandRank * 100)}` });
+			if (finite(residual)) drivers.push({ label: "Residual", value: clamp((residual - 12000) / 26000, 0, 1), detail: `${gw(residual)} after wind/solar` });
+			if (finite(wind) && finite(windCap)) drivers.push({ label: "Low wind", value: clamp(1 - wind / Math.max(windCap * 0.45, 1), 0, 1), detail: `${gw(wind)} of ${gw(windCap)} capacity` });
+			if (finite(solar) && finite(solarCap)) drivers.push({ label: "Low solar", value: clamp(1 - solar / Math.max(solarCap * 0.35, 1), 0, 1), detail: `${gw(solar)} of ${gw(solarCap)} capacity` });
+			if (finite(carbon)) drivers.push({ label: "Carbon", value: clamp((carbon - 70) / 250, 0, 1), detail: `${Math.round(carbon)} gCO2/kWh` });
+			if (finite(price) && finite(priceRank)) drivers.push({ label: "Price", value: priceRank, detail: `GBP ${round(price, 0)}/MWh · p${Math.round(priceRank * 100)}` });
+			const maxRamp = Math.max(finite(windDrop) ? Math.abs(windDrop) : 0, finite(solarDrop) ? Math.abs(solarDrop) : 0);
+			if (maxRamp > 0) drivers.push({ label: "Ramp", value: clamp(maxRamp / 8000, 0, 1), detail: `6h max ${gw(maxRamp)}` });
+			if (finite(frequency)) drivers.push({ label: "Frequency", value: clamp((Math.abs(frequency - 50) - 0.05) / 0.22, 0, 1), detail: `${frequency.toFixed(3)} Hz` });
+			return drivers.length ? drivers : [{ label: "Data", value: 0, detail: "No stress inputs loaded" }];
 		}
 
 		function buildReasons(model, now) {
@@ -1792,35 +1945,42 @@
 			const carbon = model.carbon.current?.y;
 			const demand = model.demand.current?.y;
 			const demandRank = percentileRank(model.demand.series.filter(p => p.t <= now), demand);
-			const wind = model.renewables.windCurrent?.y || 0;
-			const solar = model.renewables.solarCurrent?.y || 0;
-			const windCap = Number($("windCap").value || 32) * 1000;
-			const windShare = wind / Math.max(windCap, 1);
+			const wind = model.renewables.windCurrent?.y;
+			const solar = model.renewables.solarCurrent?.y;
+			const windCap = capacityMw(model, "wind");
+			const windShare = finite(wind) && finite(windCap) ? wind / Math.max(windCap, 1) : undefined;
 			const price = model.price.current?.y;
 			const priceRank = percentileRank(model.price.series.filter(p => p.t <= now), price);
-			const windDelta6 = rollingDelta(model.renewables.windBest, 6, now)?.delta || 0;
-			const solarDelta6 = rollingDelta(model.renewables.solarBest, 6, now)?.delta || 0;
+			const windDelta6 = rollingDelta(model.renewables.windBest, 6, now)?.delta;
+			const solarDelta6 = rollingDelta(model.renewables.solarBest, 6, now)?.delta;
 			const best = model.bestWindow;
 
-			if (demandRank > 0.78) reasons.push({ title: "Demand is high for the recent window", detail: `${gw(demand)} sits around the ${Math.round(demandRank * 100)}th percentile of the loaded demand series.` });
-			else if (demandRank < 0.28) reasons.push({ title: "Demand is relatively soft", detail: `${gw(demand)} is low within the loaded comparison window, easing residual demand.` });
-			else reasons.push({ title: "Demand is not the main outlier", detail: `${gw(demand)} is mid-pack in the loaded window; renewables and carbon are likely more explanatory.` });
-
-			if (windShare < 0.22) reasons.push({ title: "Wind is suppressing clean supply", detail: `${gw(wind)} is low against the adjustable ${gw(windCap)} wind-capacity assumption.` });
-			else if (windShare > 0.48) reasons.push({ title: "Wind is doing useful heavy lifting", detail: `${gw(wind)} materially reduces residual demand and carbon intensity.` });
-			else reasons.push({ title: "Wind is moderate", detail: `${gw(wind)} is neither a strong clean surplus nor a severe shortfall in this view.` });
-
-			if (Math.abs(windDelta6) > 2500 || Math.abs(solarDelta6) > 2500) {
-				const dominant = Math.abs(windDelta6) >= Math.abs(solarDelta6) ? ["wind", windDelta6] : ["solar", solarDelta6];
-				reasons.push({ title: `A ${dominant[0]} ramp is coming`, detail: `${dominant[1] >= 0 ? "+" : ""}${gw(dominant[1])} over the next 6 hours in the chosen forecast/nowcast blend.` });
+			if (finite(demand) && finite(demandRank)) {
+				if (demandRank > 0.78) reasons.push({ title: "Demand is high for the recent window", detail: `${gw(demand)} sits around the ${Math.round(demandRank * 100)}th percentile of the loaded demand series.` });
+				else if (demandRank < 0.28) reasons.push({ title: "Demand is relatively soft", detail: `${gw(demand)} is low within the loaded comparison window, easing residual demand.` });
+				else reasons.push({ title: "Demand is not the main outlier", detail: `${gw(demand)} is mid-pack in the loaded window; renewables and carbon are likely more explanatory.` });
 			}
 
-			if (finite(carbon) && carbon > 190) reasons.push({ title: "Carbon intensity is elevated", detail: `${Math.round(carbon)} gCO₂/kWh suggests a fossil-heavy residual mix or low renewable output.` });
-			else if (finite(carbon) && carbon < 90) reasons.push({ title: "Carbon intensity is low", detail: `${Math.round(carbon)} gCO₂/kWh suggests a relatively clean window.` });
+			if (finite(windShare)) {
+				if (windShare < 0.22) reasons.push({ title: "Wind is suppressing clean supply", detail: `${gw(wind)} is low against the ${gw(windCap)} wind capacity baseline.` });
+				else if (windShare > 0.48) reasons.push({ title: "Wind is doing useful heavy lifting", detail: `${gw(wind)} materially reduces residual demand and carbon intensity.` });
+				else reasons.push({ title: "Wind is moderate", detail: `${gw(wind)} is neither a strong clean surplus nor a severe shortfall in this view.` });
+			}
 
-			if (priceRank > 0.86) reasons.push({ title: "Price signal is unusually hot", detail: `Current/nearest price is around the ${Math.round(priceRank * 100)}th percentile of the loaded price window.` });
+			if ((finite(windDelta6) && Math.abs(windDelta6) > 2500) || (finite(solarDelta6) && Math.abs(solarDelta6) > 2500)) {
+				const windAbs = finite(windDelta6) ? Math.abs(windDelta6) : 0;
+				const solarAbs = finite(solarDelta6) ? Math.abs(solarDelta6) : 0;
+				const dominant = windAbs >= solarAbs ? ["wind", windDelta6] : ["solar", solarDelta6];
+				reasons.push({ title: `A ${dominant[0]} ramp is coming`, detail: `${signedGw(dominant[1])} over the next 6 hours in the chosen forecast/nowcast blend.` });
+			}
+
+			if (finite(carbon) && carbon > 190) reasons.push({ title: "Carbon intensity is elevated", detail: `${Math.round(carbon)} gCO2/kWh suggests a fossil-heavy residual mix or low renewable output.` });
+			else if (finite(carbon) && carbon < 90) reasons.push({ title: "Carbon intensity is low", detail: `${Math.round(carbon)} gCO2/kWh suggests a relatively clean window.` });
+
+			if (finite(price) && finite(priceRank) && priceRank > 0.86) reasons.push({ title: "Price signal is unusually hot", detail: `Current/nearest price is around the ${Math.round(priceRank * 100)}th percentile of the loaded price window.` });
 
 			if (best) reasons.push({ title: "Best near-term clean/stress window", detail: `${fmtDayTime(best.start)}–${fmtTime(best.end)} has the best combined carbon and stress score in the next 48 hours.` });
+			if (!reasons.length) reasons.push({ title: "Waiting for usable live feeds", detail: "No explanatory grid or weather series has loaded yet. Check diagnostics for the failed API calls." });
 			return reasons.slice(0, 6);
 		}
 
@@ -1849,7 +2009,7 @@
 			if (finite(solarActual) && finite(solarExpected) && solarExpected > 2500 && solarActual < 0.58 * solarExpected) items.push({ level: "warn", title: "Solar underperformance candidate", detail: `Weather proxy expects roughly ${gw(solarExpected)}, while actual/loaded solar is ${gw(solarActual)}.` });
 			if (windRamp && Math.abs(windRamp.delta) > 4500) items.push({ level: windRamp.delta < 0 ? "bad" : "info", title: "Large wind ramp", detail: `${windRamp.delta >= 0 ? "+" : ""}${gw(windRamp.delta)} from ${fmtDayTime(windRamp.from.t)} to ${fmtTime(windRamp.to.t)}.` });
 			if (solarRamp && Math.abs(solarRamp.delta) > 4500) items.push({ level: solarRamp.delta < 0 ? "warn" : "info", title: "Large solar ramp", detail: `${solarRamp.delta >= 0 ? "+" : ""}${gw(solarRamp.delta)} from ${fmtDayTime(solarRamp.from.t)} to ${fmtTime(solarRamp.to.t)}.` });
-			if (liveSources < 3) items.push({ level: "info", title: "Limited live data", detail: "Several panels are using generated estimates. Add a proxy/backend if CORS blocks browser calls." });
+			if (liveSources < 3) items.push({ level: "info", title: "Limited live data", detail: "Several panels are empty because their public API feeds did not return usable data." });
 			if (!items.length) items.push({ level: "ok", title: "No major anomalies in this window", detail: "Nothing exceeds the simple percentile/ramp/underperformance checks right now." });
 			return items;
 		}
@@ -1864,7 +2024,8 @@
 				if (points.length < 2) continue;
 				const stressAvg = points.reduce((a, p) => a + p.y, 0) / points.length;
 				const carbonPoints = points.map(p => nearestPoint(model.carbon.series, p.t, 1.2)?.y).filter(Number.isFinite);
-				const carbonAvg = carbonPoints.length ? carbonPoints.reduce((a, v) => a + v, 0) / carbonPoints.length : 150;
+				if (!carbonPoints.length) continue;
+				const carbonAvg = carbonPoints.reduce((a, v) => a + v, 0) / carbonPoints.length;
 				const score = stressAvg + clamp((carbonAvg - 50) / 250, 0, 1) * 100;
 				candidates.push({ start, end, score, stressAvg, carbonAvg });
 			}
@@ -1872,7 +2033,7 @@
 		}
 
 		function computeLiveShare(model) {
-			const keys = ["carbon", "demand", "mix", "generation", "renewableForecast", "weather", "price", "frequency"];
+			const keys = ["carbon", "demand", "mix", "mixHistory", "generation", "renewableForecast", "weather", "price", "frequency", "capacity"];
 			const live = keys.filter(k => model.sources[k] === "live").length;
 			return Math.round(100 * live / keys.length);
 		}
@@ -1880,6 +2041,8 @@
 		function buildHeadline(model) {
 			const stress = model.stress.current;
 			const carbon = model.carbon.current?.y;
+			if (!finite(stress) && !finite(carbon)) return "Waiting for usable live grid data.";
+			if (!finite(stress) && finite(carbon)) return carbon < 90 ? "Carbon is low, but stress inputs are incomplete." : "Carbon is loaded, but stress inputs are incomplete.";
 			if (stress >= 72 && carbon > 180) return "The grid looks stressed and carbon-heavy.";
 			if (stress >= 72) return "The grid looks stressed, mainly from demand/renewable/ramp pressure.";
 			if (carbon < 90 && stress < 45) return "This is a relatively clean, comfortable grid window.";
@@ -1890,14 +2053,15 @@
 
 		function buildNarrative(model) {
 			const demand = model.demand.current?.y;
-			const wind = model.renewables.windCurrent?.y || 0;
-			const solar = model.renewables.solarCurrent?.y || 0;
+			const wind = model.renewables.windCurrent?.y;
+			const solar = model.renewables.solarCurrent?.y;
 			const carbon = model.carbon.current?.y;
 			const price = model.price.current?.y;
 			const frequency = model.frequency.current?.y;
-			const residual = finite(demand) ? demand - wind - solar : undefined;
-			const liveText = model.liveShare >= 70 ? "Mostly live feeds are in use" : model.liveShare > 0 ? "Some feeds are live and the rest are estimated" : "This is currently a generated demo scenario";
-			return `${liveText}. Demand is ${gw(demand)}, wind plus solar are ${gw(wind + solar)}, leaving an approximate residual demand of ${gw(residual)}. Carbon is ${finite(carbon) ? `${Math.round(carbon)} gCO₂/kWh` : "unknown"}; the nearest market/system price signal is ${finite(price) ? `£${round(price, 0)}/MWh` : "unavailable"}; frequency is ${finite(frequency) ? `${frequency.toFixed(3)} Hz` : "unavailable"}. The stress score is built from demand pressure, residual demand, low wind/solar, carbon, price, frequency and ramp risk.`;
+			const residual = finite(demand) && finite(wind) && finite(solar) ? demand - wind - solar : undefined;
+			const renewableText = finite(wind) || finite(solar) ? gw((Number(wind) || 0) + (Number(solar) || 0)) : "unavailable";
+			const liveText = model.liveShare >= 70 ? "Most primary feeds are live" : model.liveShare > 0 ? "Some primary feeds are live; unavailable feeds are left blank" : "No primary feed returned usable data";
+			return `${liveText}. Demand is ${gw(demand)}, wind plus solar are ${renewableText}, and residual demand is ${gw(residual)} when all three inputs are available. Carbon is ${finite(carbon) ? `${Math.round(carbon)} gCO2/kWh` : "unknown"}; the nearest market/system price signal is ${finite(price) ? `GBP ${round(price, 0)}/MWh` : "unavailable"}; frequency is ${finite(frequency) ? `${frequency.toFixed(3)} Hz` : "unavailable"}. The stress score only uses loaded demand, residual demand, low wind/solar, carbon, price, frequency and ramp-risk inputs.`;
 		}
 
 		function render(model) {
@@ -1906,6 +2070,7 @@
 			renderNarrative(model);
 			renderStress(model);
 			renderMix(model);
+			renderGenerationHistory(model);
 			renderRamps(model);
 			renderWeather(model);
 			renderAnomalies(model);
@@ -1915,9 +2080,9 @@
 
 		function renderStatus(model) {
 			$("lastUpdated").textContent = `Updated ${fmtDayTime(new Date())}`;
-			$("qualityLabel").textContent = model.liveShare >= 70 ? "Mostly live" : model.liveShare > 0 ? "Partial live" : "Demo estimates";
-			$("qualityDot").className = `dot ${model.liveShare >= 70 ? "ok" : model.liveShare > 0 ? "warn" : "info"}`;
-			$("scenarioBadge").innerHTML = `<span class="dot ${model.liveShare ? "ok" : "info"}"></span><strong>${model.label}</strong>`;
+			$("qualityLabel").textContent = model.liveShare >= 70 ? "Mostly live" : model.liveShare > 0 ? "Partial live" : "No live data";
+			$("qualityDot").className = `dot ${model.liveShare >= 70 ? "ok" : model.liveShare > 0 ? "warn" : "bad"}`;
+			$("scenarioBadge").innerHTML = `<span class="dot ${model.liveShare ? "ok" : "bad"}"></span><strong>${model.label}</strong>`;
 			const pills = Object.entries(model.sources).map(([key, status]) => `<span class="pill"><span class="dot ${getStatusClass(status)}"></span><strong>${labelise(key)}</strong> ${status}</span>`).join("");
 			$("sourcePills").innerHTML = pills;
 		}
@@ -1929,17 +2094,19 @@
 		function renderMetrics(model) {
 			const carbon = model.carbon.current;
 			const demand = model.demand.current;
-			const wind = model.renewables.windCurrent?.y || 0;
-			const solar = model.renewables.solarCurrent?.y || 0;
+			const wind = model.renewables.windCurrent?.y;
+			const solar = model.renewables.solarCurrent?.y;
 			const price = model.price.current;
 			const stress = model.stress.current;
 			const carbonIndex = carbon ? (carbon.index || (carbon.y < 90 ? "low" : carbon.y < 180 ? "moderate" : "high")) : "";
 			$("carbonMetric").textContent = carbon ? `${Math.round(carbon.y)} g` : "—";
-			$("carbonDetail").textContent = carbon ? `${carbonIndex} at ${fmtDayTime(carbon.t)} · stress ${Math.round(stress)}/100` : "No carbon feed loaded";
+			$("carbonDetail").textContent = carbon ? `${carbonIndex} at ${fmtDayTime(carbon.t)} · stress ${finite(stress) ? Math.round(stress) + "/100" : "unavailable"}` : "No carbon feed loaded";
 			$("demandMetric").textContent = gw(demand?.y);
 			$("demandDetail").textContent = demand ? `${Math.round(percentileRank(model.demand.series.filter(p => p.t <= model.now), demand.y) * 100)}th percentile of loaded demand window` : "No demand feed loaded";
-			$("renewablesMetric").textContent = gw(wind + solar);
-			$("renewablesDetail").textContent = `Wind ${gw(wind)} · solar ${gw(solar)}`;
+			const renewables = finite(wind) || finite(solar) ? (Number(wind) || 0) + (Number(solar) || 0) : undefined;
+			const capDetail = model.sources.capacity === "live" ? ` · capacity ${gw(capacityMw(model, "wind"))} wind / ${gw(capacityMw(model, "solar"))} solar` : "";
+			$("renewablesMetric").textContent = gw(renewables);
+			$("renewablesDetail").textContent = `Wind ${gw(wind)} · solar ${gw(solar)}${capDetail}`;
 			$("priceMetric").textContent = price ? `£${round(price.y, 0)}` : "—";
 			const frequency = model.frequency.current?.y;
 			$("priceDetail").textContent = price ? `Nearest price at ${fmtDayTime(price.t)} · p${Math.round(percentileRank(model.price.series.filter(p => p.t <= model.now), price.y) * 100)} · frequency ${finite(frequency) ? frequency.toFixed(3) + " Hz" : "n/a"}` : `No price feed loaded · frequency ${finite(frequency) ? frequency.toFixed(3) + " Hz" : "n/a"}`;
@@ -1952,12 +2119,12 @@
 		}
 
 		function renderStress(model) {
-			const stress = Math.round(model.stress.current);
+			const stress = finite(model.stress.current) ? Math.round(model.stress.current) : undefined;
 			const gauge = $("stressGauge");
-			gauge.style.setProperty("--angle", `${stress * 3.6}deg`);
-			gauge.style.setProperty("--gauge-colour", stress >= 72 ? "var(--bad)" : stress >= 50 ? "var(--warn)" : "var(--good)");
-			$("stressValue").textContent = stress;
-			$("stressLabel").textContent = stress >= 72 ? "High" : stress >= 50 ? "Watch" : "Comfortable";
+			gauge.style.setProperty("--angle", `${finite(stress) ? stress * 3.6 : 0}deg`);
+			gauge.style.setProperty("--gauge-colour", finite(stress) ? (stress >= 72 ? "var(--bad)" : stress >= 50 ? "var(--warn)" : "var(--good)") : "var(--info)");
+			$("stressValue").textContent = finite(stress) ? stress : "—";
+			$("stressLabel").textContent = finite(stress) ? (stress >= 72 ? "High" : stress >= 50 ? "Watch" : "Comfortable") : "Unavailable";
 			$("drivers").innerHTML = model.stress.drivers.map(d => `
 				<li>
 					<span><strong>${escapeHtml(d.label)}</strong><br><small>${escapeHtml(d.detail)}</small></span>
@@ -1971,6 +2138,12 @@
 			const mix = model.generation.mixPercent || {};
 			const order = ["wind", "solar", "nuclear", "hydro", "biomass", "gas", "coal", "imports", "storage", "other"];
 			const entries = order.map(fuel => [fuel, mix[fuel] || 0]).filter(([, v]) => v > 0.1);
+			if (!entries.length) {
+				$("mixDonut").style.background = "conic-gradient(rgba(255,255,255,0.12) 0deg 360deg)";
+				$("cleanShare").textContent = "—";
+				$("mixTable").innerHTML = `<div class="mix-row"><span>data</span><span>No generation mix loaded</span><span>—</span></div>`;
+				return;
+			}
 			const total = entries.reduce((a, [, v]) => a + v, 0) || 1;
 			let deg = 0;
 			const stops = [];
@@ -1989,6 +2162,38 @@
 					<span>${pct(value / total * 100)}</span>
 				</div>
 			`).join("");
+		}
+
+		function renderGenerationHistory(model) {
+			const now = model.now;
+			const order = ["wind", "solar", "nuclear", "hydro", "biomass", "gas", "coal", "imports", "storage", "other"];
+			const elexonSpecs = order
+				.map(fuel => {
+					const series = (model.generation.fuelSeries[fuel] || [])
+						.filter(p => p.t >= addHours(now, -48) && p.t <= now)
+						.map(p => ({ t: p.t, y: p.y / 1000 }));
+					return series.length ? { name: fuel, colour: FUEL_COLOURS[fuel] || FUEL_COLOURS.other, series } : null;
+				})
+				.filter(Boolean);
+
+			if (elexonSpecs.length) {
+				renderLegend("generationHistoryLegend", elexonSpecs.map(spec => [labelise(spec.name), spec.colour]));
+				drawChart("generationHistoryChart", elexonSpecs, { leftLabel: "GW", now });
+				return;
+			}
+
+			const percentRows = (model.generation.mixHistoryPercent || []).filter(row => row.t >= addHours(now, -48) && row.t <= now);
+			const percentSpecs = order
+				.map(fuel => {
+					const series = percentRows
+						.map(row => ({ t: row.t, y: row.byFuel?.[fuel] }))
+						.filter(p => finite(p.y));
+					return series.length ? { name: fuel, colour: FUEL_COLOURS[fuel] || FUEL_COLOURS.other, series, yMin: 0, yMax: 100 } : null;
+				})
+				.filter(Boolean);
+
+			renderLegend("generationHistoryLegend", percentSpecs.length ? percentSpecs.map(spec => [labelise(spec.name), spec.colour]) : [["No 48h generation mix loaded", "rgba(238,246,255,0.5)"]]);
+			drawChart("generationHistoryChart", percentSpecs, { leftLabel: percentSpecs.length ? "%" : "", now });
 		}
 
 		function renderRamps(model) {
@@ -2016,18 +2221,41 @@
 			$("curtailmentDetail").textContent = detail;
 		}
 
+		function compassDirection(degrees) {
+			if (!finite(degrees)) return "n/a";
+			const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+			return dirs[Math.round((((Number(degrees) % 360) + 360) % 360) / 45) % 8];
+		}
+
 		function renderWeather(model) {
 			const wind = model.weather.windCurrent?.y;
 			const solar = model.weather.solarCurrent?.y;
 			const windDelta = rollingDelta(model.weather.windMw, 6, model.now)?.delta;
 			const solarDelta = rollingDelta(model.weather.solarMw, 6, model.now)?.delta;
+			const pressure = latestBefore(model.weather.pressure, model.now) || nearestPoint(model.weather.pressure, model.now, 2);
+			const pressurePast = nearestPoint(model.weather.pressure, addHours(model.now, -3), 1.2);
+			const pressureDelta = finite(pressure?.y) && finite(pressurePast?.y) ? pressure.y - pressurePast.y : undefined;
+			const temp = latestBefore(model.weather.temp, model.now) || nearestPoint(model.weather.temp, model.now, 2);
+			const dewPoint = latestBefore(model.weather.dewPoint, model.now) || nearestPoint(model.weather.dewPoint, model.now, 2);
+			const humidity = latestBefore(model.weather.humidity, model.now) || nearestPoint(model.weather.humidity, model.now, 2);
+			const gust = latestBefore(model.weather.gust, model.now) || nearestPoint(model.weather.gust, model.now, 2);
+			const windDir = latestBefore(model.weather.windDir, model.now) || nearestPoint(model.weather.windDir, model.now, 2);
+			const cloud = latestBefore(model.weather.cloud, model.now) || nearestPoint(model.weather.cloud, model.now, 2);
+			const precipPoints = model.weather.precip.filter(p => p.t >= model.now && p.t <= addHours(model.now, 6));
+			const precip6 = precipPoints.length ? precipPoints.reduce((a, p) => a + Number(p.y || 0), 0) : undefined;
 			$("windProxyMetric").textContent = pct(wind);
 			$("windProxyDetail").textContent = `Power-curve proxy · calibrated nowcast ${gw(latestBefore(model.weather.windMw, model.now)?.y)}`;
 			$("solarProxyMetric").textContent = pct(solar);
 			$("solarProxyDetail").textContent = `Radiation/cloud proxy · calibrated nowcast ${gw(latestBefore(model.weather.solarMw, model.now)?.y)}`;
 			const combined = (Number(windDelta || 0) + Number(solarDelta || 0));
-			$("nextSixMetric").textContent = `${combined >= 0 ? "+" : ""}${gw(combined)}`;
-			$("nextSixDetail").textContent = `Wind ${windDelta >= 0 ? "+" : ""}${gw(windDelta)} · solar ${solarDelta >= 0 ? "+" : ""}${gw(solarDelta)} over 6h.`;
+			$("nextSixMetric").textContent = finite(windDelta) || finite(solarDelta) ? signedGw(combined) : "—";
+			$("nextSixDetail").textContent = `Wind ${signedGw(windDelta)} · solar ${signedGw(solarDelta)} over 6h.`;
+			$("pressureMetric").textContent = finite(pressure?.y) ? `${round(pressure.y, 0)} hPa` : "—";
+			$("pressureDetail").textContent = finite(pressureDelta) ? `${pressureDelta >= 0 ? "Rising" : "Falling"} ${Math.abs(pressureDelta).toFixed(1)} hPa over 3h` : "No pressure tendency loaded";
+			$("airMassMetric").textContent = finite(temp?.y) ? `${round(temp.y, 1)}°C` : "—";
+			$("airMassDetail").textContent = `Dew point ${finite(dewPoint?.y) ? round(dewPoint.y, 1) + "°C" : "n/a"} · RH ${pct(humidity?.y)} · 100m wind ${compassDirection(windDir?.y)}`;
+			$("rainCloudMetric").textContent = finite(cloud?.y) ? pct(cloud.y) : "—";
+			$("rainCloudDetail").textContent = `Cloud · next 6h rain ${finite(precip6) ? precip6.toFixed(1) + " mm" : "n/a"} · gust ${finite(gust?.y) ? round(gust.y, 1) + " m/s" : "n/a"}`;
 		}
 
 		function renderAnomalies(model) {
@@ -2037,7 +2265,7 @@
 		function renderDiagnostics(model) {
 			const items = Object.values(app.feeds).sort((a, b) => a.key.localeCompare(b.key));
 			if (!items.length) {
-				$("diagnostics").innerHTML = `<li><strong>Demo data</strong><span>No live API calls were made.</span></li>`;
+				$("diagnostics").innerHTML = `<li><strong>No API calls</strong><span>No live API calls have completed yet.</span></li>`;
 				return;
 			}
 			$("diagnostics").innerHTML = items.map(feed => `
@@ -2076,16 +2304,19 @@
 			const windIndex = model.weather.windIndex.filter(p => p.t >= addHours(now, -12) && p.t <= addHours(now, 48));
 			const solarIndex = model.weather.solarIndex.filter(p => p.t >= addHours(now, -12) && p.t <= addHours(now, 48));
 			const cloud = model.weather.cloud.filter(p => p.t >= addHours(now, -12) && p.t <= addHours(now, 48));
+			const pressure = model.weather.pressure.filter(p => p.t >= addHours(now, -12) && p.t <= addHours(now, 48));
 			renderLegend("weatherLegend", [
 				["Wind proxy", COLOURS.wind],
 				["Solar proxy", COLOURS.solar],
-				["Cloud", "#94a3b8"]
+				["Cloud", "#94a3b8"],
+				["Pressure", COLOURS.purple]
 			]);
 			drawChart("weatherChart", [
 				{ name: "Wind proxy", colour: COLOURS.wind, series: windIndex, yMin: 0, yMax: 100 },
 				{ name: "Solar proxy", colour: COLOURS.solar, series: solarIndex, yMin: 0, yMax: 100 },
-				{ name: "Cloud", colour: "#94a3b8", series: cloud, yMin: 0, yMax: 100, dashed: true }
-			], { leftLabel: "index / %", now });
+				{ name: "Cloud", colour: "#94a3b8", series: cloud, yMin: 0, yMax: 100, dashed: true },
+				{ name: "Pressure", colour: COLOURS.purple, series: pressure, yScale: "right", dashed: true }
+			], { leftLabel: "index / %", rightLabel: "hPa", now });
 
 			const demand = model.demand.series.filter(p => p.t >= addHours(now, -24) && p.t <= addHours(now, 24)).map(p => ({ t: p.t, y: p.y / 1000 }));
 			const residual = model.residual.filter(p => p.t >= addHours(now, -24) && p.t <= addHours(now, 24)).map(p => ({ t: p.t, y: p.y / 1000 }));
@@ -2245,12 +2476,7 @@
 		}
 
 		$("refreshBtn").addEventListener("click", refresh);
-		$("demoBtn").addEventListener("click", () => {
-			app.scenarioCounter += 1;
-			$("demoOnly").checked = true;
-			refresh();
-		});
-		for (const id of ["carbonArea", "postcode", "windCap", "solarCap", "demoOnly"]) {
+		for (const id of ["carbonArea", "postcode", "windCap", "solarCap"]) {
 			$(id).addEventListener("change", () => refresh());
 		}
 		window.addEventListener("resize", () => app.model && renderCharts(app.model));
