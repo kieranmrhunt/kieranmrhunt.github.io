@@ -1,0 +1,2260 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>GB Grid Weather Cockpit</title>
+	<style>
+		:root {
+			--bg: #07111f;
+			--panel: rgba(15, 28, 47, 0.92);
+			--panel-2: rgba(20, 37, 60, 0.96);
+			--text: #eef6ff;
+			--muted: #a9bed4;
+			--line: rgba(255, 255, 255, 0.12);
+			--line-strong: rgba(255, 255, 255, 0.24);
+			--good: #34d399;
+			--warn: #fbbf24;
+			--bad: #fb7185;
+			--info: #60a5fa;
+			--purple: #c084fc;
+			--cyan: #22d3ee;
+			--orange: #fb923c;
+			--shadow: 0 18px 48px rgba(0, 0, 0, 0.36);
+			--radius: 24px;
+			--mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+			--sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		html, body {
+			max-width: 100%;
+			overflow-x: hidden;
+		}
+
+		body {
+			margin: 0;
+			min-height: 100vh;
+			font-family: var(--sans);
+			color: var(--text);
+			background:
+				radial-gradient(circle at 16% 12%, rgba(96, 165, 250, 0.20), transparent 34rem),
+				radial-gradient(circle at 88% 8%, rgba(34, 211, 238, 0.14), transparent 34rem),
+				radial-gradient(circle at 56% 72%, rgba(192, 132, 252, 0.12), transparent 38rem),
+				linear-gradient(180deg, #06101d 0%, #081525 42%, #050b14 100%);
+		}
+
+		a {
+			color: #9bd5ff;
+			text-decoration: none;
+		}
+
+		a:hover {
+			text-decoration: underline;
+		}
+
+		.app {
+			width: min(1760px, calc(100% - 32px));
+			margin: 0 auto;
+			padding: 22px 0 42px;
+		}
+
+		header.hero {
+			display: grid;
+			grid-template-columns: 1fr auto;
+			gap: 18px;
+			align-items: end;
+			padding: 26px;
+			border: 1px solid var(--line);
+			border-radius: calc(var(--radius) + 8px);
+			background: linear-gradient(135deg, rgba(18, 34, 59, 0.95), rgba(12, 24, 42, 0.78));
+			box-shadow: var(--shadow);
+			position: relative;
+			overflow: hidden;
+		}
+
+		header.hero::before {
+			content: "";
+			position: absolute;
+			inset: -40% -20% auto auto;
+			width: 520px;
+			height: 520px;
+			background: conic-gradient(from 0deg, rgba(52, 211, 153, 0.25), rgba(96, 165, 250, 0.28), rgba(192, 132, 252, 0.18), rgba(52, 211, 153, 0.25));
+			filter: blur(42px);
+			opacity: 0.88;
+		}
+
+		.hero-title {
+			position: relative;
+			z-index: 1;
+			min-width: 0;
+		}
+
+		.kicker {
+			margin: 0 0 10px;
+			font-size: 0.82rem;
+			font-weight: 800;
+			letter-spacing: 0.16em;
+			text-transform: uppercase;
+			color: #9bd5ff;
+			overflow-wrap: anywhere;
+		}
+
+		h1 {
+			margin: 0;
+			font-size: clamp(2.2rem, 6vw, 5.6rem);
+			line-height: 0.94;
+			letter-spacing: -0.08em;
+		}
+
+		.hero-title p {
+			max-width: 980px;
+			margin: 16px 0 0;
+			font-size: 1.05rem;
+			line-height: 1.65;
+			color: var(--muted);
+			overflow-wrap: anywhere;
+		}
+
+		.hero-actions {
+			display: flex;
+			gap: 10px;
+			align-items: center;
+			justify-content: flex-end;
+			position: relative;
+			z-index: 1;
+			flex-wrap: wrap;
+			min-width: 0;
+		}
+
+		button, select, input {
+			font: inherit;
+			min-width: 0;
+		}
+
+		button {
+			border: 0;
+			border-radius: 999px;
+			padding: 12px 16px;
+			font-weight: 800;
+			color: #06101d;
+			background: linear-gradient(135deg, #e0f2fe, #67e8f9 48%, #a7f3d0);
+			cursor: pointer;
+			box-shadow: 0 10px 24px rgba(34, 211, 238, 0.16);
+			white-space: normal;
+			text-align: center;
+		}
+
+		button.secondary {
+			background: rgba(255, 255, 255, 0.08);
+			color: var(--text);
+			border: 1px solid var(--line-strong);
+			box-shadow: none;
+		}
+
+		button:disabled {
+			cursor: progress;
+			opacity: 0.65;
+		}
+
+		.pill-row {
+			display: flex;
+			gap: 8px;
+			flex-wrap: wrap;
+			align-items: center;
+		}
+
+		.pill {
+			display: inline-flex;
+			align-items: center;
+			gap: 7px;
+			border: 1px solid var(--line);
+			background: rgba(255, 255, 255, 0.06);
+			border-radius: 999px;
+			padding: 7px 10px;
+			font-size: 0.82rem;
+			color: var(--muted);
+			white-space: nowrap;
+		}
+
+		.pill strong {
+			color: var(--text);
+		}
+
+		.dot {
+			width: 9px;
+			height: 9px;
+			border-radius: 50%;
+			background: var(--muted);
+			box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.05);
+		}
+
+		.dot.ok { background: var(--good); }
+		.dot.warn { background: var(--warn); }
+		.dot.bad { background: var(--bad); }
+		.dot.info { background: var(--info); }
+
+		.controls {
+			display: grid;
+			grid-template-columns: repeat(6, minmax(160px, 1fr));
+			gap: 12px;
+			margin: 16px 0;
+			padding: 16px;
+			border: 1px solid var(--line);
+			border-radius: var(--radius);
+			background: rgba(10, 22, 39, 0.74);
+			backdrop-filter: blur(14px);
+		}
+
+		.field {
+			display: grid;
+			gap: 6px;
+		}
+
+		label {
+			font-size: 0.78rem;
+			letter-spacing: 0.05em;
+			text-transform: uppercase;
+			font-weight: 800;
+			color: #8eb6d7;
+		}
+
+		select, input {
+			width: 100%;
+			border: 1px solid var(--line-strong);
+			background: rgba(255, 255, 255, 0.07);
+			color: var(--text);
+			border-radius: 14px;
+			padding: 10px 12px;
+			outline: none;
+		}
+
+		select option {
+			background: #0c192a;
+		}
+
+		.field.checkbox-field {
+			align-content: end;
+		}
+
+		.checkbox {
+			display: flex;
+			align-items: center;
+			gap: 9px;
+			min-height: 42px;
+			border: 1px solid var(--line-strong);
+			border-radius: 14px;
+			padding: 9px 11px;
+			background: rgba(255, 255, 255, 0.05);
+			text-transform: none;
+			letter-spacing: 0;
+			font-weight: 700;
+			color: var(--text);
+		}
+
+		.checkbox input {
+			width: auto;
+			accent-color: #67e8f9;
+		}
+
+		.status-bar {
+			display: flex;
+			justify-content: space-between;
+			gap: 14px;
+			align-items: center;
+			margin: 12px 0 18px;
+			flex-wrap: wrap;
+		}
+
+		.grid {
+			display: grid;
+			grid-template-columns: repeat(12, 1fr);
+			gap: 16px;
+		}
+
+		.panel {
+			border: 1px solid var(--line);
+			border-radius: var(--radius);
+			background: var(--panel);
+			box-shadow: 0 16px 34px rgba(0, 0, 0, 0.20);
+			overflow: hidden;
+		}
+
+		.panel.pad {
+			padding: 18px;
+		}
+
+		.span-12 { grid-column: span 12; }
+		.span-8 { grid-column: span 8; }
+		.span-7 { grid-column: span 7; }
+		.span-6 { grid-column: span 6; }
+		.span-5 { grid-column: span 5; }
+		.span-4 { grid-column: span 4; }
+		.span-3 { grid-column: span 3; }
+
+		.panel-head {
+			display: flex;
+			align-items: flex-start;
+			justify-content: space-between;
+			gap: 14px;
+			margin-bottom: 14px;
+		}
+
+		.panel-title {
+			margin: 0;
+			font-size: 1.02rem;
+			font-weight: 900;
+			letter-spacing: -0.02em;
+		}
+
+		.panel-subtitle {
+			margin: 4px 0 0;
+			font-size: 0.86rem;
+			line-height: 1.45;
+			color: var(--muted);
+		}
+
+		.metric-grid {
+			display: grid;
+			grid-template-columns: repeat(4, minmax(0, 1fr));
+			gap: 12px;
+		}
+
+		.metric {
+			border: 1px solid var(--line);
+			border-radius: 18px;
+			padding: 14px;
+			background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.035));
+			min-height: 118px;
+			display: grid;
+			align-content: space-between;
+		}
+
+		.metric small {
+			font-size: 0.75rem;
+			letter-spacing: 0.08em;
+			text-transform: uppercase;
+			font-weight: 900;
+			color: #8eb6d7;
+		}
+
+		.metric strong {
+			font-size: clamp(1.42rem, 2.6vw, 2.2rem);
+			letter-spacing: -0.05em;
+			line-height: 1.05;
+		}
+
+		.metric span {
+			font-size: 0.82rem;
+			line-height: 1.35;
+			color: var(--muted);
+		}
+
+		.explainer {
+			display: grid;
+			grid-template-columns: 1.15fr 0.85fr;
+			gap: 16px;
+			align-items: stretch;
+		}
+
+		.big-callout {
+			border: 1px solid var(--line);
+			border-radius: 22px;
+			padding: 18px;
+			background: linear-gradient(135deg, rgba(96, 165, 250, 0.12), rgba(52, 211, 153, 0.08));
+		}
+
+		.big-callout h2 {
+			margin: 0 0 10px;
+			font-size: clamp(1.5rem, 3vw, 2.55rem);
+			line-height: 1.05;
+			letter-spacing: -0.06em;
+		}
+
+		.big-callout p {
+			margin: 0;
+			color: var(--muted);
+			line-height: 1.62;
+		}
+
+		.reason-list, .anomaly-list, .driver-list, .endpoint-list {
+			list-style: none;
+			padding: 0;
+			margin: 0;
+			display: grid;
+			gap: 10px;
+		}
+
+		.reason-list li, .anomaly-list li, .endpoint-list li {
+			border: 1px solid var(--line);
+			border-radius: 16px;
+			padding: 12px;
+			background: rgba(255, 255, 255, 0.045);
+			line-height: 1.42;
+		}
+
+		.reason-list strong, .anomaly-list strong, .endpoint-list strong {
+			display: block;
+			font-size: 0.93rem;
+			margin-bottom: 3px;
+		}
+
+		.reason-list span, .anomaly-list span, .endpoint-list span {
+			color: var(--muted);
+			font-size: 0.86rem;
+		}
+
+		.gauge-wrap {
+			display: grid;
+			grid-template-columns: 220px 1fr;
+			gap: 18px;
+			align-items: center;
+		}
+
+		.gauge {
+			--angle: 0deg;
+			width: 210px;
+			aspect-ratio: 1;
+			border-radius: 50%;
+			background: conic-gradient(var(--gauge-colour, var(--info)) var(--angle), rgba(255, 255, 255, 0.08) 0);
+			padding: 15px;
+			box-shadow: inset 0 0 50px rgba(255, 255, 255, 0.04), 0 18px 34px rgba(0, 0, 0, 0.24);
+		}
+
+		.gauge-inner {
+			display: grid;
+			place-items: center;
+			width: 100%;
+			height: 100%;
+			border-radius: 50%;
+			background: #081424;
+			border: 1px solid var(--line);
+			text-align: center;
+		}
+
+		.gauge-inner strong {
+			font-size: 3.1rem;
+			letter-spacing: -0.07em;
+			line-height: 0.95;
+		}
+
+		.gauge-inner span {
+			font-size: 0.76rem;
+			letter-spacing: 0.1em;
+			text-transform: uppercase;
+			font-weight: 900;
+			color: var(--muted);
+		}
+
+		.driver-list li {
+			display: grid;
+			grid-template-columns: 150px 1fr auto;
+			gap: 10px;
+			align-items: center;
+			font-size: 0.86rem;
+		}
+
+		.bar {
+			position: relative;
+			height: 11px;
+			border-radius: 99px;
+			background: rgba(255, 255, 255, 0.08);
+			overflow: hidden;
+		}
+
+		.bar > span {
+			display: block;
+			height: 100%;
+			width: 0%;
+			border-radius: inherit;
+			background: linear-gradient(90deg, var(--info), var(--warn), var(--bad));
+		}
+
+		.chart-wrap {
+			position: relative;
+			min-height: 250px;
+			border: 1px solid var(--line);
+			border-radius: 18px;
+			background: rgba(4, 12, 24, 0.45);
+			padding: 10px;
+		}
+
+		canvas {
+			display: block;
+			width: 100%;
+			height: 260px;
+		}
+
+		.chart-legend {
+			display: flex;
+			gap: 12px;
+			align-items: center;
+			flex-wrap: wrap;
+			margin: 0 0 8px;
+			color: var(--muted);
+			font-size: 0.82rem;
+		}
+
+		.legend-item {
+			display: inline-flex;
+			align-items: center;
+			gap: 7px;
+		}
+
+		.swatch {
+			width: 18px;
+			height: 4px;
+			border-radius: 99px;
+			background: var(--info);
+		}
+
+		.mix-layout {
+			display: grid;
+			grid-template-columns: minmax(220px, 280px) 1fr;
+			gap: 18px;
+			align-items: center;
+		}
+
+		.donut {
+			width: 100%;
+			max-width: 270px;
+			aspect-ratio: 1;
+			border-radius: 50%;
+			background: conic-gradient(var(--good) 0deg, var(--info) 0deg);
+			padding: 22px;
+			box-shadow: inset 0 0 50px rgba(255, 255, 255, 0.05), 0 16px 34px rgba(0, 0, 0, 0.28);
+		}
+
+		.donut-inner {
+			width: 100%;
+			height: 100%;
+			border-radius: 50%;
+			background: #081424;
+			border: 1px solid var(--line);
+			display: grid;
+			place-items: center;
+			text-align: center;
+			padding: 12px;
+		}
+
+		.donut-inner strong {
+			display: block;
+			font-size: 2rem;
+			letter-spacing: -0.06em;
+		}
+
+		.donut-inner span {
+			color: var(--muted);
+			font-size: 0.78rem;
+			text-transform: uppercase;
+			letter-spacing: 0.08em;
+			font-weight: 900;
+		}
+
+		.mix-table {
+			display: grid;
+			gap: 8px;
+		}
+
+		.mix-row {
+			display: grid;
+			grid-template-columns: 94px 1fr 64px;
+			gap: 10px;
+			align-items: center;
+			font-size: 0.86rem;
+		}
+
+		.mix-row span:first-child {
+			font-weight: 800;
+			text-transform: capitalize;
+		}
+
+		.mini-card-grid {
+			display: grid;
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			gap: 12px;
+		}
+
+		.mini-card {
+			border: 1px solid var(--line);
+			border-radius: 18px;
+			padding: 14px;
+			background: rgba(255, 255, 255, 0.045);
+			min-height: 128px;
+		}
+
+		.mini-card small {
+			display: block;
+			color: #8eb6d7;
+			text-transform: uppercase;
+			letter-spacing: 0.07em;
+			font-weight: 900;
+			font-size: 0.72rem;
+			margin-bottom: 8px;
+		}
+
+		.mini-card strong {
+			display: block;
+			font-size: 1.8rem;
+			letter-spacing: -0.05em;
+			margin-bottom: 6px;
+		}
+
+		.mini-card span {
+			color: var(--muted);
+			font-size: 0.83rem;
+			line-height: 1.38;
+		}
+
+		.anomaly-list li[data-level="ok"] { border-color: rgba(52, 211, 153, 0.28); }
+		.anomaly-list li[data-level="warn"] { border-color: rgba(251, 191, 36, 0.42); }
+		.anomaly-list li[data-level="bad"] { border-color: rgba(251, 113, 133, 0.48); }
+		.anomaly-list li[data-level="info"] { border-color: rgba(96, 165, 250, 0.42); }
+
+		.details {
+			border-top: 1px solid var(--line);
+			padding: 14px 18px 18px;
+			background: rgba(0, 0, 0, 0.12);
+		}
+
+		details summary {
+			cursor: pointer;
+			font-weight: 900;
+			color: #cfe8ff;
+		}
+
+		.endpoint-list {
+			margin-top: 12px;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+
+		.code {
+			display: block;
+			font-family: var(--mono);
+			font-size: 0.78rem;
+			color: #d3eaff;
+			word-break: break-all;
+			background: rgba(0, 0, 0, 0.22);
+			border-radius: 10px;
+			padding: 8px;
+			margin-top: 6px;
+		}
+
+		.footer-note {
+			margin: 16px 2px 0;
+			color: var(--muted);
+			font-size: 0.88rem;
+			line-height: 1.55;
+		}
+
+		.toast {
+			position: fixed;
+			right: 22px;
+			bottom: 22px;
+			z-index: 50;
+			max-width: 460px;
+			border: 1px solid var(--line-strong);
+			border-radius: 18px;
+			background: rgba(7, 17, 31, 0.96);
+			box-shadow: var(--shadow);
+			padding: 14px;
+			display: none;
+		}
+
+		.toast.show {
+			display: block;
+		}
+
+		.toast strong {
+			display: block;
+			margin-bottom: 4px;
+		}
+
+		.toast span {
+			color: var(--muted);
+			font-size: 0.9rem;
+			line-height: 1.4;
+		}
+
+		@media (max-width: 1180px) {
+			.controls {
+				grid-template-columns: repeat(3, minmax(160px, 1fr));
+			}
+
+			.span-8, .span-7, .span-6, .span-5, .span-4, .span-3 {
+				grid-column: span 12;
+			}
+
+			.metric-grid {
+				grid-template-columns: repeat(2, minmax(0, 1fr));
+			}
+
+			.explainer, .gauge-wrap, .mix-layout {
+				grid-template-columns: 1fr;
+			}
+		}
+
+		@media (max-width: 720px) {
+			.app {
+				width: min(100% - 18px, 1760px);
+				padding-top: 10px;
+			}
+
+			header.hero {
+				grid-template-columns: 1fr;
+				padding: 18px;
+			}
+
+			.hero-actions {
+				display: grid;
+				grid-template-columns: 1fr;
+				justify-content: stretch;
+			}
+
+			.hero-actions button {
+				width: 100%;
+			}
+
+			.controls {
+				grid-template-columns: 1fr;
+			}
+
+			.metric-grid, .mini-card-grid, .endpoint-list {
+				grid-template-columns: 1fr;
+			}
+
+			.driver-list li {
+				grid-template-columns: 1fr;
+			}
+
+			canvas {
+				height: 220px;
+			}
+		}
+	</style>
+</head>
+<body>
+	<div class="app">
+		<header class="hero">
+			<div class="hero-title">
+				<p class="kicker">GB electricity · weather · markets · anomalies</p>
+				<h1>Grid Weather Cockpit</h1>
+				<p>One page for “what is the GB grid doing, why, what happens next, and what looks weird?”. It blends carbon intensity, demand, generation mix, renewable ramps, weather-driven nowcasting, balancing/price context and anomaly detection.</p>
+			</div>
+			<div class="hero-actions">
+				<button id="refreshBtn">Refresh live data</button>
+				<button id="demoBtn" class="secondary">Generate demo scenario</button>
+			</div>
+		</header>
+
+		<section class="controls" aria-label="App controls">
+			<div class="field">
+				<label for="carbonArea">Carbon area</label>
+				<select id="carbonArea">
+					<option value="national">GB national</option>
+					<option value="1">North Scotland</option>
+					<option value="2">South Scotland</option>
+					<option value="3">North West England</option>
+					<option value="4">North East England</option>
+					<option value="5">South Yorkshire</option>
+					<option value="6">North Wales, Merseyside & Cheshire</option>
+					<option value="7">South Wales</option>
+					<option value="8">West Midlands</option>
+					<option value="9">East Midlands</option>
+					<option value="10">East England</option>
+					<option value="11">South West England</option>
+					<option value="12">South England</option>
+					<option value="13">London</option>
+					<option value="14">South East England</option>
+					<option value="15">England</option>
+					<option value="16">Scotland</option>
+					<option value="17">Wales</option>
+				</select>
+			</div>
+			<div class="field">
+				<label for="postcode">Outward postcode</label>
+				<input id="postcode" placeholder="e.g. SW1A, M1, EH1" autocomplete="postal-code">
+			</div>
+			<div class="field">
+				<label for="windCap">Assumed wind capacity</label>
+				<input id="windCap" type="number" min="1" max="80" step="0.5" value="32">
+			</div>
+			<div class="field">
+				<label for="solarCap">Assumed solar capacity</label>
+				<input id="solarCap" type="number" min="1" max="80" step="0.5" value="20">
+			</div>
+			<div class="field">
+				<label for="proxyPrefix">Optional proxy prefix</label>
+				<input id="proxyPrefix" placeholder="https://your-proxy/?url=">
+			</div>
+			<div class="field checkbox-field">
+				<label class="checkbox"><input id="demoOnly" type="checkbox"> Demo only</label>
+			</div>
+		</section>
+
+		<div class="status-bar">
+			<div id="sourcePills" class="pill-row"></div>
+			<div class="pill-row">
+				<span class="pill"><span class="dot info"></span><strong id="lastUpdated">Not refreshed yet</strong></span>
+				<span class="pill"><span class="dot" id="qualityDot"></span><strong id="qualityLabel">Waiting</strong></span>
+			</div>
+		</div>
+
+		<main class="grid">
+			<section class="panel pad span-12">
+				<div class="panel-head">
+					<div>
+						<h2 class="panel-title">Current state</h2>
+						<p class="panel-subtitle">Live where the browser can reach the feeds; otherwise clearly marked sample estimates.</p>
+					</div>
+					<span id="scenarioBadge" class="pill"><span class="dot info"></span><strong>Initialising</strong></span>
+				</div>
+				<div class="metric-grid">
+					<div class="metric">
+						<small>Carbon intensity</small>
+						<strong id="carbonMetric">—</strong>
+						<span id="carbonDetail">—</span>
+					</div>
+					<div class="metric">
+						<small>Demand pressure</small>
+						<strong id="demandMetric">—</strong>
+						<span id="demandDetail">—</span>
+					</div>
+					<div class="metric">
+						<small>Renewables now</small>
+						<strong id="renewablesMetric">—</strong>
+						<span id="renewablesDetail">—</span>
+					</div>
+					<div class="metric">
+						<small>Price / balancing</small>
+						<strong id="priceMetric">—</strong>
+						<span id="priceDetail">—</span>
+					</div>
+				</div>
+			</section>
+
+			<section class="panel pad span-8">
+				<div class="panel-head">
+					<div>
+						<h2 class="panel-title">Why is the grid like this?</h2>
+						<p class="panel-subtitle">A generated explanation from demand, carbon, wind/solar, weather, ramp and price signals.</p>
+					</div>
+				</div>
+				<div class="explainer">
+					<div class="big-callout">
+						<h2 id="headline">Building the first view…</h2>
+						<p id="narrative">The app will combine live API data with a fallback scenario so the reasoning panels still work without a backend.</p>
+					</div>
+					<ul id="reasons" class="reason-list"></ul>
+				</div>
+			</section>
+
+			<section class="panel pad span-4">
+				<div class="panel-head">
+					<div>
+						<h2 class="panel-title">Grid stress index</h2>
+						<p class="panel-subtitle">Transparent heuristic, 0–100. Not an official security-of-supply measure.</p>
+					</div>
+				</div>
+				<div class="gauge-wrap">
+					<div id="stressGauge" class="gauge">
+						<div class="gauge-inner"><div><strong id="stressValue">—</strong><span id="stressLabel">Waiting</span></div></div>
+					</div>
+					<ul id="drivers" class="driver-list"></ul>
+				</div>
+			</section>
+
+			<section class="panel pad span-7">
+				<div class="panel-head">
+					<div>
+						<h2 class="panel-title">48-hour cockpit</h2>
+						<p class="panel-subtitle">Carbon forecast, derived stress outlook, and clean/stress windows.</p>
+					</div>
+					<span id="bestWindow" class="pill"><span class="dot ok"></span><strong>—</strong></span>
+				</div>
+				<div class="chart-legend" id="outlookLegend"></div>
+				<div class="chart-wrap"><canvas id="outlookChart"></canvas></div>
+			</section>
+
+			<section class="panel pad span-5">
+				<div class="panel-head">
+					<div>
+						<h2 class="panel-title">Generation mix</h2>
+						<p class="panel-subtitle">Current fuel mix from live generation where available, otherwise carbon API/demo proportions.</p>
+					</div>
+				</div>
+				<div class="mix-layout">
+					<div id="mixDonut" class="donut"><div class="donut-inner"><div><strong id="cleanShare">—</strong><span>low-carbon share</span></div></div></div>
+					<div id="mixTable" class="mix-table"></div>
+				</div>
+			</section>
+
+			<section class="panel pad span-6">
+				<div class="panel-head">
+					<div>
+						<h2 class="panel-title">Renewable ramp & curtailment tracker</h2>
+						<p class="panel-subtitle">Upcoming wind/solar ramps plus “weather says more than actual” underperformance flags.</p>
+					</div>
+				</div>
+				<div class="mini-card-grid">
+					<div class="mini-card"><small>Biggest wind ramp</small><strong id="windRampMetric">—</strong><span id="windRampDetail">—</span></div>
+					<div class="mini-card"><small>Biggest solar ramp</small><strong id="solarRampMetric">—</strong><span id="solarRampDetail">—</span></div>
+					<div class="mini-card"><small>Underperformance</small><strong id="curtailmentMetric">—</strong><span id="curtailmentDetail">—</span></div>
+				</div>
+				<div class="chart-legend" id="renewableLegend" style="margin-top: 14px;"></div>
+				<div class="chart-wrap"><canvas id="renewableChart"></canvas></div>
+			</section>
+
+			<section class="panel pad span-6">
+				<div class="panel-head">
+					<div>
+						<h2 class="panel-title">Weather-driven nowcast</h2>
+						<p class="panel-subtitle">UKMO-style probe blend: wind power proxy, solar radiation proxy, and weather risk drivers.</p>
+					</div>
+				</div>
+				<div class="mini-card-grid">
+					<div class="mini-card"><small>Wind weather</small><strong id="windProxyMetric">—</strong><span id="windProxyDetail">—</span></div>
+					<div class="mini-card"><small>Solar weather</small><strong id="solarProxyMetric">—</strong><span id="solarProxyDetail">—</span></div>
+					<div class="mini-card"><small>Next 6 hours</small><strong id="nextSixMetric">—</strong><span id="nextSixDetail">—</span></div>
+				</div>
+				<div class="chart-legend" id="weatherLegend" style="margin-top: 14px;"></div>
+				<div class="chart-wrap"><canvas id="weatherChart"></canvas></div>
+			</section>
+
+			<section class="panel pad span-6">
+				<div class="panel-head">
+					<div>
+						<h2 class="panel-title">Anomaly detector</h2>
+						<p class="panel-subtitle">Flags jumps, high percentiles, renewable shortfalls, price spikes and data-quality issues.</p>
+					</div>
+				</div>
+				<ul id="anomalies" class="anomaly-list"></ul>
+			</section>
+
+			<section class="panel pad span-6">
+				<div class="panel-head">
+					<div>
+						<h2 class="panel-title">Demand, residual demand and price</h2>
+						<p class="panel-subtitle">Residual demand is approximated as demand minus wind and solar generation/nowcast.</p>
+					</div>
+				</div>
+				<div class="chart-legend" id="demandLegend"></div>
+				<div class="chart-wrap"><canvas id="demandChart"></canvas></div>
+			</section>
+
+			<section class="panel span-12">
+				<div class="pad">
+					<div class="panel-head">
+						<div>
+							<h2 class="panel-title">Data feed diagnostics and API links</h2>
+							<p class="panel-subtitle">Use this to see exactly which live feeds worked. A server-side proxy can be added later for feeds that do not allow direct browser CORS.</p>
+						</div>
+					</div>
+					<ul id="diagnostics" class="endpoint-list"></ul>
+				</div>
+				<div class="details">
+					<details>
+						<summary>Source links, model assumptions and deployment notes</summary>
+						<p class="footer-note">This is a client-side cockpit. For production, put the API calls behind a small cache/proxy to respect rate limits, reduce CORS problems, and preserve a consistent data model. The stress index is explanatory: it is not an official grid adequacy, security-of-supply or balancing-cost metric.</p>
+						<ul class="endpoint-list">
+							<li><strong>Carbon Intensity API</strong><span>National/regional carbon intensity and generation mix.</span><span class="code">https://api.carbonintensity.org.uk/</span></li>
+							<li><strong>Elexon Insights API</strong><span>Demand outturn, actual generation, wind/solar forecasts, market prices and system prices.</span><span class="code">https://data.elexon.co.uk/bmrs/api/v1/</span></li>
+							<li><strong>NESO Data Portal</strong><span>CKAN/DataStore datasets; good production source for demand, embedded wind/solar and frequency data.</span><span class="code">https://api.neso.energy/api/3/action/</span></li>
+							<li><strong>Open-Meteo UKMO API</strong><span>UKMO Global/UKV-style forecasts for weather-derived wind and solar proxies.</span><span class="code">https://api.open-meteo.com/v1/ukmo</span></li>
+						</ul>
+					</details>
+				</div>
+			</section>
+		</main>
+	</div>
+
+	<div id="toast" class="toast"><strong></strong><span></span></div>
+
+	<script>
+		const API = {
+			ci: "https://api.carbonintensity.org.uk",
+			elexon: "https://data.elexon.co.uk/bmrs/api/v1",
+			neso: "https://api.neso.energy/api/3/action",
+			openMeteo: "https://api.open-meteo.com/v1/ukmo"
+		};
+
+		const COLOURS = {
+			carbon: "#fb7185",
+			stress: "#fbbf24",
+			demand: "#60a5fa",
+			residual: "#c084fc",
+			price: "#fb923c",
+			wind: "#22d3ee",
+			solar: "#facc15",
+			clean: "#34d399",
+			gas: "#fb7185",
+			nuclear: "#a78bfa",
+			imports: "#94a3b8",
+			other: "#e2e8f0"
+		};
+
+		const FUEL_COLOURS = {
+			wind: "#22d3ee",
+			solar: "#facc15",
+			nuclear: "#a78bfa",
+			hydro: "#60a5fa",
+			biomass: "#34d399",
+			gas: "#fb7185",
+			coal: "#64748b",
+			imports: "#94a3b8",
+			storage: "#f472b6",
+			other: "#e2e8f0"
+		};
+
+		const WEATHER_PROBES = [
+			{ name: "North Sea / Scotland wind", lat: 56.30, lon: -1.50, windWeight: 0.26, solarWeight: 0.04 },
+			{ name: "Irish Sea wind", lat: 53.75, lon: -4.20, windWeight: 0.19, solarWeight: 0.05 },
+			{ name: "East Anglia wind/solar", lat: 52.60, lon: 1.05, windWeight: 0.18, solarWeight: 0.18 },
+			{ name: "North England inland", lat: 54.10, lon: -1.35, windWeight: 0.13, solarWeight: 0.13 },
+			{ name: "Midlands/South solar", lat: 52.10, lon: -1.20, windWeight: 0.10, solarWeight: 0.27 },
+			{ name: "South West wind/solar", lat: 50.85, lon: -3.60, windWeight: 0.14, solarWeight: 0.33 }
+		];
+
+		const app = {
+			model: null,
+			feeds: {},
+			loading: false,
+			scenarioCounter: 0
+		};
+
+		const $ = id => document.getElementById(id);
+		const finite = x => Number.isFinite(Number(x));
+		const clamp = (x, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, x));
+		const addHours = (date, hours) => new Date(date.getTime() + hours * 3600_000);
+		const addMinutes = (date, minutes) => new Date(date.getTime() + minutes * 60_000);
+		const fmtTime = date => date ? new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit" }).format(date) : "—";
+		const fmtDayTime = date => date ? new Intl.DateTimeFormat("en-GB", { weekday: "short", hour: "2-digit", minute: "2-digit" }).format(date) : "—";
+		const fmtDate = date => date.toISOString().slice(0, 10);
+		const isoZ = date => date.toISOString().replace(/\.\d{3}Z$/, "Z");
+		const gw = mw => finite(mw) ? `${(Number(mw) / 1000).toFixed(1)} GW` : "—";
+		const pct = x => finite(x) ? `${Math.round(Number(x))}%` : "—";
+		const round = (x, d = 0) => finite(x) ? Number(x).toFixed(d) : "—";
+		const normaliseText = x => String(x ?? "").trim().toLowerCase().replace(/[_\-]+/g, " ");
+
+		function proxyUrl(url) {
+			const prefix = $("proxyPrefix").value.trim();
+			if (!prefix) return url;
+			return `${prefix}${encodeURIComponent(url)}`;
+		}
+
+		function showToast(title, detail) {
+			const toast = $("toast");
+			toast.querySelector("strong").textContent = title;
+			toast.querySelector("span").textContent = detail;
+			toast.classList.add("show");
+			clearTimeout(showToast.timer);
+			showToast.timer = setTimeout(() => toast.classList.remove("show"), 5200);
+		}
+
+		function getStatusClass(status) {
+			if (status === "live") return "ok";
+			if (status === "demo" || status === "estimated") return "warn";
+			if (status === "off") return "bad";
+			return "info";
+		}
+
+		function setFeed(key, status, detail, url = "") {
+			app.feeds[key] = { key, status, detail, url, at: new Date() };
+		}
+
+		async function fetchJson(key, url, detail) {
+			const started = performance.now();
+			try {
+				const response = await fetch(proxyUrl(url), {
+					headers: { "Accept": "application/json" },
+					cache: "no-store"
+				});
+				if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+				const json = await response.json();
+				setFeed(key, "live", `${detail} · ${Math.round(performance.now() - started)} ms`, url);
+				return { ok: true, json, url };
+			} catch (error) {
+				setFeed(key, "demo", `${detail} unavailable: ${error.message}`, url);
+				return { ok: false, error, url };
+			}
+		}
+
+		function recordsFrom(json) {
+			if (!json) return [];
+			if (Array.isArray(json)) return json;
+			if (Array.isArray(json.data)) return json.data;
+			if (Array.isArray(json.results)) return json.results;
+			if (Array.isArray(json.items)) return json.items;
+			if (Array.isArray(json.records)) return json.records;
+			if (json.result && Array.isArray(json.result.records)) return json.result.records;
+			if (json.response && Array.isArray(json.response.data)) return json.response.data;
+			if (json.data && Array.isArray(json.data.records)) return json.data.records;
+			if (json.data && typeof json.data === "object" && !Array.isArray(json.data)) return [json.data];
+			return [];
+		}
+
+		function pick(obj, keys) {
+			if (!obj || typeof obj !== "object") return undefined;
+			const lowerMap = Object.fromEntries(Object.keys(obj).map(k => [k.toLowerCase(), k]));
+			for (const key of keys) {
+				if (key in obj) return obj[key];
+				const realKey = lowerMap[String(key).toLowerCase()];
+				if (realKey) return obj[realKey];
+			}
+			return undefined;
+		}
+
+		function pickNumber(obj, keys) {
+			const val = pick(obj, keys);
+			if (val === undefined || val === null || val === "") return undefined;
+			const n = Number(String(val).replace(/,/g, ""));
+			return Number.isFinite(n) ? n : undefined;
+		}
+
+		function timeFromSettlement(settlementDate, settlementPeriod) {
+			if (!settlementDate || !finite(settlementPeriod)) return null;
+			const dateString = String(settlementDate).slice(0, 10);
+			const date = new Date(`${dateString}T00:00:00Z`);
+			if (Number.isNaN(date.getTime())) return null;
+			return addMinutes(date, (Number(settlementPeriod) - 1) * 30);
+		}
+
+		function timeFromRecord(record) {
+			const direct = pick(record, [
+				"startTime", "from", "to", "settlementPeriodStartTime", "publishingPeriodCommencingTime",
+				"local_datetime", "publishTime", "spotTime", "measurementTime", "pointTime", "start", "time", "datetime", "DateTime", "DATETIME"
+			]);
+			if (direct) {
+				const parsed = new Date(direct);
+				if (!Number.isNaN(parsed.getTime())) return parsed;
+			}
+			return timeFromSettlement(
+				pick(record, ["settlementDate", "SETTLEMENT_DATE", "date"]),
+				pick(record, ["settlementPeriod", "SETTLEMENT_PERIOD", "period"])
+			);
+		}
+
+		function sortSeries(series) {
+			return series
+				.filter(p => p && p.t instanceof Date && !Number.isNaN(p.t.getTime()) && finite(p.y))
+				.sort((a, b) => a.t - b.t);
+		}
+
+		function latestBefore(series, when = new Date()) {
+			let best = null;
+			for (const p of series || []) {
+				if (p.t <= when && finite(p.y)) best = p;
+			}
+			return best;
+		}
+
+		function nearestPoint(series, when = new Date(), maxHours = 1.1) {
+			let best = null;
+			let bestDiff = Infinity;
+			for (const p of series || []) {
+				const diff = Math.abs(p.t - when);
+				if (diff < bestDiff) {
+					best = p;
+					bestDiff = diff;
+				}
+			}
+			return bestDiff <= maxHours * 3600_000 ? best : null;
+		}
+
+		function percentileRank(series, value) {
+			const arr = (series || []).map(p => Number(p.y)).filter(Number.isFinite).sort((a, b) => a - b);
+			if (!arr.length || !finite(value)) return 0.5;
+			const n = arr.filter(v => v <= value).length;
+			return n / arr.length;
+		}
+
+		function quantile(series, q) {
+			const arr = (series || []).map(p => Number(p.y)).filter(Number.isFinite).sort((a, b) => a - b);
+			if (!arr.length) return undefined;
+			const idx = clamp(q, 0, 1) * (arr.length - 1);
+			const lo = Math.floor(idx);
+			const hi = Math.ceil(idx);
+			const t = idx - lo;
+			return arr[lo] * (1 - t) + arr[hi] * t;
+		}
+
+		function rollingDelta(series, hours, fromTime = new Date()) {
+			const a = nearestPoint(series, fromTime, 1.2);
+			const b = nearestPoint(series, addHours(fromTime, hours), 1.2);
+			if (!a || !b) return null;
+			return { from: a, to: b, delta: b.y - a.y };
+		}
+
+		function largestRamp(series, start, end, stepHours = 3) {
+			const usable = (series || []).filter(p => p.t >= start && p.t <= end).sort((a, b) => a.t - b.t);
+			let best = null;
+			for (const p of usable) {
+				const future = nearestPoint(usable, addHours(p.t, stepHours), 0.75);
+				if (!future) continue;
+				const delta = future.y - p.y;
+				if (!best || Math.abs(delta) > Math.abs(best.delta)) best = { from: p, to: future, delta };
+			}
+			return best;
+		}
+
+		function normaliseFuel(fuel) {
+			const f = normaliseText(fuel);
+			if (!f) return "other";
+			if (f.includes("wind")) return "wind";
+			if (f.includes("solar") || f.includes("photovoltaic")) return "solar";
+			if (f.includes("nuclear")) return "nuclear";
+			if (f.includes("hydro")) return "hydro";
+			if (f.includes("biomass")) return "biomass";
+			if (f.includes("coal")) return "coal";
+			if (f.includes("gas") || f.includes("ccgt") || f.includes("ocgt")) return "gas";
+			if (f.includes("interconnector") || f.includes("import") || f.includes("ifa") || f.includes("britned") || f.includes("nemo") || f.includes("viking") || f.includes("north sea link")) return "imports";
+			if (f.includes("storage") || f.includes("pump")) return "storage";
+			return "other";
+		}
+
+		function carbonRecordsFrom(json) {
+			const out = [];
+			const visit = value => {
+				if (!value) return;
+				if (Array.isArray(value)) {
+					for (const item of value) visit(item);
+					return;
+				}
+				if (typeof value !== "object") return;
+				if ((value.from || value.startTime || value.datetime) && (value.intensity || value.actual || value.forecast || value.value)) out.push(value);
+				for (const key of ["data", "regions", "results", "items"]) {
+					if (Array.isArray(value[key])) visit(value[key]);
+				}
+			};
+			visit(json);
+			return out.length ? out : recordsFrom(json);
+		}
+
+		function generationMixRowsFrom(json) {
+			let mix = [];
+			const visit = value => {
+				if (!value) return;
+				if (Array.isArray(value)) {
+					for (const item of value) visit(item);
+					return;
+				}
+				if (typeof value !== "object") return;
+				const nested = value.generationmix || value.generationMix || value.mix;
+				if (Array.isArray(nested) && nested.length) mix = nested;
+				for (const key of ["data", "regions", "results", "items"]) {
+					if (Array.isArray(value[key])) visit(value[key]);
+				}
+			};
+			visit(json);
+			return mix;
+		}
+
+		function parseCarbonIntensity(json) {
+			return carbonRecordsFrom(json).map(record => ({
+				t: timeFromRecord(record),
+				y: pickNumber(record.intensity || record, ["actual", "forecast", "value", "intensity"]),
+				actual: pickNumber(record.intensity || record, ["actual"]),
+				forecast: pickNumber(record.intensity || record, ["forecast"]),
+				index: pick(record.intensity || record, ["index"])
+			})).filter(p => p.t && finite(p.y)).sort((a, b) => a.t - b.t);
+		}
+
+		function parseCurrentGenerationMix(json) {
+			const mix = generationMixRowsFrom(json);
+			const byFuel = {};
+			for (const row of mix) {
+				const fuel = normaliseFuel(pick(row, ["fuel", "fuelType", "powerSystemResourceType", "psrType"]));
+				const value = pickNumber(row, ["perc", "percentage", "value", "quantity"]);
+				if (finite(value)) byFuel[fuel] = (byFuel[fuel] || 0) + Number(value);
+			}
+			return byFuel;
+		}
+
+		function parseDemand(json) {
+			return sortSeries(recordsFrom(json).map(record => ({
+				t: timeFromRecord(record),
+				y: pickNumber(record, ["initialDemandOutturn", "nationalDemand", "demand", "quantity", "value", "ND", "tsd", "transmissionSystemDemand"])
+			})));
+		}
+
+		function parsePrice(json) {
+			return sortSeries(recordsFrom(json).map(record => ({
+				t: timeFromRecord(record),
+				y: pickNumber(record, ["price", "marketIndexPrice", "systemSellPrice", "systemBuyPrice", "imbalancePrice", "value"]),
+				volume: pickNumber(record, ["volume", "marketIndexVolume", "quantity"])
+			})));
+		}
+
+		function parseFrequency(json) {
+			return sortSeries(recordsFrom(json).map(record => ({
+				t: timeFromRecord(record),
+				y: pickNumber(record, ["frequency", "systemFrequency", "f", "value", "frequencyValue"])
+			}))).filter(p => p.y > 45 && p.y < 55);
+		}
+
+		function parseGenerationPerType(json) {
+			const rows = recordsFrom(json);
+			const byTime = new Map();
+			for (const record of rows) {
+				const t = timeFromRecord(record);
+				const fuel = normaliseFuel(pick(record, ["powerSystemResourceType", "psrType", "fuelType", "generationType", "businessType", "type"]));
+				const y = pickNumber(record, ["quantity", "generation", "value", "mw", "output", "actualGeneration"]);
+				if (!t || !finite(y)) continue;
+				const key = t.toISOString();
+				if (!byTime.has(key)) byTime.set(key, { t, byFuel: {} });
+				const bucket = byTime.get(key);
+				bucket.byFuel[fuel] = (bucket.byFuel[fuel] || 0) + Number(y);
+			}
+			const grouped = Array.from(byTime.values()).sort((a, b) => a.t - b.t);
+			const fuelSeries = {};
+			for (const g of grouped) {
+				for (const [fuel, value] of Object.entries(g.byFuel)) {
+					if (!fuelSeries[fuel]) fuelSeries[fuel] = [];
+					fuelSeries[fuel].push({ t: g.t, y: value });
+				}
+			}
+			return { grouped, fuelSeries };
+		}
+
+		function parseWindSolarForecast(json) {
+			const rows = recordsFrom(json);
+			const byTime = new Map();
+			for (const record of rows) {
+				const t = timeFromRecord(record);
+				if (!t) continue;
+				let wind = pickNumber(record, ["wind", "windGeneration", "windPower", "forecastWindGeneration", "windAndSolar", "quantity"]);
+				let solar = pickNumber(record, ["solar", "solarGeneration", "solarPower", "forecastSolarGeneration"]);
+				const fuel = normaliseFuel(pick(record, ["fuelType", "powerSystemResourceType", "psrType", "generationType", "resourceType"]));
+				if (fuel === "wind") wind = pickNumber(record, ["quantity", "generation", "value", "forecastGeneration", "wind"]);
+				if (fuel === "solar") solar = pickNumber(record, ["quantity", "generation", "value", "forecastGeneration", "solar"]);
+				const key = t.toISOString();
+				if (!byTime.has(key)) byTime.set(key, { t, wind: 0, solar: 0, windSeen: false, solarSeen: false });
+				const bucket = byTime.get(key);
+				if (finite(wind)) { bucket.wind += Number(wind); bucket.windSeen = true; }
+				if (finite(solar)) { bucket.solar += Number(solar); bucket.solarSeen = true; }
+			}
+			const windSeries = [];
+			const solarSeries = [];
+			for (const v of Array.from(byTime.values()).sort((a, b) => a.t - b.t)) {
+				if (v.windSeen) windSeries.push({ t: v.t, y: v.wind });
+				if (v.solarSeen) solarSeries.push({ t: v.t, y: v.solar });
+			}
+			return { windSeries, solarSeries };
+		}
+
+		function windPowerCurve(speed) {
+			const v = Number(speed);
+			if (!Number.isFinite(v) || v < 3 || v > 25) return 0;
+			if (v >= 12) return 1;
+			return Math.pow((v - 3) / 9, 3);
+		}
+
+		function solarProxy(radiation, cloud, isDayHint = true) {
+			const rad = Math.max(0, Number(radiation) || 0);
+			const cloudPenalty = 1 - 0.35 * clamp((Number(cloud) || 0) / 100, 0, 1);
+			return clamp((rad / 750) * cloudPenalty * (isDayHint ? 1 : 0.2), 0, 1);
+		}
+
+		async function fetchWeatherProbes() {
+			const vars = "temperature_2m,precipitation,cloud_cover,shortwave_radiation,wind_speed_100m,wind_gusts_10m";
+			const calls = WEATHER_PROBES.map(probe => {
+				const url = `${API.openMeteo}?latitude=${probe.lat}&longitude=${probe.lon}&hourly=${vars}&timezone=Europe%2FLondon&forecast_days=3&past_days=1&wind_speed_unit=ms`;
+				return fetchJson(`Weather · ${probe.name}`, url, probe.name).then(result => ({ probe, result }));
+			});
+			const results = await Promise.all(calls);
+			const successful = results.filter(r => r.result.ok);
+			if (!successful.length) return null;
+			setFeed("Open-Meteo UKMO blend", "live", `${successful.length}/${WEATHER_PROBES.length} weather probes loaded`, API.openMeteo);
+			const buckets = new Map();
+			for (const { probe, result } of successful) {
+				const hourly = result.json.hourly || {};
+				const times = hourly.time || [];
+				for (let i = 0; i < times.length; i++) {
+					const t = new Date(times[i]);
+					if (Number.isNaN(t.getTime())) continue;
+					const key = t.toISOString();
+					if (!buckets.has(key)) buckets.set(key, { t, wind: 0, solar: 0, windW: 0, solarW: 0, precip: 0, cloud: 0, temp: 0, n: 0 });
+					const bucket = buckets.get(key);
+					const wind = windPowerCurve(hourly.wind_speed_100m?.[i]);
+					const sol = solarProxy(hourly.shortwave_radiation?.[i], hourly.cloud_cover?.[i], true);
+					bucket.wind += wind * probe.windWeight;
+					bucket.solar += sol * probe.solarWeight;
+					bucket.windW += probe.windWeight;
+					bucket.solarW += probe.solarWeight;
+					bucket.precip += Number(hourly.precipitation?.[i] || 0);
+					bucket.cloud += Number(hourly.cloud_cover?.[i] || 0);
+					bucket.temp += Number(hourly.temperature_2m?.[i] || 0);
+					bucket.n += 1;
+				}
+			}
+			const rows = Array.from(buckets.values()).sort((a, b) => a.t - b.t).map(b => ({
+				t: b.t,
+				windIndex: b.windW ? clamp(100 * b.wind / b.windW, 0, 100) : 0,
+				solarIndex: b.solarW ? clamp(100 * b.solar / b.solarW, 0, 100) : 0,
+				precip: b.n ? b.precip / b.n : 0,
+				cloud: b.n ? b.cloud / b.n : 0,
+				temp: b.n ? b.temp / b.n : 0
+			}));
+			return {
+				windIndex: rows.map(r => ({ t: r.t, y: r.windIndex })),
+				solarIndex: rows.map(r => ({ t: r.t, y: r.solarIndex })),
+				precip: rows.map(r => ({ t: r.t, y: r.precip })),
+				cloud: rows.map(r => ({ t: r.t, y: r.cloud })),
+				temp: rows.map(r => ({ t: r.t, y: r.temp }))
+			};
+		}
+
+		async function refresh() {
+			if (app.loading) return;
+			app.loading = true;
+			app.feeds = {};
+			$("refreshBtn").disabled = true;
+			$("refreshBtn").textContent = "Refreshing…";
+			try {
+				const demoOnly = $("demoOnly").checked;
+				const now = new Date();
+				let model = makeDemoModel(now, demoOnly ? "Demo-only scenario" : "Live with fallback");
+				if (!demoOnly) {
+					const loaded = await loadLiveBundle(now);
+					model = applyLiveBundle(model, loaded, now);
+				}
+				model = deriveModel(model, now);
+				app.model = model;
+				render(model);
+				showToast("Cockpit refreshed", model.liveShare > 0 ? `${model.liveShare}% of primary feeds are live.` : "Using generated demo data only.");
+			} finally {
+				app.loading = false;
+				$("refreshBtn").disabled = false;
+				$("refreshBtn").textContent = "Refresh live data";
+			}
+		}
+
+		async function loadLiveBundle(now) {
+			const past = isoZ(addHours(now, -36));
+			const past24 = isoZ(addHours(now, -24));
+			const future = isoZ(addHours(now, 48));
+			const nowIso = isoZ(now);
+			const postcode = $("postcode").value.trim().replace(/\s+/g, "").toUpperCase();
+			const carbonArea = $("carbonArea").value;
+			const ciCurrentUrl = postcode
+				? `${API.ci}/regional/postcode/${encodeURIComponent(postcode)}`
+				: carbonArea !== "national"
+					? `${API.ci}/regional/regionid/${encodeURIComponent(carbonArea)}`
+					: `${API.ci}/intensity`;
+			const ciHistoryUrl = postcode
+				? `${API.ci}/regional/intensity/${encodeURIComponent(nowIso)}/pt24h/postcode/${encodeURIComponent(postcode)}`
+				: carbonArea !== "national"
+					? `${API.ci}/regional/intensity/${encodeURIComponent(nowIso)}/pt24h/regionid/${encodeURIComponent(carbonArea)}`
+					: `${API.ci}/intensity/${encodeURIComponent(nowIso)}/pt24h`;
+			const ciForecastUrl = postcode
+				? `${API.ci}/regional/intensity/${encodeURIComponent(nowIso)}/fw48h/postcode/${encodeURIComponent(postcode)}`
+				: carbonArea !== "national"
+					? `${API.ci}/regional/intensity/${encodeURIComponent(nowIso)}/fw48h/regionid/${encodeURIComponent(carbonArea)}`
+					: `${API.ci}/intensity/${encodeURIComponent(nowIso)}/fw48h`;
+
+			const calls = {
+				ciCurrent: fetchJson("Carbon current", ciCurrentUrl, "Current carbon intensity"),
+				ciHistory: fetchJson("Carbon past 24h", ciHistoryUrl, "Historic carbon intensity"),
+				ciForecast: fetchJson("Carbon 48h", ciForecastUrl, "Forecast carbon intensity"),
+				ciGeneration: fetchJson("Carbon generation mix", `${API.ci}/generation`, "Current generation mix"),
+				elexonDemand: fetchJson("Elexon demand", `${API.elexon}/demand/outturn?from=${encodeURIComponent(past)}&to=${encodeURIComponent(nowIso)}&format=json`, "Demand outturn"),
+				elexonGeneration: fetchJson("Elexon actual generation", `${API.elexon}/generation/actual/per-type?from=${encodeURIComponent(past)}&to=${encodeURIComponent(nowIso)}&format=json`, "Actual generation by type"),
+				elexonForecastWS: fetchJson("Elexon wind/solar forecast", `${API.elexon}/forecast/generation/wind-and-solar/day-ahead?from=${encodeURIComponent(past24)}&to=${encodeURIComponent(future)}&format=json`, "Day-ahead wind/solar"),
+				elexonMarket: fetchJson("Elexon market index", `${API.elexon}/balancing/pricing/market-index?from=${encodeURIComponent(past)}&to=${encodeURIComponent(nowIso)}&format=json`, "Market index price"),
+				elexonSystemPrices: fetchJson("Elexon system prices", `${API.elexon}/balancing/settlement/system-prices/${fmtDate(now)}?format=json`, "System prices"),
+				elexonFrequency: fetchJson("Elexon frequency", `${API.elexon}/datasets/FREQ/stream?from=${encodeURIComponent(past)}&to=${encodeURIComponent(nowIso)}&format=json`, "System frequency"),
+				weather: fetchWeatherProbes()
+			};
+			const resolved = {};
+			await Promise.all(Object.entries(calls).map(async ([key, promise]) => { resolved[key] = await promise; }));
+			return resolved;
+		}
+
+		function applyLiveBundle(model, bundle, now) {
+			const carbonPieces = [];
+			if (bundle.ciHistory?.ok) carbonPieces.push(...parseCarbonIntensity(bundle.ciHistory.json));
+			if (bundle.ciForecast?.ok) carbonPieces.push(...parseCarbonIntensity(bundle.ciForecast.json));
+			if (bundle.ciCurrent?.ok) carbonPieces.push(...parseCarbonIntensity(bundle.ciCurrent.json));
+			if (carbonPieces.length) {
+				model.carbon.series = dedupeSeries(carbonPieces);
+				model.sources.carbon = "live";
+			}
+
+			if (bundle.ciGeneration?.ok) {
+				const mix = parseCurrentGenerationMix(bundle.ciGeneration.json);
+				if (Object.keys(mix).length) {
+					model.generation.mixPercent = mix;
+					model.sources.mix = "live";
+				}
+			}
+
+			if (bundle.elexonDemand?.ok) {
+				const series = parseDemand(bundle.elexonDemand.json);
+				if (series.length >= 2) {
+					model.demand.series = mergeFutureEstimate(series, model.demand.series, now);
+					model.sources.demand = "live";
+				}
+			}
+
+			if (bundle.elexonGeneration?.ok) {
+				const gen = parseGenerationPerType(bundle.elexonGeneration.json);
+				if (gen.grouped.length) {
+					model.generation.actualGrouped = gen.grouped;
+					model.generation.fuelSeries = gen.fuelSeries;
+					model.sources.generation = "live";
+					const wind = gen.fuelSeries.wind || [];
+					const solar = gen.fuelSeries.solar || [];
+					if (wind.length) model.renewables.windActual = mergeFutureEstimate(wind, model.renewables.windActual, now);
+					if (solar.length) model.renewables.solarActual = mergeFutureEstimate(solar, model.renewables.solarActual, now);
+				}
+			}
+
+			if (bundle.elexonForecastWS?.ok) {
+				const forecast = parseWindSolarForecast(bundle.elexonForecastWS.json);
+				if (forecast.windSeries.length) {
+					model.renewables.windForecast = forecast.windSeries;
+					model.sources.renewableForecast = "live";
+				}
+				if (forecast.solarSeries.length) {
+					model.renewables.solarForecast = forecast.solarSeries;
+					model.sources.renewableForecast = "live";
+				}
+			}
+
+			const pricePieces = [];
+			if (bundle.elexonMarket?.ok) pricePieces.push(...parsePrice(bundle.elexonMarket.json));
+			if (bundle.elexonSystemPrices?.ok) pricePieces.push(...parsePrice(bundle.elexonSystemPrices.json));
+			if (pricePieces.length) {
+				model.price.series = dedupeSeries(pricePieces);
+				model.sources.price = "live";
+			}
+
+			if (bundle.elexonFrequency?.ok) {
+				const frequency = parseFrequency(bundle.elexonFrequency.json);
+				if (frequency.length) {
+					model.frequency.series = frequency;
+					model.sources.frequency = "live";
+				}
+			}
+
+			if (bundle.weather) {
+				model.weather = bundle.weather;
+				model.sources.weather = "live";
+			}
+
+			return model;
+		}
+
+		function mergeFutureEstimate(liveSeries, existingSeries, now) {
+			const future = (existingSeries || []).filter(p => p.t > now);
+			return dedupeSeries([...liveSeries, ...future]);
+		}
+
+		function dedupeSeries(series) {
+			const map = new Map();
+			for (const p of sortSeries(series)) map.set(p.t.toISOString(), p);
+			return Array.from(map.values()).sort((a, b) => a.t - b.t);
+		}
+
+		function makeDemoModel(now, label = "Demo scenario") {
+			const windCap = Number($("windCap")?.value || 32) * 1000;
+			const solarCap = Number($("solarCap")?.value || 20) * 1000;
+			const anchor = new Date(now);
+			anchor.setMinutes(0, 0, 0);
+			const demand = [];
+			const carbon = [];
+			const price = [];
+			const windActual = [];
+			const solarActual = [];
+			const windForecast = [];
+			const solarForecast = [];
+			const windIndex = [];
+			const solarIndex = [];
+			const temp = [];
+			const cloud = [];
+			const precip = [];
+
+			for (let h = -36; h <= 54; h++) {
+				const t = addHours(anchor, h);
+				const localHour = Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hour12: false, timeZone: "Europe/London" }).format(t));
+				const dayShape = Math.sin((localHour - 7) / 24 * Math.PI * 2);
+				const eveningPeak = Math.exp(-Math.pow((localHour - 18.2) / 3.1, 2));
+				const morningPeak = 0.55 * Math.exp(-Math.pow((localHour - 8.0) / 2.7, 2));
+				const solarDay = Math.max(0, Math.sin((localHour - 5.2) / 14.8 * Math.PI));
+				const slowWind = clamp(0.48 + 0.30 * Math.sin((h + app.scenarioCounter * 5) / 8.5) + 0.20 * Math.sin((h - 4) / 17) + 0.08 * Math.cos(h / 2.8), 0.03, 0.96);
+				const cloudIndex = clamp(42 + 32 * Math.sin((h + 8) / 11) + 18 * Math.cos(h / 5.3), 5, 98);
+				const solarWeather = clamp(solarDay * (1 - 0.52 * cloudIndex / 100) + 0.08 * Math.sin(h / 2), 0, 1);
+				const demandMw = 24500 + 3800 * eveningPeak + 2000 * morningPeak - 1100 * solarDay + 700 * Math.max(0, -dayShape) + 550 * Math.sin((h + 3) / 6);
+				const windMw = windCap * (0.06 + 0.78 * slowWind) * (0.93 + 0.04 * Math.sin(h));
+				const solarMw = solarCap * solarWeather * (0.93 + 0.03 * Math.cos(h / 2));
+				const residualMw = demandMw - windMw - solarMw;
+				const carbonVal = clamp(42 + 0.0044 * residualMw + 96 * Math.max(0, 0.50 - slowWind) + 36 * eveningPeak + 18 * Math.sin((h + 1) / 6), 28, 390);
+				const rampRisk = h > -36 ? Math.abs((windMw + solarMw) - ((windActual[windActual.length - 1]?.y || windMw) + (solarActual[solarActual.length - 1]?.y || solarMw))) / 1000 : 0;
+				const priceVal = clamp(42 + 0.0049 * residualMw + 10 * eveningPeak + 5 * rampRisk + 15 * Math.max(0, carbonVal - 190) / 100, -20, 420);
+
+				demand.push({ t, y: demandMw });
+				carbon.push({ t, y: carbonVal, forecast: carbonVal, index: carbonVal < 100 ? "low" : carbonVal < 200 ? "moderate" : "high" });
+				price.push({ t, y: priceVal });
+				windActual.push({ t, y: windMw });
+				solarActual.push({ t, y: solarMw });
+				windForecast.push({ t, y: windMw * (1 + 0.10 * Math.sin((h + 2) / 4)) });
+				solarForecast.push({ t, y: solarMw * (1 + 0.08 * Math.cos((h - 1) / 3)) });
+				windIndex.push({ t, y: slowWind * 100 });
+				solarIndex.push({ t, y: solarWeather * 100 });
+				temp.push({ t, y: 11 + 6 * solarDay + 2 * Math.sin((h + 6) / 11) });
+				cloud.push({ t, y: cloudIndex });
+				precip.push({ t, y: cloudIndex > 70 ? clamp((cloudIndex - 70) / 18, 0, 3) : 0 });
+			}
+
+			return {
+				label,
+				now,
+				sources: { carbon: "demo", demand: "demo", mix: "demo", generation: "demo", renewableForecast: "demo", weather: "demo", price: "demo", frequency: "demo" },
+				carbon: { series: carbon },
+				demand: { series: demand },
+				generation: { mixPercent: {}, actualGrouped: [], fuelSeries: {} },
+				renewables: { windActual, solarActual, windForecast, solarForecast },
+				weather: { windIndex, solarIndex, temp, cloud, precip },
+				price: { series: price },
+				frequency: { series: makeDemoFrequency(anchor) },
+				stress: { current: 0, series: [], drivers: [] },
+				anomalies: [],
+				reasons: []
+			};
+		}
+
+		function makeDemoFrequency(anchor) {
+			const series = [];
+			for (let m = -36 * 60; m <= 54 * 60; m += 10) {
+				const t = addMinutes(anchor, m);
+				const wiggle = 0.035 * Math.sin(m / 37) + 0.018 * Math.sin(m / 11) + 0.006 * Math.cos(m / 5);
+				series.push({ t, y: 50 + wiggle });
+			}
+			return series;
+		}
+
+		function deriveModel(model, now) {
+			const windCap = Number($("windCap").value || 32) * 1000;
+			const solarCap = Number($("solarCap").value || 20) * 1000;
+
+			model.carbon.current = latestBefore(model.carbon.series, now) || nearestPoint(model.carbon.series, now, 2);
+			model.demand.current = latestBefore(model.demand.series, now) || nearestPoint(model.demand.series, now, 2);
+			model.price.current = latestBefore(model.price.series, now) || nearestPoint(model.price.series, now, 2);
+			model.frequency.current = latestBefore(model.frequency.series, now) || nearestPoint(model.frequency.series, now, 2);
+			model.renewables.windCurrent = latestBefore(model.renewables.windActual, now) || nearestPoint(model.renewables.windActual, now, 2);
+			model.renewables.solarCurrent = latestBefore(model.renewables.solarActual, now) || nearestPoint(model.renewables.solarActual, now, 2);
+			model.weather.windCurrent = latestBefore(model.weather.windIndex, now) || nearestPoint(model.weather.windIndex, now, 2);
+			model.weather.solarCurrent = latestBefore(model.weather.solarIndex, now) || nearestPoint(model.weather.solarIndex, now, 2);
+
+			if (!Object.keys(model.generation.mixPercent || {}).length) {
+				const wind = model.renewables.windCurrent?.y || 0;
+				const solar = model.renewables.solarCurrent?.y || 0;
+				const demand = model.demand.current?.y || 30000;
+				const nuclear = 4800;
+				const biomass = 1700;
+				const hydro = 600;
+				const imports = Math.max(0, demand * 0.07);
+				const gas = Math.max(1000, demand - wind - solar - nuclear - biomass - hydro - imports);
+				const total = wind + solar + nuclear + biomass + hydro + imports + gas;
+				model.generation.mixPercent = {
+					wind: 100 * wind / total,
+					solar: 100 * solar / total,
+					nuclear: 100 * nuclear / total,
+					biomass: 100 * biomass / total,
+					hydro: 100 * hydro / total,
+					imports: 100 * imports / total,
+					gas: 100 * gas / total
+				};
+			}
+
+			model.residual = buildResidualSeries(model.demand.series, model.renewables.windActual, model.renewables.solarActual);
+
+			const weatherWindMw = model.weather.windIndex.map(p => ({ t: p.t, y: p.y / 100 * windCap }));
+			const weatherSolarMw = model.weather.solarIndex.map(p => ({ t: p.t, y: p.y / 100 * solarCap }));
+			model.weather.windMw = calibrateWeatherToActual(weatherWindMw, model.renewables.windActual, now);
+			model.weather.solarMw = calibrateWeatherToActual(weatherSolarMw, model.renewables.solarActual, now);
+
+			model.renewables.windBest = chooseBestForecast(model.renewables.windForecast, model.weather.windMw, model.renewables.windActual, now);
+			model.renewables.solarBest = chooseBestForecast(model.renewables.solarForecast, model.weather.solarMw, model.renewables.solarActual, now);
+
+			model.stress.series = buildStressSeries(model, now);
+			model.stress.current = nearestPoint(model.stress.series, now, 2)?.y ?? 50;
+			model.stress.drivers = buildStressDrivers(model, now);
+			model.reasons = buildReasons(model, now);
+			model.anomalies = detectAnomalies(model, now);
+			model.bestWindow = findBestWindow(model, now);
+			model.liveShare = computeLiveShare(model);
+			model.headline = buildHeadline(model);
+			model.narrative = buildNarrative(model);
+			return model;
+		}
+
+		function chooseBestForecast(apiForecast, weatherForecast, actual, now) {
+			const past = (actual || []).filter(p => p.t <= now);
+			const futureApi = (apiForecast || []).filter(p => p.t > now);
+			const futureWeather = (weatherForecast || []).filter(p => p.t > now);
+			if (futureApi.length) return dedupeSeries([...past, ...futureApi]);
+			return dedupeSeries([...past, ...futureWeather]);
+		}
+
+		function calibrateWeatherToActual(weatherMw, actual, now) {
+			const a = latestBefore(actual, now);
+			const w = latestBefore(weatherMw, now);
+			if (!a || !w || w.y <= 50) return weatherMw;
+			const scale = clamp(a.y / w.y, 0.35, 2.4);
+			return weatherMw.map(p => ({ t: p.t, y: p.y * scale }));
+		}
+
+		function buildResidualSeries(demand, wind, solar) {
+			const result = [];
+			for (const d of demand || []) {
+				const w = nearestPoint(wind, d.t, 1.1)?.y || 0;
+				const s = nearestPoint(solar, d.t, 1.1)?.y || 0;
+				result.push({ t: d.t, y: d.y - w - s });
+			}
+			return sortSeries(result);
+		}
+
+		function buildStressSeries(model, now) {
+			const times = new Map();
+			for (const series of [model.carbon.series, model.demand.series, model.price.series, model.renewables.windBest, model.renewables.solarBest, model.weather.windIndex, model.weather.solarIndex, model.frequency.series]) {
+				for (const p of series || []) {
+					if (p.t >= addHours(now, -24) && p.t <= addHours(now, 48)) times.set(p.t.toISOString(), p.t);
+				}
+			}
+			const demandQ90 = quantile(model.demand.series.filter(p => p.t <= now), 0.90) || 39000;
+			const priceQ90 = quantile(model.price.series.filter(p => p.t <= now), 0.90) || 160;
+			const stress = [];
+			for (const t of Array.from(times.values()).sort((a, b) => a - b)) {
+				const demand = nearestPoint(model.demand.series, t, 1.2)?.y;
+				const wind = nearestPoint(model.renewables.windBest, t, 1.2)?.y || 0;
+				const solar = nearestPoint(model.renewables.solarBest, t, 1.2)?.y || 0;
+				const carbon = nearestPoint(model.carbon.series, t, 1.4)?.y;
+				const price = nearestPoint(model.price.series, t, 1.4)?.y;
+				const frequency = nearestPoint(model.frequency.series, t, 0.4)?.y;
+				const residual = finite(demand) ? demand - wind - solar : undefined;
+				const lowWind = clamp(1 - (wind / Math.max(1, Number($("windCap").value || 32) * 1000)) / 0.45, 0, 1);
+				const lowSolarDay = clamp(1 - (solar / Math.max(1, Number($("solarCap").value || 20) * 1000)) / 0.35, 0, 1);
+				const demandPressure = clamp((demand || 0) / demandQ90, 0, 1.35) / 1.35;
+				const residualPressure = finite(residual) ? clamp((residual - 13000) / 23000, 0, 1) : 0.45;
+				const carbonPressure = finite(carbon) ? clamp((carbon - 70) / 250, 0, 1) : 0.45;
+				const pricePressure = finite(price) ? clamp(price / priceQ90, 0, 1.5) / 1.5 : 0.40;
+				const windRamp = Math.abs(rollingDelta(model.renewables.windBest, 3, t)?.delta || 0) / 6500;
+				const solarRamp = Math.abs(rollingDelta(model.renewables.solarBest, 3, t)?.delta || 0) / 6500;
+				const rampRisk = clamp(Math.max(windRamp, solarRamp), 0, 1);
+				const frequencyRisk = finite(frequency) ? clamp((Math.abs(frequency - 50) - 0.05) / 0.22, 0, 1) : 0.18;
+				const score = 100 * (
+					0.20 * demandPressure +
+					0.17 * residualPressure +
+					0.15 * carbonPressure +
+					0.15 * lowWind +
+					0.09 * lowSolarDay +
+					0.09 * pricePressure +
+					0.08 * rampRisk +
+					0.07 * frequencyRisk
+				);
+				stress.push({ t, y: clamp(score, 0, 100) });
+			}
+			return sortSeries(stress);
+		}
+
+		function buildStressDrivers(model, now) {
+			const demand = model.demand.current?.y;
+			const carbon = model.carbon.current?.y;
+			const price = model.price.current?.y;
+			const wind = model.renewables.windCurrent?.y || 0;
+			const solar = model.renewables.solarCurrent?.y || 0;
+			const windCap = Number($("windCap").value || 32) * 1000;
+			const solarCap = Number($("solarCap").value || 20) * 1000;
+			const residual = finite(demand) ? demand - wind - solar : undefined;
+			const demandRank = percentileRank(model.demand.series.filter(p => p.t <= now), demand);
+			const priceRank = percentileRank(model.price.series.filter(p => p.t <= now), price);
+			const windDrop = rollingDelta(model.renewables.windBest, 6, now)?.delta || 0;
+			const solarDrop = rollingDelta(model.renewables.solarBest, 6, now)?.delta || 0;
+			const frequency = model.frequency.current?.y;
+			return [
+				{ label: "Demand", value: demandRank, detail: `${gw(demand)} · p${Math.round(demandRank * 100)}` },
+				{ label: "Residual", value: finite(residual) ? clamp((residual - 12000) / 26000, 0, 1) : 0.5, detail: finite(residual) ? `${gw(residual)} after wind/solar` : "estimated" },
+				{ label: "Low wind", value: clamp(1 - wind / Math.max(windCap * 0.45, 1), 0, 1), detail: `${gw(wind)} of ${gw(windCap)} assumption` },
+				{ label: "Low solar", value: clamp(1 - solar / Math.max(solarCap * 0.35, 1), 0, 1), detail: `${gw(solar)} of ${gw(solarCap)} assumption` },
+				{ label: "Carbon", value: finite(carbon) ? clamp((carbon - 70) / 250, 0, 1) : 0.5, detail: finite(carbon) ? `${Math.round(carbon)} gCO₂/kWh` : "estimated" },
+				{ label: "Price", value: priceRank, detail: finite(price) ? `£${round(price, 0)}/MWh · p${Math.round(priceRank * 100)}` : "estimated" },
+				{ label: "Ramp", value: clamp(Math.max(Math.abs(windDrop), Math.abs(solarDrop)) / 8000, 0, 1), detail: `6h max ${gw(Math.max(Math.abs(windDrop), Math.abs(solarDrop)))}` },
+				{ label: "Frequency", value: finite(frequency) ? clamp((Math.abs(frequency - 50) - 0.05) / 0.22, 0, 1) : 0.18, detail: finite(frequency) ? `${frequency.toFixed(3)} Hz` : "estimated" }
+			];
+		}
+
+		function buildReasons(model, now) {
+			const reasons = [];
+			const carbon = model.carbon.current?.y;
+			const demand = model.demand.current?.y;
+			const demandRank = percentileRank(model.demand.series.filter(p => p.t <= now), demand);
+			const wind = model.renewables.windCurrent?.y || 0;
+			const solar = model.renewables.solarCurrent?.y || 0;
+			const windCap = Number($("windCap").value || 32) * 1000;
+			const windShare = wind / Math.max(windCap, 1);
+			const price = model.price.current?.y;
+			const priceRank = percentileRank(model.price.series.filter(p => p.t <= now), price);
+			const windDelta6 = rollingDelta(model.renewables.windBest, 6, now)?.delta || 0;
+			const solarDelta6 = rollingDelta(model.renewables.solarBest, 6, now)?.delta || 0;
+			const best = model.bestWindow;
+
+			if (demandRank > 0.78) reasons.push({ title: "Demand is high for the recent window", detail: `${gw(demand)} sits around the ${Math.round(demandRank * 100)}th percentile of the loaded demand series.` });
+			else if (demandRank < 0.28) reasons.push({ title: "Demand is relatively soft", detail: `${gw(demand)} is low within the loaded comparison window, easing residual demand.` });
+			else reasons.push({ title: "Demand is not the main outlier", detail: `${gw(demand)} is mid-pack in the loaded window; renewables and carbon are likely more explanatory.` });
+
+			if (windShare < 0.22) reasons.push({ title: "Wind is suppressing clean supply", detail: `${gw(wind)} is low against the adjustable ${gw(windCap)} wind-capacity assumption.` });
+			else if (windShare > 0.48) reasons.push({ title: "Wind is doing useful heavy lifting", detail: `${gw(wind)} materially reduces residual demand and carbon intensity.` });
+			else reasons.push({ title: "Wind is moderate", detail: `${gw(wind)} is neither a strong clean surplus nor a severe shortfall in this view.` });
+
+			if (Math.abs(windDelta6) > 2500 || Math.abs(solarDelta6) > 2500) {
+				const dominant = Math.abs(windDelta6) >= Math.abs(solarDelta6) ? ["wind", windDelta6] : ["solar", solarDelta6];
+				reasons.push({ title: `A ${dominant[0]} ramp is coming`, detail: `${dominant[1] >= 0 ? "+" : ""}${gw(dominant[1])} over the next 6 hours in the chosen forecast/nowcast blend.` });
+			}
+
+			if (finite(carbon) && carbon > 190) reasons.push({ title: "Carbon intensity is elevated", detail: `${Math.round(carbon)} gCO₂/kWh suggests a fossil-heavy residual mix or low renewable output.` });
+			else if (finite(carbon) && carbon < 90) reasons.push({ title: "Carbon intensity is low", detail: `${Math.round(carbon)} gCO₂/kWh suggests a relatively clean window.` });
+
+			if (priceRank > 0.86) reasons.push({ title: "Price signal is unusually hot", detail: `Current/nearest price is around the ${Math.round(priceRank * 100)}th percentile of the loaded price window.` });
+
+			if (best) reasons.push({ title: "Best near-term clean/stress window", detail: `${fmtDayTime(best.start)}–${fmtTime(best.end)} has the best combined carbon and stress score in the next 48 hours.` });
+			return reasons.slice(0, 6);
+		}
+
+		function detectAnomalies(model, now) {
+			const items = [];
+			const carbon = model.carbon.current?.y;
+			const demand = model.demand.current?.y;
+			const price = model.price.current?.y;
+			const windActual = model.renewables.windCurrent?.y;
+			const windExpected = latestBefore(model.weather.windMw, now)?.y;
+			const solarActual = model.renewables.solarCurrent?.y;
+			const solarExpected = latestBefore(model.weather.solarMw, now)?.y;
+			const carbonP90 = quantile(model.carbon.series.filter(p => p.t <= now), 0.90);
+			const demandP90 = quantile(model.demand.series.filter(p => p.t <= now), 0.90);
+			const priceP90 = quantile(model.price.series.filter(p => p.t <= now), 0.90);
+			const windRamp = largestRamp(model.renewables.windBest, now, addHours(now, 24), 3);
+			const solarRamp = largestRamp(model.renewables.solarBest, now, addHours(now, 24), 3);
+			const liveSources = Object.values(model.sources).filter(v => v === "live").length;
+			const frequency = model.frequency.current?.y;
+
+			if (finite(frequency) && Math.abs(frequency - 50) > 0.15) items.push({ level: "bad", title: "Frequency excursion candidate", detail: `Nearest loaded system frequency is ${frequency.toFixed(3)} Hz.` });
+			if (finite(carbon) && finite(carbonP90) && carbon >= carbonP90) items.push({ level: "warn", title: "High-carbon outlier", detail: `${Math.round(carbon)} gCO₂/kWh is in the top decile of the loaded carbon window.` });
+			if (finite(demand) && finite(demandP90) && demand >= demandP90) items.push({ level: "warn", title: "High demand pressure", detail: `${gw(demand)} is in the top decile of the loaded demand window.` });
+			if (finite(price) && finite(priceP90) && price >= priceP90) items.push({ level: "bad", title: "Price spike candidate", detail: `£${round(price, 0)}/MWh is in the top decile of the loaded price window.` });
+			if (finite(windActual) && finite(windExpected) && windExpected > 4500 && windActual < 0.62 * windExpected) items.push({ level: "warn", title: "Wind underperformance candidate", detail: `Weather proxy expects roughly ${gw(windExpected)}, while actual/loaded wind is ${gw(windActual)}. Could be forecast error, outages, constraints or data mismatch.` });
+			if (finite(solarActual) && finite(solarExpected) && solarExpected > 2500 && solarActual < 0.58 * solarExpected) items.push({ level: "warn", title: "Solar underperformance candidate", detail: `Weather proxy expects roughly ${gw(solarExpected)}, while actual/loaded solar is ${gw(solarActual)}.` });
+			if (windRamp && Math.abs(windRamp.delta) > 4500) items.push({ level: windRamp.delta < 0 ? "bad" : "info", title: "Large wind ramp", detail: `${windRamp.delta >= 0 ? "+" : ""}${gw(windRamp.delta)} from ${fmtDayTime(windRamp.from.t)} to ${fmtTime(windRamp.to.t)}.` });
+			if (solarRamp && Math.abs(solarRamp.delta) > 4500) items.push({ level: solarRamp.delta < 0 ? "warn" : "info", title: "Large solar ramp", detail: `${solarRamp.delta >= 0 ? "+" : ""}${gw(solarRamp.delta)} from ${fmtDayTime(solarRamp.from.t)} to ${fmtTime(solarRamp.to.t)}.` });
+			if (liveSources < 3) items.push({ level: "info", title: "Limited live data", detail: "Several panels are using generated estimates. Add a proxy/backend if CORS blocks browser calls." });
+			if (!items.length) items.push({ level: "ok", title: "No major anomalies in this window", detail: "Nothing exceeds the simple percentile/ramp/underperformance checks right now." });
+			return items;
+		}
+
+		function findBestWindow(model, now) {
+			const candidates = [];
+			const future = model.stress.series.filter(p => p.t > now && p.t <= addHours(now, 48));
+			for (let i = 0; i < future.length; i++) {
+				const start = future[i].t;
+				const end = addHours(start, 3);
+				const points = future.filter(p => p.t >= start && p.t <= end);
+				if (points.length < 2) continue;
+				const stressAvg = points.reduce((a, p) => a + p.y, 0) / points.length;
+				const carbonPoints = points.map(p => nearestPoint(model.carbon.series, p.t, 1.2)?.y).filter(Number.isFinite);
+				const carbonAvg = carbonPoints.length ? carbonPoints.reduce((a, v) => a + v, 0) / carbonPoints.length : 150;
+				const score = stressAvg + clamp((carbonAvg - 50) / 250, 0, 1) * 100;
+				candidates.push({ start, end, score, stressAvg, carbonAvg });
+			}
+			return candidates.sort((a, b) => a.score - b.score)[0];
+		}
+
+		function computeLiveShare(model) {
+			const keys = ["carbon", "demand", "mix", "generation", "renewableForecast", "weather", "price", "frequency"];
+			const live = keys.filter(k => model.sources[k] === "live").length;
+			return Math.round(100 * live / keys.length);
+		}
+
+		function buildHeadline(model) {
+			const stress = model.stress.current;
+			const carbon = model.carbon.current?.y;
+			if (stress >= 72 && carbon > 180) return "The grid looks stressed and carbon-heavy.";
+			if (stress >= 72) return "The grid looks stressed, mainly from demand/renewable/ramp pressure.";
+			if (carbon < 90 && stress < 45) return "This is a relatively clean, comfortable grid window.";
+			if (carbon < 110) return "Carbon is low, but keep an eye on the next ramp.";
+			if (stress < 42) return "The grid looks fairly comfortable right now.";
+			return "The grid is in a mixed, watch-the-next-ramp state.";
+		}
+
+		function buildNarrative(model) {
+			const demand = model.demand.current?.y;
+			const wind = model.renewables.windCurrent?.y || 0;
+			const solar = model.renewables.solarCurrent?.y || 0;
+			const carbon = model.carbon.current?.y;
+			const price = model.price.current?.y;
+			const frequency = model.frequency.current?.y;
+			const residual = finite(demand) ? demand - wind - solar : undefined;
+			const liveText = model.liveShare >= 70 ? "Mostly live feeds are in use" : model.liveShare > 0 ? "Some feeds are live and the rest are estimated" : "This is currently a generated demo scenario";
+			return `${liveText}. Demand is ${gw(demand)}, wind plus solar are ${gw(wind + solar)}, leaving an approximate residual demand of ${gw(residual)}. Carbon is ${finite(carbon) ? `${Math.round(carbon)} gCO₂/kWh` : "unknown"}; the nearest market/system price signal is ${finite(price) ? `£${round(price, 0)}/MWh` : "unavailable"}; frequency is ${finite(frequency) ? `${frequency.toFixed(3)} Hz` : "unavailable"}. The stress score is built from demand pressure, residual demand, low wind/solar, carbon, price, frequency and ramp risk.`;
+		}
+
+		function render(model) {
+			renderStatus(model);
+			renderMetrics(model);
+			renderNarrative(model);
+			renderStress(model);
+			renderMix(model);
+			renderRamps(model);
+			renderWeather(model);
+			renderAnomalies(model);
+			renderDiagnostics(model);
+			renderCharts(model);
+		}
+
+		function renderStatus(model) {
+			$("lastUpdated").textContent = `Updated ${fmtDayTime(new Date())}`;
+			$("qualityLabel").textContent = model.liveShare >= 70 ? "Mostly live" : model.liveShare > 0 ? "Partial live" : "Demo estimates";
+			$("qualityDot").className = `dot ${model.liveShare >= 70 ? "ok" : model.liveShare > 0 ? "warn" : "info"}`;
+			$("scenarioBadge").innerHTML = `<span class="dot ${model.liveShare ? "ok" : "info"}"></span><strong>${model.label}</strong>`;
+			const pills = Object.entries(model.sources).map(([key, status]) => `<span class="pill"><span class="dot ${getStatusClass(status)}"></span><strong>${labelise(key)}</strong> ${status}</span>`).join("");
+			$("sourcePills").innerHTML = pills;
+		}
+
+		function labelise(key) {
+			return key.replace(/([A-Z])/g, " $1").replace(/^./, c => c.toUpperCase());
+		}
+
+		function renderMetrics(model) {
+			const carbon = model.carbon.current;
+			const demand = model.demand.current;
+			const wind = model.renewables.windCurrent?.y || 0;
+			const solar = model.renewables.solarCurrent?.y || 0;
+			const price = model.price.current;
+			const stress = model.stress.current;
+			const carbonIndex = carbon ? (carbon.index || (carbon.y < 90 ? "low" : carbon.y < 180 ? "moderate" : "high")) : "";
+			$("carbonMetric").textContent = carbon ? `${Math.round(carbon.y)} g` : "—";
+			$("carbonDetail").textContent = carbon ? `${carbonIndex} at ${fmtDayTime(carbon.t)} · stress ${Math.round(stress)}/100` : "No carbon feed loaded";
+			$("demandMetric").textContent = gw(demand?.y);
+			$("demandDetail").textContent = demand ? `${Math.round(percentileRank(model.demand.series.filter(p => p.t <= model.now), demand.y) * 100)}th percentile of loaded demand window` : "No demand feed loaded";
+			$("renewablesMetric").textContent = gw(wind + solar);
+			$("renewablesDetail").textContent = `Wind ${gw(wind)} · solar ${gw(solar)}`;
+			$("priceMetric").textContent = price ? `£${round(price.y, 0)}` : "—";
+			const frequency = model.frequency.current?.y;
+			$("priceDetail").textContent = price ? `Nearest price at ${fmtDayTime(price.t)} · p${Math.round(percentileRank(model.price.series.filter(p => p.t <= model.now), price.y) * 100)} · frequency ${finite(frequency) ? frequency.toFixed(3) + " Hz" : "n/a"}` : `No price feed loaded · frequency ${finite(frequency) ? frequency.toFixed(3) + " Hz" : "n/a"}`;
+		}
+
+		function renderNarrative(model) {
+			$("headline").textContent = model.headline;
+			$("narrative").textContent = model.narrative;
+			$("reasons").innerHTML = model.reasons.map(r => `<li><strong>${escapeHtml(r.title)}</strong><span>${escapeHtml(r.detail)}</span></li>`).join("");
+		}
+
+		function renderStress(model) {
+			const stress = Math.round(model.stress.current);
+			const gauge = $("stressGauge");
+			gauge.style.setProperty("--angle", `${stress * 3.6}deg`);
+			gauge.style.setProperty("--gauge-colour", stress >= 72 ? "var(--bad)" : stress >= 50 ? "var(--warn)" : "var(--good)");
+			$("stressValue").textContent = stress;
+			$("stressLabel").textContent = stress >= 72 ? "High" : stress >= 50 ? "Watch" : "Comfortable";
+			$("drivers").innerHTML = model.stress.drivers.map(d => `
+				<li>
+					<span><strong>${escapeHtml(d.label)}</strong><br><small>${escapeHtml(d.detail)}</small></span>
+					<span class="bar"><span style="width: ${Math.round(clamp(d.value, 0, 1) * 100)}%"></span></span>
+					<span>${Math.round(clamp(d.value, 0, 1) * 100)}</span>
+				</li>
+			`).join("");
+		}
+
+		function renderMix(model) {
+			const mix = model.generation.mixPercent || {};
+			const order = ["wind", "solar", "nuclear", "hydro", "biomass", "gas", "coal", "imports", "storage", "other"];
+			const entries = order.map(fuel => [fuel, mix[fuel] || 0]).filter(([, v]) => v > 0.1);
+			const total = entries.reduce((a, [, v]) => a + v, 0) || 1;
+			let deg = 0;
+			const stops = [];
+			for (const [fuel, value] of entries) {
+				const start = deg;
+				deg += value / total * 360;
+				stops.push(`${FUEL_COLOURS[fuel] || FUEL_COLOURS.other} ${start.toFixed(1)}deg ${deg.toFixed(1)}deg`);
+			}
+			$("mixDonut").style.background = `conic-gradient(${stops.join(", ")})`;
+			const clean = (mix.wind || 0) + (mix.solar || 0) + (mix.nuclear || 0) + (mix.hydro || 0) + (mix.biomass || 0);
+			$("cleanShare").textContent = pct(clean);
+			$("mixTable").innerHTML = entries.map(([fuel, value]) => `
+				<div class="mix-row">
+					<span>${escapeHtml(fuel)}</span>
+					<span class="bar"><span style="width: ${Math.round(value / total * 100)}%; background: ${FUEL_COLOURS[fuel] || FUEL_COLOURS.other};"></span></span>
+					<span>${pct(value / total * 100)}</span>
+				</div>
+			`).join("");
+		}
+
+		function renderRamps(model) {
+			const now = model.now;
+			const windRamp = largestRamp(model.renewables.windBest, now, addHours(now, 24), 3);
+			const solarRamp = largestRamp(model.renewables.solarBest, now, addHours(now, 24), 3);
+			const windActual = model.renewables.windCurrent?.y;
+			const windExpected = latestBefore(model.weather.windMw, now)?.y;
+			const solarActual = model.renewables.solarCurrent?.y;
+			const solarExpected = latestBefore(model.weather.solarMw, now)?.y;
+			$("windRampMetric").textContent = windRamp ? `${windRamp.delta >= 0 ? "+" : ""}${gw(windRamp.delta)}` : "—";
+			$("windRampDetail").textContent = windRamp ? `${fmtDayTime(windRamp.from.t)} → ${fmtTime(windRamp.to.t)} over 3h` : "No wind forecast/nowcast loaded";
+			$("solarRampMetric").textContent = solarRamp ? `${solarRamp.delta >= 0 ? "+" : ""}${gw(solarRamp.delta)}` : "—";
+			$("solarRampDetail").textContent = solarRamp ? `${fmtDayTime(solarRamp.from.t)} → ${fmtTime(solarRamp.to.t)} over 3h` : "No solar forecast/nowcast loaded";
+			let score = "Low";
+			let detail = "No strong weather-vs-actual renewable gap.";
+			if (finite(windActual) && finite(windExpected) && windExpected > 4500 && windActual < 0.62 * windExpected) {
+				score = "Wind gap";
+				detail = `Actual ${gw(windActual)} vs weather proxy ${gw(windExpected)}.`;
+			} else if (finite(solarActual) && finite(solarExpected) && solarExpected > 2500 && solarActual < 0.58 * solarExpected) {
+				score = "Solar gap";
+				detail = `Actual ${gw(solarActual)} vs weather proxy ${gw(solarExpected)}.`;
+			}
+			$("curtailmentMetric").textContent = score;
+			$("curtailmentDetail").textContent = detail;
+		}
+
+		function renderWeather(model) {
+			const wind = model.weather.windCurrent?.y;
+			const solar = model.weather.solarCurrent?.y;
+			const windDelta = rollingDelta(model.weather.windMw, 6, model.now)?.delta;
+			const solarDelta = rollingDelta(model.weather.solarMw, 6, model.now)?.delta;
+			$("windProxyMetric").textContent = pct(wind);
+			$("windProxyDetail").textContent = `Power-curve proxy · calibrated nowcast ${gw(latestBefore(model.weather.windMw, model.now)?.y)}`;
+			$("solarProxyMetric").textContent = pct(solar);
+			$("solarProxyDetail").textContent = `Radiation/cloud proxy · calibrated nowcast ${gw(latestBefore(model.weather.solarMw, model.now)?.y)}`;
+			const combined = (Number(windDelta || 0) + Number(solarDelta || 0));
+			$("nextSixMetric").textContent = `${combined >= 0 ? "+" : ""}${gw(combined)}`;
+			$("nextSixDetail").textContent = `Wind ${windDelta >= 0 ? "+" : ""}${gw(windDelta)} · solar ${solarDelta >= 0 ? "+" : ""}${gw(solarDelta)} over 6h.`;
+		}
+
+		function renderAnomalies(model) {
+			$("anomalies").innerHTML = model.anomalies.map(a => `<li data-level="${a.level}"><strong>${escapeHtml(a.title)}</strong><span>${escapeHtml(a.detail)}</span></li>`).join("");
+		}
+
+		function renderDiagnostics(model) {
+			const items = Object.values(app.feeds).sort((a, b) => a.key.localeCompare(b.key));
+			if (!items.length) {
+				$("diagnostics").innerHTML = `<li><strong>Demo data</strong><span>No live API calls were made.</span></li>`;
+				return;
+			}
+			$("diagnostics").innerHTML = items.map(feed => `
+				<li>
+					<strong><span class="dot ${getStatusClass(feed.status)}" style="display:inline-block; margin-right: 6px;"></span>${escapeHtml(feed.key)} · ${escapeHtml(feed.status)}</strong>
+					<span>${escapeHtml(feed.detail)}</span>
+					${feed.url ? `<span class="code">${escapeHtml(feed.url)}</span>` : ""}
+				</li>
+			`).join("");
+		}
+
+		function renderCharts(model) {
+			const now = model.now;
+			const carbonFuture = model.carbon.series.filter(p => p.t >= addHours(now, -3) && p.t <= addHours(now, 48));
+			const stressFuture = model.stress.series.filter(p => p.t >= addHours(now, -3) && p.t <= addHours(now, 48));
+			renderLegend("outlookLegend", [
+				["Carbon intensity", COLOURS.carbon],
+				["Stress index", COLOURS.stress]
+			]);
+			drawChart("outlookChart", [
+				{ name: "Carbon", colour: COLOURS.carbon, series: carbonFuture, yScale: "left" },
+				{ name: "Stress", colour: COLOURS.stress, series: stressFuture, yScale: "right", yMin: 0, yMax: 100 }
+			], { leftLabel: "gCO₂/kWh", rightLabel: "stress", now });
+
+			const windBest = model.renewables.windBest.filter(p => p.t >= addHours(now, -18) && p.t <= addHours(now, 36)).map(p => ({ t: p.t, y: p.y / 1000 }));
+			const solarBest = model.renewables.solarBest.filter(p => p.t >= addHours(now, -18) && p.t <= addHours(now, 36)).map(p => ({ t: p.t, y: p.y / 1000 }));
+			renderLegend("renewableLegend", [
+				["Wind best forecast/nowcast", COLOURS.wind],
+				["Solar best forecast/nowcast", COLOURS.solar]
+			]);
+			drawChart("renewableChart", [
+				{ name: "Wind", colour: COLOURS.wind, series: windBest },
+				{ name: "Solar", colour: COLOURS.solar, series: solarBest }
+			], { leftLabel: "GW", now });
+
+			const windIndex = model.weather.windIndex.filter(p => p.t >= addHours(now, -12) && p.t <= addHours(now, 48));
+			const solarIndex = model.weather.solarIndex.filter(p => p.t >= addHours(now, -12) && p.t <= addHours(now, 48));
+			const cloud = model.weather.cloud.filter(p => p.t >= addHours(now, -12) && p.t <= addHours(now, 48));
+			renderLegend("weatherLegend", [
+				["Wind proxy", COLOURS.wind],
+				["Solar proxy", COLOURS.solar],
+				["Cloud", "#94a3b8"]
+			]);
+			drawChart("weatherChart", [
+				{ name: "Wind proxy", colour: COLOURS.wind, series: windIndex, yMin: 0, yMax: 100 },
+				{ name: "Solar proxy", colour: COLOURS.solar, series: solarIndex, yMin: 0, yMax: 100 },
+				{ name: "Cloud", colour: "#94a3b8", series: cloud, yMin: 0, yMax: 100, dashed: true }
+			], { leftLabel: "index / %", now });
+
+			const demand = model.demand.series.filter(p => p.t >= addHours(now, -24) && p.t <= addHours(now, 24)).map(p => ({ t: p.t, y: p.y / 1000 }));
+			const residual = model.residual.filter(p => p.t >= addHours(now, -24) && p.t <= addHours(now, 24)).map(p => ({ t: p.t, y: p.y / 1000 }));
+			const price = model.price.series.filter(p => p.t >= addHours(now, -24) && p.t <= addHours(now, 24));
+			renderLegend("demandLegend", [
+				["Demand", COLOURS.demand],
+				["Residual demand", COLOURS.residual],
+				["Price", COLOURS.price]
+			]);
+			drawChart("demandChart", [
+				{ name: "Demand", colour: COLOURS.demand, series: demand, yScale: "left" },
+				{ name: "Residual", colour: COLOURS.residual, series: residual, yScale: "left" },
+				{ name: "Price", colour: COLOURS.price, series: price, yScale: "right", dashed: true }
+			], { leftLabel: "GW", rightLabel: "£/MWh", now });
+		}
+
+		function renderLegend(id, items) {
+			$(id).innerHTML = items.map(([label, colour]) => `<span class="legend-item"><span class="swatch" style="background:${colour}"></span>${escapeHtml(label)}</span>`).join("");
+		}
+
+		function drawChart(id, seriesSpecs, opts = {}) {
+			const canvas = $(id);
+			const parentWidth = canvas.clientWidth || 720;
+			const parentHeight = canvas.clientHeight || 260;
+			const ratio = window.devicePixelRatio || 1;
+			canvas.width = parentWidth * ratio;
+			canvas.height = parentHeight * ratio;
+			const ctx = canvas.getContext("2d");
+			ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+			const w = parentWidth;
+			const h = parentHeight;
+			ctx.clearRect(0, 0, w, h);
+			const pad = { l: 48, r: opts.rightLabel ? 46 : 18, t: 16, b: 34 };
+			const plot = { x: pad.l, y: pad.t, w: w - pad.l - pad.r, h: h - pad.t - pad.b };
+			const allPoints = seriesSpecs.flatMap(spec => spec.series || []);
+			if (!allPoints.length) {
+				drawNoData(ctx, w, h);
+				return;
+			}
+			const minT = Math.min(...allPoints.map(p => p.t.getTime()));
+			const maxT = Math.max(...allPoints.map(p => p.t.getTime()));
+			const x = t => plot.x + (t.getTime() - minT) / Math.max(1, maxT - minT) * plot.w;
+			const leftSpecs = seriesSpecs.filter(s => (s.yScale || "left") === "left");
+			const rightSpecs = seriesSpecs.filter(s => s.yScale === "right");
+			const leftRange = valueRange(leftSpecs);
+			const rightRange = valueRange(rightSpecs);
+			const yLeft = y => plot.y + plot.h - (y - leftRange.min) / Math.max(1e-9, leftRange.max - leftRange.min) * plot.h;
+			const yRight = y => plot.y + plot.h - (y - rightRange.min) / Math.max(1e-9, rightRange.max - rightRange.min) * plot.h;
+
+			ctx.strokeStyle = "rgba(255,255,255,0.11)";
+			ctx.lineWidth = 1;
+			ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
+			ctx.fillStyle = "rgba(238,246,255,0.64)";
+			for (let i = 0; i <= 4; i++) {
+				const yy = plot.y + plot.h * i / 4;
+				ctx.beginPath();
+				ctx.moveTo(plot.x, yy);
+				ctx.lineTo(plot.x + plot.w, yy);
+				ctx.stroke();
+				const val = leftRange.max - (leftRange.max - leftRange.min) * i / 4;
+				ctx.fillText(compactNumber(val), 6, yy + 4);
+				if (opts.rightLabel) {
+					const rv = rightRange.max - (rightRange.max - rightRange.min) * i / 4;
+					ctx.fillText(compactNumber(rv), plot.x + plot.w + 8, yy + 4);
+				}
+			}
+
+			const hours = (maxT - minT) / 3600_000;
+			const ticks = hours > 48 ? 6 : hours > 24 ? 8 : 6;
+			for (let i = 0; i <= ticks; i++) {
+				const tt = new Date(minT + (maxT - minT) * i / ticks);
+				const xx = x(tt);
+				ctx.strokeStyle = "rgba(255,255,255,0.07)";
+				ctx.beginPath();
+				ctx.moveTo(xx, plot.y);
+				ctx.lineTo(xx, plot.y + plot.h);
+				ctx.stroke();
+				ctx.fillStyle = "rgba(238,246,255,0.62)";
+				ctx.fillText(fmtTime(tt), xx - 16, plot.y + plot.h + 23);
+			}
+
+			if (opts.now) {
+				const xx = x(opts.now);
+				if (xx >= plot.x && xx <= plot.x + plot.w) {
+					ctx.strokeStyle = "rgba(255,255,255,0.45)";
+					ctx.setLineDash([4, 4]);
+					ctx.beginPath();
+					ctx.moveTo(xx, plot.y);
+					ctx.lineTo(xx, plot.y + plot.h);
+					ctx.stroke();
+					ctx.setLineDash([]);
+					ctx.fillStyle = "rgba(255,255,255,0.72)";
+					ctx.fillText("now", xx + 5, plot.y + 12);
+				}
+			}
+
+			for (const spec of seriesSpecs) {
+				const series = sortSeries(spec.series || []);
+				if (!series.length) continue;
+				ctx.strokeStyle = spec.colour;
+				ctx.lineWidth = 2.5;
+				ctx.lineJoin = "round";
+				ctx.lineCap = "round";
+				ctx.setLineDash(spec.dashed ? [7, 6] : []);
+				ctx.beginPath();
+				series.forEach((p, idx) => {
+					const yy = (spec.yScale === "right" ? yRight : yLeft)(p.y);
+					if (idx === 0) ctx.moveTo(x(p.t), yy);
+					else ctx.lineTo(x(p.t), yy);
+				});
+				ctx.stroke();
+				ctx.setLineDash([]);
+				const last = series[series.length - 1];
+				ctx.fillStyle = spec.colour;
+				ctx.beginPath();
+				ctx.arc(x(last.t), (spec.yScale === "right" ? yRight : yLeft)(last.y), 3, 0, Math.PI * 2);
+				ctx.fill();
+			}
+
+			ctx.fillStyle = "rgba(238,246,255,0.7)";
+			ctx.font = "10px " + getComputedStyle(document.body).fontFamily;
+			if (opts.leftLabel) ctx.fillText(opts.leftLabel, 8, 14);
+			if (opts.rightLabel) ctx.fillText(opts.rightLabel, plot.x + plot.w - 24, 14);
+		}
+
+		function valueRange(specs) {
+			const explicitMin = specs.map(s => s.yMin).filter(Number.isFinite);
+			const explicitMax = specs.map(s => s.yMax).filter(Number.isFinite);
+			const vals = specs.flatMap(s => (s.series || []).map(p => Number(p.y)).filter(Number.isFinite));
+			let min = explicitMin.length ? Math.min(...explicitMin) : Math.min(...vals);
+			let max = explicitMax.length ? Math.max(...explicitMax) : Math.max(...vals);
+			if (!Number.isFinite(min) || !Number.isFinite(max)) return { min: 0, max: 1 };
+			if (min === max) { min -= 1; max += 1; }
+			const pad = (max - min) * 0.08;
+			return { min: explicitMin.length ? min : min - pad, max: explicitMax.length ? max : max + pad };
+		}
+
+		function drawNoData(ctx, w, h) {
+			ctx.fillStyle = "rgba(238,246,255,0.66)";
+			ctx.textAlign = "center";
+			ctx.font = "14px " + getComputedStyle(document.body).fontFamily;
+			ctx.fillText("No data for this chart", w / 2, h / 2);
+			ctx.textAlign = "left";
+		}
+
+		function compactNumber(x) {
+			if (!finite(x)) return "—";
+			const n = Number(x);
+			if (Math.abs(n) >= 1000) return `${Math.round(n / 1000)}k`;
+			if (Math.abs(n) >= 100) return `${Math.round(n)}`;
+			if (Math.abs(n) >= 10) return `${n.toFixed(0)}`;
+			return `${n.toFixed(1)}`;
+		}
+
+		function escapeHtml(value) {
+			return String(value ?? "").replace(/[&<>'"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", "\"": "&quot;" }[char]));
+		}
+
+		$("refreshBtn").addEventListener("click", refresh);
+		$("demoBtn").addEventListener("click", () => {
+			app.scenarioCounter += 1;
+			$("demoOnly").checked = true;
+			refresh();
+		});
+		for (const id of ["carbonArea", "postcode", "windCap", "solarCap", "demoOnly"]) {
+			$(id).addEventListener("change", () => refresh());
+		}
+		window.addEventListener("resize", () => app.model && renderCharts(app.model));
+		refresh();
+	</script>
+</body>
+</html>
