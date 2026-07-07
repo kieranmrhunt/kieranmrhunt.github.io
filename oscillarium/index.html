@@ -122,6 +122,21 @@ table.t td.r,table.t th.r{text-align:right}
 .wheelBox{aspect-ratio:1/1;position:relative}
 .wheelBox canvas{width:100%;height:100%;display:block}
 .badge{font-family:"IBM Plex Mono",monospace;font-size:10.5px;border:1px solid var(--line);border-radius:4px;padding:1px 6px;color:var(--mut)}
+.nowGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-top:10px}
+.nowCard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:11px;cursor:pointer;min-height:122px}
+.nowCard:hover{border-color:var(--dim)}
+.nowCard .eyebrow{font-family:var(--uor-mono);font-size:10.5px;color:var(--amber);text-transform:uppercase;letter-spacing:.12em}
+.nowCard .big{font-family:var(--uor-mono);font-size:24px;margin:5px 0 2px}
+.nowCard .small{font-size:13px;color:var(--mut);line-height:1.35}
+.sourceDeck{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin-top:10px}
+.sourceItem{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 9px;font-size:12.5px;color:var(--mut)}
+.sourceItem b{display:block;color:var(--ink);font-size:13px;line-height:1.25;margin-bottom:2px}
+.sourceItem .meta{font-family:var(--uor-mono);font-size:11px;color:var(--dim);margin-top:3px}
+.favBtn{position:absolute;right:7px;top:7px;min-width:25px;height:25px;padding:0;border-radius:50%;background:var(--panel2);color:var(--amber);line-height:1}
+.card{position:relative}
+.card .zc{margin-right:28px}
+input[type=search]{min-width:220px}
+.emptyState{border:1px dashed var(--line);border-radius:8px;padding:16px;color:var(--mut);font-size:14px}
 
 footer{max-width:1180px;margin:0 auto;padding:10px 20px 40px;color:var(--dim);font-family:"IBM Plex Mono",monospace;font-size:11.5px}
 #veil{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:99;flex-direction:column;gap:14px}
@@ -149,6 +164,22 @@ h1.title{font-size:64px}
 <nav class="tabs" role="tablist" id="tabs"></nav>
 
 <main>
+<!-- ================= NOW ================= -->
+<section class="view" id="view-now">
+  <div class="panel">
+    <h2>Now: active regimes</h2>
+    <p class="exp">A fast entry point for the latest unusual states in the bundle: strongest monthly anomalies, daily teleconnection tails, and the current RMM state. Click any card to open the fuller diagnostic view.</p>
+    <div class="ctl"><button id="now-copy" onclick="this.textContent='Link ready';setTimeout(()=>this.textContent='Copy link',1200);try{navigator.clipboard&&navigator.clipboard.writeText(location.href)}catch(e){}">Copy link</button><button id="now-day">Open latest day</button><span class="note" id="now-asof"></span></div>
+    <div class="nowGrid" id="now-cards"></div>
+  </div>
+  <div class="panel">
+    <h2>Strongest monthly anomalies</h2>
+    <p class="exp">Top-ranked latest monthly indices, standardised against the current Cabinet baseline and shown over their recent history.</p>
+    <div class="chart" id="now-chart"></div>
+    <div class="sourceDeck" id="now-sources"></div>
+  </div>
+</section>
+
 <!-- ================= CABINET ================= -->
 <section class="view" id="view-cab">
   <div class="panel">
@@ -157,6 +188,8 @@ h1.title{font-size:64px}
     <div class="ctl"><label class="opt">z-score baseline <select id="set-baseline">
       <option value="full">full record</option><option value="9120" selected>1991–2020</option>
       <option value="8110">1981–2010</option><option value="6190">1961–1990</option></select></label>
+      <label class="opt">search <input type="search" id="cab-search" placeholder="ENSO, NAO, source..."></label>
+      <label class="opt"><input type="checkbox" id="cab-favs"> favourites only</label>
       <span class="note" id="cab-asof"></span></div>
   </div>
   <div id="cab-wall"></div>
@@ -171,6 +204,7 @@ h1.title{font-size:64px}
       <select id="tl-pick"></select><button id="tl-add" class="pri">Add series</button>
       <label class="opt"><input type="checkbox" id="tl-std"> standardise (z)</label>
       <label class="opt">smooth <input type="number" id="tl-sm" min="1" max="121" step="2" value="1"> steps</label>
+      <button id="tl-copy" onclick="this.textContent='Link ready';setTimeout(()=>this.textContent='Copy link',1200);try{navigator.clipboard&&navigator.clipboard.writeText(location.href)}catch(e){}">Copy link</button>
       <button id="tl-csv">Export CSV</button>
     </div>
     <div class="legend" id="tl-legend"></div>
@@ -180,6 +214,7 @@ h1.title{font-size:64px}
       <span id="tl-presets"></span>
     </div>
     <div class="chart tall" id="tl-chart"></div>
+    <div class="sourceDeck" id="tl-sources"></div>
     <div class="note" id="tl-note"></div>
   </div>
 </section>
@@ -193,6 +228,7 @@ h1.title{font-size:64px}
       <label class="opt"><input type="checkbox" id="cp-std"> standardise overlay</label></div>
     <p class="exp" id="cp-note" style="font-style:italic"></p>
     <div class="legend" id="cp-legend"></div>
+    <div class="sourceDeck" id="cp-sources"></div>
     <div class="chart" id="cp-chart"></div>
     <h3>Pairwise agreement</h3>
     <div class="tw"><table class="t" id="cp-pairs"></table></div>
@@ -553,7 +589,7 @@ function nearestIdx(xs,t){if(!xs.length)return -1;let i=lowerBound(xs,t);if(i>=x
 
 /* ---- scatter helper (one-shot canvas; one RO per box, painter swapped) ---- */
 function drawScatter(box,pts,opts){       /* pts:[{x,y,hit?}] */
-  box.innerHTML='';const cv=el('canvas');box.appendChild(cv);
+  box.innerHTML='';const cv=el('canvas'),tip=el('div','tip');box.append(cv,tip);
   const paint=()=>{const f=fitCanvas(cv),g=cv.getContext('2d');g.setTransform(f.dpr,0,0,f.dpr,0,0);
     const W=f.cw,H=f.ch;g.clearRect(0,0,W,H);
     const padL=46,padR=8,padT=8,padB=26,pw=W-padL-padR,ph=H-padT-padB;
@@ -562,6 +598,7 @@ function drawScatter(box,pts,opts){       /* pts:[{x,y,hit?}] */
     for(const p of pts){if(p.x<x0)x0=p.x;if(p.x>x1)x1=p.x;if(p.y<y0)y0=p.y;if(p.y>y1)y1=p.y;}
     const px=(x1-x0)*.06||1,py=(y1-y0)*.06||1;x0-=px;x1+=px;y0-=py;y1+=py;
     const X=x=>padL+(x-x0)/(x1-x0)*pw,Y=y=>padT+(1-(y-y0)/(y1-y0))*ph;
+    box.__scatterLayout={X,Y,padL,padT,padR,padB,W,H};
     g.font='10.5px "IBM Plex Mono", monospace';g.fillStyle='#5D6A82';
     const xs=niceStep(x1-x0,5),ys=niceStep(y1-y0,4);
     g.textAlign='center';g.textBaseline='top';
@@ -580,6 +617,19 @@ function drawScatter(box,pts,opts){       /* pts:[{x,y,hit?}] */
   };
   box.__paint=paint;
   if(!box.__ro){box.__ro=new ResizeObserver(()=>requestAnimationFrame(()=>box.__paint&&box.__paint()));box.__ro.observe(box);}
+  cv.onpointermove=e=>{
+    const L=box.__scatterLayout;if(!L)return;
+    const r=cv.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
+    let best=null,bd=Infinity;
+    for(const p of pts){const dx=L.X(p.x)-mx,dy=L.Y(p.y)-my,d=dx*dx+dy*dy;if(d<bd){bd=d;best=p;}}
+    if(!best||bd>196){tip.style.display='none';return;}
+    tip.innerHTML=`<div class="d">${escHTML(best.label||'point')}</div>${escHTML(opts&&opts.xlab||'x')}: <b>${fmt(best.x,3)}</b><br>${escHTML(opts&&opts.ylab||'y')}: <b>${fmt(best.y,3)}</b>`;
+    tip.style.display='block';
+    const tw=tip.offsetWidth,bw=box.clientWidth;
+    tip.style.left=Math.min(bw-tw-6,Math.max(4,mx+14))+'px';
+    tip.style.top=(my+12)+'px';
+  };
+  cv.onpointerleave=()=>{tip.style.display='none';};
   paint();
 }
 
@@ -690,14 +740,86 @@ function refOf(key){ /* 'm:oni' etc → unified handle */
 }
 function download(name,text,mime){const b=new Blob([text],{type:mime||'text/csv'});const a=el('a');a.href=URL.createObjectURL(b);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000);}
 
-const TABS=[['cab','Cabinet'],['tl','Timelines'],['cp','Compare'],['wh','MJO wheel'],['dy','A day'],['ex','Extremes'],['co','Compounds'],['hm','Tapestry'],['lg','Lag lab'],['pv','Provenance']];
+const FAV_KEY='oscillarium:favourites:v1';
+let FAVS=new Set(),CURRENT_TAB=null,URL_READY=false,URL_TIMER=null;
+function escHTML(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function loadFavs(){try{FAVS=new Set(JSON.parse(localStorage.getItem(FAV_KEY)||'[]'));}catch(e){FAVS=new Set();}}
+function saveFavs(){localStorage.setItem(FAV_KEY,JSON.stringify([...FAVS]));}
+function latestIndex(vals){let i=vals.length-1;while(i>=0&&vals[i]==null)i--;return i;}
+function refSpan(r){
+  const li=latestIndex(r.vals); if(li<0)return 'no data';
+  return r.res==='m'?`${oStr(r.o)} to ${oStr(r.o+li)}`:`${nfmt(r.o)} to ${nfmt(r.o+li)}`;
+}
+function renderSources(boxId,refs){
+  const box=$(boxId); if(!box)return;
+  const seen=new Set(),cards=[];
+  for(const r of refs){
+    if(!r||!r.meta||seen.has(r.key))continue; seen.add(r.key);
+    const s=r.meta,href=s.url?`<a href="${escHTML(s.url)}" target="_blank" rel="noopener">${escHTML(s.s||'source')}</a>`:escHTML(s.s||'source');
+    const note=s.note?`<div class="meta">${escHTML(s.note).slice(0,180)}${s.note.length>180?'...':''}</div>`:'';
+    cards.push(`<div class="sourceItem"><b>${escHTML(r.label)}</b><div>${href}</div><div class="meta">${escHTML(r.unit||s.u||'')}${s.b?` | baseline ${escHTML(s.b)}`:''} | ${refSpan(r)}</div>${note}</div>`);
+  }
+  box.innerHTML=cards.length?cards.join(''):'';
+}
+function parseState(){
+  const p=new URLSearchParams(location.search),hash=location.hash.replace(/^#/,'');
+  return{view:p.get('view')||hash||'now',series:p.get('series'),std:p.get('std'),smooth:p.get('smooth'),from:p.get('from'),to:p.get('to'),date:p.get('date'),primary:p.get('primary'),ghost:p.get('ghost')};
+}
+function validTab(id){return TABS.some(([t])=>t===id);}
+function scheduleURL(){if(!URL_READY)return;clearTimeout(URL_TIMER);URL_TIMER=setTimeout(updateURL,0);}
+function updateURL(){
+  if(!URL_READY||!CURRENT_TAB)return;
+  const p=new URLSearchParams(); p.set('view',CURRENT_TAB);
+  if(CURRENT_TAB==='tl'&&VIEWS.tl.inited){
+    if(VIEWS.tl.sel.length)p.set('series',VIEWS.tl.sel.join(','));
+    p.set('std',$('tl-std').checked?'1':'0'); p.set('smooth',$('tl-sm').value||'1');
+    if($('tl-a').value&&$('tl-b').value){p.set('from',$('tl-a').value);p.set('to',$('tl-b').value);}
+  }else if(CURRENT_TAB==='dy'&&VIEWS.dy.inited){
+    p.set('date',$('dy-date').value);
+  }else if(CURRENT_TAB==='wh'&&VIEWS.wh.inited){
+    p.set('primary',$('wh-A').value); if($('wh-B').value)p.set('ghost',$('wh-B').value);
+    p.set('from',$('wh-a').value); p.set('to',$('wh-b').value);
+  }
+  history.replaceState(null,'',location.pathname+'?'+p.toString());
+}
+function copyCurrentLink(btn){
+  updateURL();
+  const url=location.href;
+  let settled=false;
+  const done=()=>{if(settled)return;settled=true;if(btn){const t=btn.textContent;btn.textContent='Link ready';setTimeout(()=>btn.textContent=t,1200);}};
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(url).then(done).catch(done);
+  else done();
+  setTimeout(done,200);
+}
+window.copyCurrentLink=copyCurrentLink;
+function applyInitialState(st){
+  if(st.view==='tl'&&VIEWS.tl.inited){
+    if(st.series){const keys=st.series.split(',').filter(k=>refOf(k)).slice(0,6);if(keys.length)VIEWS.tl.sel=keys;}
+    if(st.std!=null)$('tl-std').checked=st.std==='1';
+    if(st.smooth)$('tl-sm').value=st.smooth;
+    VIEWS.tl.render();
+    if(st.from&&st.to){$('tl-a').value=st.from;$('tl-b').value=st.to;VIEWS.tl.chart.setWin(s2n(st.from),s2n(st.to));}
+  }else if(st.view==='dy'&&VIEWS.dy.inited&&st.date){
+    $('dy-date').value=st.date; VIEWS.dy.render();
+  }else if(st.view==='wh'&&VIEWS.wh.inited){
+    if(st.primary)$('wh-A').value=st.primary;
+    if(st.ghost)$('wh-B').value=st.ghost;
+    if(st.from)$('wh-a').value=st.from; if(st.to)$('wh-b').value=st.to;
+    VIEWS.wh.render();
+  }
+}
+
+const TABS=[['now','Now'],['cab','Cabinet'],['tl','Timelines'],['cp','Compare'],['wh','MJO wheel'],['dy','A day'],['ex','Extremes'],['co','Compounds'],['hm','Tapestry'],['lg','Lag lab'],['pv','Provenance']];
 const VIEWS={};
 function openTab(id){
+  id=validTab(id)?id:'now';
+  CURRENT_TAB=id;
   for(const[t]of TABS){$('view-'+t).classList.toggle('on',t===id);
     document.querySelector(`[data-tab="${t}"]`).setAttribute('aria-selected',t===id);}
   const v=VIEWS[id];
   if(v&&!v.inited){try{v.init();}catch(e){console.error(e);$('view-'+id).prepend(el('div','panel warn','View failed to initialise: '+e.message));}v.inited=true;}
   if(v&&v.show)try{v.show();}catch(e){console.error(e);}
+  scheduleURL();
 }
 function buildTabs(){const nav=$('tabs');
   for(const[t,lab]of TABS){const b=el('button','tab',lab);b.dataset.tab=t;b.setAttribute('role','tab');
@@ -716,17 +838,94 @@ function monthChips(box,onChange,preSel){
 
 /* ============ views A: cabinet, timelines, compare, tapestry ============ */
 
+/* ---------------- NOW ---------------- */
+function latestMonthlyAnomalies(limit=8){
+  const rows=[];
+  for(const s of ALLM){
+    const i=latestIndex(s.v); if(i<0)continue;
+    const st=zStats(s.i),v=s.v[i],z=(v-st.mu)/st.sd;
+    rows.push({key:'m:'+s.i,s,v,z,when:oStr(s.o+i),fb:st.fb});
+  }
+  rows.sort((a,b)=>Math.abs(b.z)-Math.abs(a.z));
+  return rows.slice(0,limit);
+}
+function latestDailyTails(limit=4){
+  const rows=[];
+  for(const s of ALLD){
+    const i=latestIndex(s.v); if(i<0)continue;
+    const n=s.o+i,dd=n2d(n),v=s.v[i],clim=dayMonthClim(s.i)[dd.m-1];
+    const rank=lowerBound(clim,v),pct=100*rank/Math.max(1,clim.length-1);
+    rows.push({key:'d:'+s.i,s,v,n,pct,tail:Math.max(pct,100-pct)});
+  }
+  rows.sort((a,b)=>b.tail-a.tail);
+  return rows.slice(0,limit);
+}
+function latestMJOState(){
+  const s=J.rmm||ALLJ[0]; if(!s)return null;
+  const i=latestIndex(s.a); if(i<0)return null;
+  const m=mjoMapped(s.i),amp=s.a[i],phase=m.x[i]!=null?phaseOf(m.x[i],m.y[i]):null;
+  return{s,i,amp,phase,n:s.o+i};
+}
+VIEWS.now={chart:null,
+init(){
+  this.chart=new TSChart('now-chart');
+  $('now-copy').addEventListener('click',e=>copyCurrentLink(e.currentTarget));
+  $('now-day').onclick=()=>gotoDay(s2n(DATA.asof));
+  this.render();
+},render(){
+  $('now-asof').textContent='daily data through '+nfmt(s2n(DATA.asof))+' | built '+DATA.built;
+  const cards=$('now-cards');cards.innerHTML='';
+  const top=latestMonthlyAnomalies(8),daily=latestDailyTails(3),mjo=latestMJOState();
+  for(const r of top.slice(0,5)){
+    const card=el('div','nowCard');
+    card.innerHTML=`<div class="eyebrow">${escHTML(r.s.g)}</div><div class="big">${r.z>=0?'+':''}${r.z.toFixed(2)} sigma</div><div>${escHTML(r.s.n)}</div><div class="small">${fmt(r.v,Math.abs(r.v)>=100?1:2)} ${escHTML(r.s.u)} | ${escHTML(r.when)}${r.fb?' | fallback baseline':''}</div>`;
+    card.onclick=()=>{openTab('tl');VIEWS.tl.openWith([r.key]);};
+    cards.appendChild(card);
+  }
+  for(const r of daily){
+    const card=el('div','nowCard');
+    card.innerHTML=`<div class="eyebrow">daily tail</div><div class="big">p${r.pct.toFixed(0)}</div><div>${escHTML(r.s.n)}</div><div class="small">${fmt(r.v)} ${escHTML(r.s.u)} | ${nfmt(r.n)}</div>`;
+    card.onclick=()=>gotoDay(r.n);
+    cards.appendChild(card);
+  }
+  if(mjo){
+    const card=el('div','nowCard');
+    card.innerHTML=`<div class="eyebrow">MJO / RMM</div><div class="big">${fmt(mjo.amp,2)}</div><div>${mjo.phase?'phase '+mjo.phase:'phase unavailable'}</div><div class="small">${nfmt(mjo.n)} | ${mjo.amp>=1?'active':'weak'} amplitude</div>`;
+    card.onclick=()=>{openTab('wh');$('wh-a').value=nstr(mjo.n-89);$('wh-b').value=nstr(mjo.n);VIEWS.wh.render();};
+    cards.appendChild(card);
+  }
+  if(!cards.children.length)cards.innerHTML='<div class="emptyState">No current values are available in the bundle.</div>';
+  const refs=top.slice(0,4).map(r=>refOf(r.key));
+  const list=refs.map((r,i)=>{
+    const st=zStats(r.key.slice(2));
+    return{label:r.label,color:PAL[i%PAL.length],res:r.res,o:r.o,vals:r.vals.map(v=>v==null?null:(v-st.mu)/st.sd),dp:2};
+  });
+  this.chart.setSeries(list);
+  if(list.length){const[,b]=this.chart.fullExtent();this.chart.setWin(b-5*365,b);}
+  renderSources('now-sources',refs);
+},show(){if(this.inited)this.render();}};
+
 /* ---------------- CABINET ---------------- */
 VIEWS.cab={init(){
   $('set-baseline').addEventListener('change',e=>{BASE=e.target.value;invalidateZ();
     VIEWS.cab.render();
+    if(VIEWS.now.inited)VIEWS.now.render();
     for(const k of['tl','dy','ex'])if(VIEWS[k].inited)VIEWS[k].render();
     if(VIEWS.co.inited)VIEWS.co.run();});
+  $('cab-search').addEventListener('input',()=>this.render());
+  $('cab-favs').addEventListener('change',()=>this.render());
   $('cab-asof').textContent='daily data through '+nfmt(s2n(DATA.asof))+' · built '+DATA.built;
   VIEWS.cab.render();
 },render(){
   const wall=$('cab-wall');wall.innerHTML='';
-  const byG={};for(const s of ALLM)(byG[s.g]=byG[s.g]||[]).push(s);
+  const q=($('cab-search').value||'').trim().toLowerCase(),favOnly=$('cab-favs').checked;
+  const byG={};for(const s of ALLM){
+    const key='m:'+s.i,hay=[s.n,s.g,s.s,s.u,s.b,s.note].join(' ').toLowerCase();
+    if(q&&!hay.includes(q))continue;
+    if(favOnly&&!FAVS.has(key))continue;
+    (byG[s.g]=byG[s.g]||[]).push(s);
+  }
+  if(!Object.keys(byG).length){wall.innerHTML='<div class="emptyState">No indices match the current Cabinet filter.</div>';return;}
   for(const gname of Object.keys(byG)){
     const head=el('div','groupHead');head.style.color=GCOL[gname]||'#96A1B5';
     head.append(el('span','',gname),el('span','bar'));wall.appendChild(head);
@@ -737,10 +936,15 @@ VIEWS.cab={init(){
       const v=s.v[li],st=zStats(s.i),z=(v-st.mu)/st.sd;
       const[zc,zbg]=zChipCol(z);
       const card=el('div','card');
+      const key='m:'+s.i;
       card.innerHTML=`<span class="zc" style="color:${zc};background:${zbg}">${z>=0?'+':''}${z.toFixed(1)}σ${st.fb?'°':''}</span>
         <div class="nm">${s.n}</div>
         <div class="val">${fmt(v,Math.abs(v)>=100?1:2)}<span class="un">${s.u}</span></div>
         <div class="when">${oStr(s.o+li)}</div>`;
+      const fav=el('button','favBtn',FAVS.has(key)?'&#9733;':'&#9734;');
+      fav.title=FAVS.has(key)?'Remove favourite':'Add favourite';
+      fav.onclick=e=>{e.stopPropagation();FAVS.has(key)?FAVS.delete(key):FAVS.add(key);saveFavs();this.render();};
+      card.appendChild(fav);
       const cv=el('canvas');card.appendChild(cv);
       card.onclick=()=>{openTab('tl');VIEWS.tl.openWith(['m:'+s.i]);};
       grid.appendChild(card);
@@ -768,23 +972,25 @@ VIEWS.tl={sel:[],chart:null,
 init(){
   fillSelect($('tl-pick'),'any');
   this.chart=new TSChart('tl-chart');
-  this.chart.onWin=(a,b)=>{if(a!=null){$('tl-a').value=nstr(Math.round(a));$('tl-b').value=nstr(Math.round(b));}else{$('tl-a').value='';$('tl-b').value='';}};
+  this.chart.onWin=(a,b)=>{if(a!=null){$('tl-a').value=nstr(Math.round(a));$('tl-b').value=nstr(Math.round(b));}else{$('tl-a').value='';$('tl-b').value='';}scheduleURL();};
   $('tl-add').onclick=()=>{const k=$('tl-pick').value;if(k&&!this.sel.includes(k)&&this.sel.length<6){this.sel.push(k);this.render();}};
   $('tl-std').onchange=()=>this.render();
   $('tl-sm').onchange=()=>this.render();
-  $('tl-apply').onclick=()=>{const a=$('tl-a').value,b=$('tl-b').value;if(a&&b)this.chart.setWin(s2n(a),s2n(b));};
+  $('tl-apply').onclick=()=>{const a=$('tl-a').value,b=$('tl-b').value;if(a&&b){this.chart.setWin(s2n(a),s2n(b));scheduleURL();}};
   const pr=$('tl-presets');
   [['All',null],['30 y',30*365],['10 y',10*365],['5 y',5*365],['1 y',365],['90 d',90]].forEach(([lab,dd])=>{
     const btn=el('button','',lab);btn.onclick=()=>{if(dd==null){this.chart.setWin(null);this.chart.onWin(null);}
       else{const[,b]=this.chart.fullExtent();this.chart.setWin(b-dd,b);this.chart.onWin(b-dd,b);}};pr.appendChild(btn);});
+  $('tl-copy').addEventListener('click',e=>copyCurrentLink(e.currentTarget));
   $('tl-csv').onclick=()=>this.exportCSV();
   this.sel=['m:oni','m:pdo','m:nao_cpc'];$('tl-std').checked=true;this.render();
 },openWith(keys){this.sel=keys.slice(0,6);this.render();},
 render(){
   const std=$('tl-std').checked,k=Math.max(1,+$('tl-sm').value|0),leg=$('tl-legend');leg.innerHTML='';
-  const list=[];let mixed=new Set();
+  const list=[],refs=[];let mixed=new Set();
   this.sel.forEach((key,idx)=>{
     const r=refOf(key);if(!r)return;mixed.add(r.res);
+    refs.push(r);
     let vals=r.vals;
     if(std){
       if(r.res==='m'&&key.startsWith('m:')){const st=zStats(key.slice(2));vals=vals.map(v=>v==null?null:(v-st.mu)/st.sd);}
@@ -800,8 +1006,10 @@ render(){
     chip.appendChild(x);leg.appendChild(chip);
   });
   this.chart.setSeries(list);
+  renderSources('tl-sources',refs);
   $('tl-note').textContent=(std?'Standardised: monthly series use the baseline setting from the Cabinet; daily/amplitude series use their full record. ':'')+
     (mixed.size>1?'Monthly and daily series share one time axis; smoothing steps are native to each (months vs days).':'');
+  scheduleURL();
 },exportCSV(){
   const[t0,t1]=this.chart.win||this.chart.fullExtent();
   const cols=this.chart.series;if(!cols.length)return;
@@ -849,6 +1057,7 @@ init(){
     if(std){const st=zStats(id);vals=vals.map(v=>v==null?null:(v-st.mu)/st.sd);}
     const chip=el('span','chip');chip.innerHTML=`<span class="sw" style="background:${PAL[i]}"></span>${s.n}`;leg.appendChild(chip);
     return{label:s.n,color:PAL[i],res:'m',o:s.o,vals};});
+  renderSources('cp-sources',gcfg.ids.map(id=>refOf('m:'+id)));
   this.chart.setSeries(list);this.chart.setWin(null);
   /* pairwise table */
   const tb=$('cp-pairs');let h='<tr><th>A</th><th>B</th><th class="r">r</th><th class="r">n</th><th class="r">meanΔ</th><th class="r">sdΔ</th><th class="r">max|Δ|</th><th>when</th></tr>';
@@ -866,7 +1075,7 @@ init(){
   const pts=[],diff=[];
   for(let o=lo;o<hi;o++){const x=sa.v[o-sa.o],y=sb.v[o-sb.o];
     diff.push(x==null||y==null?null:x-y);
-    if(x!=null&&y!=null)pts.push({x,y});}
+    if(x!=null&&y!=null)pts.push({x,y,label:oStr(o)});}
   drawScatter($('cp-scatter'),pts,{oneone:a!==b,xlab:sa.n,ylab:sb.n});
   if(!this.dch)this.dch=new TSChart('cp-diff');
   this.dch.setSeries([{label:sa.n+' − '+sb.n,color:'#EDD35E',res:'m',o:lo,vals:diff}]);this.dch.setWin(null);
@@ -886,7 +1095,7 @@ init(){
   let both=0,same=0,near=0,av=[],bv=[];
   for(let n=lo;n<hi;n++){
     const aa=A.a[n-A.o],ba=B.a[n-B.o];av.push(aa);bv.push(ba);
-    if(aa!=null&&ba!=null){pts.push({x:aa,y:ba});
+    if(aa!=null&&ba!=null){pts.push({x:aa,y:ba,label:nfmt(n)});
       if(aa>=1&&ba>=1){const xa=ma.x[n-A.o],ya=ma.y[n-A.o],xb=mb.x[n-B.o],yb=mb.y[n-B.o];
         if(xa!=null&&xb!=null){const pa=phaseOf(xa,ya),pb=phaseOf(xb,yb);
           mat[pa-1][pb-1]++;both++;if(pa===pb)same++;
@@ -1046,6 +1255,7 @@ VIEWS.wh={init(){
     <p class="exp mono" style="font-size:12.5px">${nfmt(t0)} → ${nfmt(t1)} · ${nd} days with data · active (amp ≥ 1) ${nd?(100*act/nd).toFixed(0):0}% · peak amplitude ${fmt(mxA)}${mxN?' on '+nfmt(mxN):''}${act?' · most-occupied phase '+dom:''}</p>`;
   this.drawOcc(occ,occAmp);
   $('wh-note').textContent=bkey?'Ghost track is dashed grey; it uses the same window, clipped to its own coverage.':'';
+  scheduleURL();
 },drawOcc(occ,occAmp){
   const box=$('wh-occ');if(!this.occv){box.innerHTML='';this.occv=el('canvas');box.appendChild(this.occv);}
   const f=fitCanvas(this.occv),g=this.occv.getContext('2d');g.setTransform(f.dpr,0,0,f.dpr,0,0);
@@ -1133,7 +1343,8 @@ render(){
     box.appendChild(row);}
   if(!rows.length)box.innerHTML='<span class="note">No monthly indices cover this month.</span>';
   $('dy-more').style.display=rows.length>14?'':'none';
-},show(){}};
+  scheduleURL();
+},show(){}}; 
 function gotoDay(n){openTab('dy');$('dy-date').value=nstr(Math.min(s2n(DATA.asof),Math.max(s2n('1870-01-01'),n)));VIEWS.dy.render();}
 
 /* ---------------- EXTREMES ---------------- */
@@ -1254,7 +1465,7 @@ run(){
   const pts=[];
   for(let o=lo;o<hi;o++){if(!valid[o-lo])continue;
     const x=sa.v[o-sa.o],y=sb.v[o-sb.o];
-    pts.push({x,y,hit:allM[o-lo],ring:act.length>2&&masks[2][o-lo]});}
+    pts.push({x,y,hit:allM[o-lo],ring:act.length>2&&masks[2][o-lo],label:oStr(o)});}
   drawScatter($('co-scatter'),pts,{xlab:sa.n,ylab:sb.n,vline:thrRaw[0],hline:thrRaw[1],hitCol:'#F2A65A'});
   /* episodes */
   const eps=[];let s0=-1;
@@ -1349,7 +1560,7 @@ init(){
   const lo=Math.max(sa.o,sb.o-k),hi=Math.min(sa.o+sa.v.length,sb.o+sb.v.length-k);
   for(let o=lo;o<hi;o++){if(!this.mset.has((o+k)%12+1))continue;
     const x=sa.v[o-sa.o],y=sb.v[o+k-sb.o];av.push(x);bv.push(y);
-    if(x!=null&&y!=null)pts.push({x,y});}
+    if(x!=null&&y!=null)pts.push({x,y,label:`${oStr(o)} -> ${oStr(o+k)}`});}
   const{r,n}=pearson(av,bv);
   drawScatter($('lg-scatter'),pts,{xlab:sa.n+' (t)',ylab:sb.n+(k?` (t${k>0?'+':''}${k})`:' (t)')});
   $('lg-lagv').textContent=`${k}  ·  r=${fmt(r,3)}, n=${n}`;
@@ -1403,6 +1614,7 @@ VIEWS.pv={init(){
 (async function boot(){
   try{
     await loadBlob();
+    loadFavs();
     buildTabs();
     /* hero stats */
     let firstO=Infinity,obs=0;
@@ -1411,7 +1623,11 @@ VIEWS.pv={init(){
     for(const s of ALLJ)obs+=s.a.length*3;
     $('herostats').innerHTML=`<span><b>${ALLM.length}</b> monthly indices</span><span><b>${ALLD.length}</b> daily teleconnections</span><span><b>${ALLJ.length}</b> MJO/ISO index sets</span><span><b>${(obs/1e3).toFixed(0)}k</b> observations</span><span>span <b>${oStr(firstO)} → ${nfmt(s2n(DATA.asof))}</b></span>`;
     $('foot').innerHTML=`The Oscillarium · built ${DATA.built} from ${DATA.files.length} bundle files · sources: NOAA PSL, NOAA CPC, Australian BoM, IPRC (Kikuchi) · all values as published by their providers, quantised to 3 d.p. · z-scores and rotations computed locally, disclosed in Provenance.`;
-    openTab('cab');
+    const st=parseState(),initial=validTab(st.view)?st.view:'now';
+    openTab(initial);
+    applyInitialState(st);
+    URL_READY=true;
+    updateURL();
     $('veil').remove();
   }catch(e){
     console.error(e);
