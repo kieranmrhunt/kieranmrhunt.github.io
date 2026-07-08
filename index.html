@@ -165,6 +165,17 @@
     grid-auto-rows:minmax(218px, auto);
     gap:12px;
   }
+  .project-subhead{
+    grid-column:1 / -1;
+    margin:8px 0 -2px;
+    padding-top:12px;
+    border-top:1px solid var(--line);
+    color:var(--faint);
+    font-family:var(--mono);
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.14em;
+  }
   .tile{
     display:flex;
     flex-direction:column;
@@ -206,8 +217,10 @@
   .tile.crow-tile{background:linear-gradient(135deg,#143226,#315f42)}
   .tile.grid-cockpit-tile{background:linear-gradient(135deg,#152d3b,#247c8b)}
   .tile.heatwave-tile{background:linear-gradient(135deg,#6b160e,#c83a18 48%,#f08b24)}
-  .hero-board[data-active="meteorology"] .tile[data-group="games"],
-  .hero-board[data-active="games"] .tile[data-group="meteorology"]{display:none}
+  .tile.wd-atlas-tile{background:linear-gradient(135deg,#142632,#5bb0d4)}
+  .tile.lps-atlas-tile{background:linear-gradient(135deg,#2f241d,#a63a2b 52%,#c79a2a)}
+  .hero-board[data-active="meteorology"] [data-group="games"],
+  .hero-board[data-active="games"] [data-group="meteorology"]{display:none}
   .section{padding:42px 0 58px;border-top:1px solid var(--line)}
   .section-head{
     display:flex;
@@ -401,10 +414,17 @@
               <p>A visual account of a June with no precedent at Reading University Observatory.</p>
               <span class="go">Open project</span>
             </a>
-            <a class="tile" data-group="meteorology" href="https://kieranmrhunt.github.io/western-disturbances-atlas/">
+            <div class="project-subhead" data-group="meteorology">Atlases / catalogues</div>
+            <a class="tile wd-atlas-tile" data-group="meteorology" href="https://kieranmrhunt.github.io/western-disturbances-atlas/">
               <span>Storm tracks</span>
               <strong>Western Disturbances Atlas</strong>
               <p>An interactive catalogue of ERA5-derived Western Disturbance tracks from 1950 to 2025.</p>
+              <span class="go">Open project</span>
+            </a>
+            <a class="tile lps-atlas-tile" data-group="meteorology" href="./monsoon-low-atlas/">
+              <span>Atlases / catalogues</span>
+              <strong>Monsoon Low Atlas</strong>
+              <p>An interactive LPS v5.2 atlas for South Asian low-pressure-system tracks, meteorology, rainfall footprints, and records.</p>
               <span class="go">Open project</span>
             </a>
             <a class="tile" data-group="meteorology" href="https://kieranmrhunt.github.io/imd-rainfall-dashboard/">
