@@ -187,6 +187,7 @@
     overflow:hidden;
     position:relative;
     border:1px solid rgba(255,255,255,.18);
+    background:linear-gradient(135deg,#1a2630,#395762);
     box-shadow:0 24px 50px -36px rgba(0,0,0,.85);
     text-decoration:none;
     border-radius:8px;
@@ -219,6 +220,16 @@
   .tile.heatwave-tile{background:linear-gradient(135deg,#6b160e,#c83a18 48%,#f08b24)}
   .tile.wd-atlas-tile{background:linear-gradient(135deg,#142632,#5bb0d4)}
   .tile.lps-atlas-tile{background:linear-gradient(135deg,#2f241d,#a63a2b 52%,#c79a2a)}
+  .tile.oscillarium-tile{background:linear-gradient(135deg,#151320,#302047 52%,#0b4f5b)}
+  .tile.boosted-forecast-tile{background:linear-gradient(135deg,#0f241f,#214832 52%,#6b4b10)}
+  .tile.oscillarium-tile::before,
+  .tile.boosted-forecast-tile::before{opacity:.16}
+  .tile.oscillarium-tile strong,
+  .tile.oscillarium-tile span,
+  .tile.oscillarium-tile p,
+  .tile.boosted-forecast-tile strong,
+  .tile.boosted-forecast-tile span,
+  .tile.boosted-forecast-tile p{text-shadow:0 1px 9px rgba(0,0,0,.46)}
   .hero-board[data-active="meteorology"] [data-group="games"],
   .hero-board[data-active="games"] [data-group="meteorology"]{display:none}
   .section{padding:42px 0 58px;border-top:1px solid var(--line)}
@@ -434,19 +445,20 @@
               <p>Maps and all-India summaries from the IMD 0.25 degree daily gridded rainfall archive, 1901 to 2025.</p>
               <span class="go">Open project</span>
             </a>
+            <div class="project-subhead" data-group="games">Games / other</div>
             <a class="tile" data-group="games" href="https://kieranmrhunt.github.io/five-days-to-impact/">
               <span>Teaching game</span>
               <strong>Five Days to Impact</strong>
               <p>A National Early Warning Centre scenario page about forecast lead time, impact decisions, and escalating risk.</p>
               <span class="go">Open project</span>
             </a>
-            <a class="tile" data-group="meteorology" href="./oscillarium/">
+            <a class="tile oscillarium-tile" data-group="meteorology" href="./oscillarium/">
               <span>Climate indices</span>
               <strong>The Oscillarium</strong>
               <p>A compact browser for climate indices, coupled ocean-atmosphere variability, and teleconnection patterns.</p>
               <span class="go">Open project</span>
             </a>
-            <a class="tile" data-group="meteorology" href="./the-boosted-forecast/">
+            <a class="tile boosted-forecast-tile" data-group="games" href="./the-boosted-forecast/">
               <span>Machine learning</span>
               <strong>XGBoost Tutorial</strong>
               <p>A hands-on explanation of gradient boosting and XGBoost from first principles.</p>
