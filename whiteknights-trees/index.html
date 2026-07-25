@@ -1,0 +1,1264 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#173c31">
+<meta name="description" content="A location-aware field guide to 817 catalogued trees across the University of Reading's Whiteknights campus.">
+<title>Whiteknights Tree Finder</title>
+<link rel="preconnect" href="https://tile.openstreetmap.org">
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+  crossorigin=""
+>
+<style>
+  :root {
+    color-scheme: light;
+    --ink: #18221f;
+    --muted: #63706b;
+    --faint: #8b9792;
+    --paper: #f4f3ed;
+    --surface: #fff;
+    --surface-soft: #f8f8f4;
+    --line: #d9ddd8;
+    --line-strong: #bbc4be;
+    --green: #276247;
+    --green-dark: #173c31;
+    --native: #087e78;
+    --amber: #c87320;
+    --blue: #1769aa;
+    --danger: #9b352f;
+    --shadow: 0 16px 36px rgba(25, 38, 32, .16);
+    --sans: Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --serif: Georgia, "Times New Roman", serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    color: var(--ink);
+    background: var(--paper);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input { font: inherit; }
+  button, a { -webkit-tap-highlight-color: transparent; }
+  button:focus-visible, input:focus-visible, a:focus-visible, summary:focus-visible {
+    outline: 3px solid rgba(23, 105, 170, .35);
+    outline-offset: 2px;
+  }
+  a { color: var(--green-dark); }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .app {
+    height: 100dvh;
+    min-height: 620px;
+    display: grid;
+    grid-template-rows: 66px minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  .topbar {
+    z-index: 1001;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    min-width: 0;
+    padding: 0 18px 0 22px;
+    color: #fff;
+    background: var(--green-dark);
+    border-bottom: 1px solid rgba(255, 255, 255, .14);
+  }
+  .brand { min-width: 0; }
+  .brand h1 {
+    margin: 0;
+    font-family: var(--serif);
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: 0;
+  }
+  .brand p {
+    margin: 4px 0 0;
+    color: rgba(255, 255, 255, .68);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+  .back-link {
+    flex: none;
+    color: rgba(255, 255, 255, .88);
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .back-link:hover { color: #fff; text-decoration: underline; }
+
+  .workspace {
+    display: grid;
+    grid-template-columns: 390px minmax(0, 1fr);
+    min-height: 0;
+  }
+
+  .sidebar {
+    z-index: 500;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border-right: 1px solid var(--line-strong);
+  }
+  .controls {
+    flex: none;
+    padding: 17px 17px 13px;
+    border-bottom: 1px solid var(--line);
+  }
+  .search-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .search-wrap input {
+    width: 100%;
+    height: 44px;
+    padding: 0 42px 0 13px;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    border-radius: 6px;
+  }
+  .search-wrap input::placeholder { color: var(--faint); }
+  .clear-search {
+    position: absolute;
+    right: 5px;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    color: var(--muted);
+    background: transparent;
+    border: 0;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 23px;
+    line-height: 1;
+  }
+  .clear-search[hidden] { display: none; }
+  .clear-search:hover { color: var(--ink); background: var(--surface-soft); }
+
+  .filter-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .check {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+    cursor: pointer;
+    user-select: none;
+  }
+  .check input {
+    width: 17px;
+    height: 17px;
+    accent-color: var(--native);
+  }
+  .fit-button {
+    min-height: 34px;
+    padding: 0 10px;
+    color: var(--green-dark);
+    background: var(--surface-soft);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 750;
+  }
+  .fit-button:hover { border-color: var(--line-strong); background: #f0f2ed; }
+
+  .result-summary {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 13px;
+  }
+  .result-summary strong {
+    font-family: var(--serif);
+    font-size: 17px;
+  }
+  .result-summary span {
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .location-status {
+    min-height: 18px;
+    margin: 5px 0 0;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .location-status.error { color: var(--danger); }
+
+  .results {
+    min-height: 0;
+    flex: 1;
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+  .result-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .tree-row {
+    width: 100%;
+    min-height: 68px;
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px 9px 13px;
+    color: var(--ink);
+    text-align: left;
+    background: var(--surface);
+    border: 0;
+    border-bottom: 1px solid #e9ebe7;
+    cursor: pointer;
+  }
+  .tree-row:hover { background: #f4f7f2; }
+  .tree-row[aria-current="true"] {
+    background: #fff8ec;
+    box-shadow: inset 4px 0 0 var(--amber);
+  }
+  .catalogue-code {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    background: var(--green);
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .04em;
+  }
+  .tree-row.native .catalogue-code { background: var(--native); }
+  .tree-copy { min-width: 0; }
+  .tree-name {
+    display: block;
+    overflow: hidden;
+    font-weight: 750;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tree-latin {
+    display: block;
+    margin-top: 4px;
+    overflow: hidden;
+    color: var(--muted);
+    font-family: var(--serif);
+    font-size: 13px;
+    font-style: italic;
+    line-height: 1.15;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tree-distance {
+    align-self: center;
+    min-width: 55px;
+    color: var(--muted);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+  .empty-state {
+    padding: 28px 18px;
+    color: var(--muted);
+    text-align: center;
+  }
+  .more-row {
+    display: block;
+    width: calc(100% - 28px);
+    min-height: 40px;
+    margin: 11px 14px 15px;
+    color: var(--green-dark);
+    background: var(--surface-soft);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: 750;
+  }
+
+  .source-details {
+    flex: none;
+    border-top: 1px solid var(--line);
+    background: var(--surface-soft);
+  }
+  .source-details summary {
+    padding: 11px 17px;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 750;
+  }
+  .source-details div {
+    max-height: 190px;
+    overflow: auto;
+    padding: 0 17px 14px;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.5;
+  }
+  .source-details p { margin: 0 0 8px; }
+  .source-details p:last-child { margin-bottom: 0; }
+
+  .map-shell {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    background: #dfe5df;
+  }
+  #map {
+    width: 100%;
+    height: 100%;
+    background: #dfe5df;
+  }
+  .map-failure {
+    position: absolute;
+    inset: 0;
+    z-index: 1200;
+    display: grid;
+    place-items: center;
+    padding: 30px;
+    color: var(--ink);
+    background: var(--paper);
+    text-align: center;
+  }
+  .map-failure[hidden] { display: none; }
+
+  .map-actions {
+    position: absolute;
+    z-index: 900;
+    top: 12px;
+    left: 12px;
+    display: flex;
+    gap: 7px;
+    max-width: calc(100% - 70px);
+  }
+  .map-button {
+    min-height: 40px;
+    padding: 0 12px;
+    color: var(--ink);
+    background: rgba(255, 255, 255, .96);
+    border: 1px solid rgba(24, 34, 31, .25);
+    border-radius: 6px;
+    box-shadow: 0 3px 12px rgba(24, 34, 31, .15);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+  .map-button:hover { background: #fff; border-color: rgba(24, 34, 31, .44); }
+  .map-button.active {
+    color: #fff;
+    background: var(--blue);
+    border-color: var(--blue);
+  }
+
+  .legend {
+    position: absolute;
+    z-index: 800;
+    left: 12px;
+    bottom: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px 13px;
+    max-width: calc(100% - 24px);
+    padding: 8px 10px;
+    color: #35423d;
+    background: rgba(255, 255, 255, .93);
+    border: 1px solid rgba(24, 34, 31, .16);
+    border-radius: 5px;
+    box-shadow: 0 3px 12px rgba(24, 34, 31, .12);
+    font-size: 11px;
+  }
+  .legend-item { display: inline-flex; align-items: center; gap: 5px; }
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--green);
+    border: 1px solid #fff;
+    box-shadow: 0 0 0 1px rgba(24, 34, 31, .25);
+  }
+  .legend-dot.native { background: var(--native); }
+  .legend-dot.location { background: var(--blue); }
+
+  .dossier {
+    position: absolute;
+    z-index: 950;
+    right: 16px;
+    bottom: 16px;
+    width: min(360px, calc(100% - 32px));
+    padding: 17px;
+    background: rgba(255, 255, 255, .98);
+    border: 1px solid rgba(24, 34, 31, .23);
+    border-top: 5px solid var(--amber);
+    border-radius: 7px;
+    box-shadow: var(--shadow);
+  }
+  .dossier[hidden] { display: none; }
+  .dossier-close {
+    position: absolute;
+    top: 7px;
+    right: 7px;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    color: var(--muted);
+    background: transparent;
+    border: 0;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 23px;
+    line-height: 1;
+  }
+  .dossier-close:hover { color: var(--ink); background: var(--surface-soft); }
+  .dossier-kicker {
+    max-width: calc(100% - 30px);
+    margin: 0 0 5px;
+    color: var(--amber);
+    font-size: 11px;
+    font-weight: 850;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+  }
+  .dossier h2 {
+    margin: 0;
+    padding-right: 26px;
+    font-family: var(--serif);
+    font-size: 25px;
+    line-height: 1.06;
+    letter-spacing: 0;
+  }
+  .dossier-latin {
+    margin: 5px 0 0;
+    color: var(--muted);
+    font-family: var(--serif);
+    font-style: italic;
+  }
+  .dossier-facts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin: 14px 0;
+  }
+  .fact {
+    padding: 8px 9px;
+    background: var(--surface-soft);
+    border-left: 3px solid var(--line-strong);
+  }
+  .fact span {
+    display: block;
+    color: var(--faint);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+  }
+  .fact strong {
+    display: block;
+    margin-top: 2px;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+  .dossier-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+  .dossier-actions a, .dossier-actions button {
+    min-height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 11px;
+    color: var(--green-dark);
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 800;
+    text-decoration: none;
+  }
+  .dossier-actions a:first-child {
+    color: #fff;
+    background: var(--green-dark);
+    border-color: var(--green-dark);
+  }
+
+  .leaflet-container { font-family: var(--sans); }
+  .leaflet-control-zoom a { color: var(--ink); }
+  .leaflet-tooltip {
+    padding: 7px 9px;
+    color: var(--ink);
+    background: rgba(255, 255, 255, .97);
+    border: 1px solid rgba(24, 34, 31, .22);
+    border-radius: 4px;
+    box-shadow: 0 4px 15px rgba(24, 34, 31, .15);
+  }
+  .leaflet-tooltip strong { font-size: 12px; }
+  .leaflet-tooltip em { color: var(--muted); font-family: var(--serif); font-size: 11px; }
+  .leaflet-tooltip:before { display: none; }
+
+  @media (max-width: 780px) {
+    body { overflow: auto; }
+    .app {
+      min-height: 100dvh;
+      height: auto;
+      grid-template-rows: 59px auto;
+      overflow: visible;
+    }
+    .topbar { padding: 0 12px 0 15px; }
+    .brand h1 { font-size: 18px; white-space: nowrap; }
+    .brand p { margin-top: 2px; font-size: 9px; }
+    .back-link { font-size: 12px; }
+    .workspace {
+      grid-template-columns: 1fr;
+      grid-template-rows: minmax(360px, 56dvh) auto;
+      overflow: visible;
+    }
+    .map-shell { grid-row: 1; min-height: 360px; }
+    .sidebar {
+      grid-row: 2;
+      min-height: 0;
+      border-right: 0;
+      border-top: 1px solid var(--line-strong);
+    }
+    .controls { padding: 14px 14px 12px; }
+    .results { max-height: 56dvh; min-height: 330px; }
+    .source-details div { max-height: none; }
+    .map-actions { top: 9px; left: 9px; gap: 6px; }
+    .map-button { min-height: 38px; padding: 0 10px; font-size: 12px; }
+    .legend {
+      left: 9px;
+      bottom: 29px;
+      max-width: calc(100% - 18px);
+      gap: 7px 10px;
+      padding: 6px 8px;
+      font-size: 10px;
+    }
+    .dossier {
+      right: 9px;
+      bottom: 9px;
+      width: calc(100% - 18px);
+      max-height: calc(100% - 65px);
+      overflow: auto;
+      padding: 14px;
+    }
+    .map-shell.has-dossier .legend { display: none; }
+    .dossier h2 { font-size: 22px; }
+    .dossier-facts { margin: 11px 0; }
+  }
+
+  @media (max-width: 420px) {
+    .brand p { display: none; }
+    .dossier-facts { grid-template-columns: 1fr 1fr; }
+    .dossier-actions a, .dossier-actions button { flex: 1 1 auto; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      scroll-behavior: auto !important;
+      transition-duration: .01ms !important;
+      animation-duration: .01ms !important;
+      animation-iteration-count: 1 !important;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <h1>Whiteknights Tree Finder</h1>
+      <p>Campus field guide · Reading</p>
+    </div>
+    <a class="back-link" href="../">All projects</a>
+  </header>
+
+  <main class="workspace">
+    <aside class="sidebar" aria-label="Tree catalogue">
+      <section class="controls" aria-label="Search and filters">
+        <label class="sr-only" for="tree-search">Search by common name, scientific name or catalogue code</label>
+        <div class="search-wrap">
+          <input id="tree-search" type="search" autocomplete="off" placeholder="Search name or catalogue code">
+          <button class="clear-search" id="clear-search" type="button" aria-label="Clear search" title="Clear search" hidden>&times;</button>
+        </div>
+        <div class="filter-line">
+          <label class="check">
+            <input id="native-filter" type="checkbox">
+            <span>Native only</span>
+          </label>
+          <button class="fit-button" id="fit-results" type="button">Fit results</button>
+        </div>
+        <div class="result-summary">
+          <strong id="result-count">817 trees</strong>
+          <span id="species-count">300 kinds</span>
+        </div>
+        <p class="location-status" id="location-status" role="status" aria-live="polite">Location off</p>
+      </section>
+
+      <section class="results" aria-label="Tree results">
+        <ul class="result-list" id="result-list"></ul>
+      </section>
+
+      <details class="source-details">
+        <summary>Data, coverage and credits</summary>
+        <div>
+          <p>Locations, identifications and catalogue codes are derived from <a href="https://whiteknights-trees.uk/" target="_blank" rel="noopener">Whiteknights Trees</a>, accessed 25 July 2026: 817 mapped trees representing 300 kinds.</p>
+          <p>The source describes itself as an independent project which is not approved or supported by the University of Reading and may contain errors. Its photographs remain on the source site and are not reproduced here.</p>
+          <p>Map data &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>.</p>
+        </div>
+      </details>
+    </aside>
+
+    <section class="map-shell" aria-label="Map workspace">
+      <div id="map" role="application" aria-label="Interactive map of catalogued trees at Whiteknights"></div>
+      <div class="map-failure" id="map-failure" hidden>
+        <p>The map library could not be loaded. The searchable catalogue remains available.</p>
+      </div>
+      <div class="map-actions" aria-label="Map actions">
+        <button class="map-button" id="locate-button" type="button" aria-pressed="false">Use my location</button>
+        <button class="map-button" id="campus-button" type="button">Campus view</button>
+      </div>
+      <div class="legend" aria-label="Map legend">
+        <span class="legend-item"><span class="legend-dot native"></span>Native</span>
+        <span class="legend-item"><span class="legend-dot"></span>Other catalogue trees</span>
+        <span class="legend-item"><span class="legend-dot location"></span>Your location</span>
+      </div>
+
+      <article class="dossier" id="dossier" aria-live="polite" hidden>
+        <button class="dossier-close" id="dossier-close" type="button" aria-label="Close tree details" title="Close">&times;</button>
+        <p class="dossier-kicker" id="dossier-kicker"></p>
+        <h2 id="dossier-name"></h2>
+        <p class="dossier-latin" id="dossier-latin"></p>
+        <div class="dossier-facts">
+          <div class="fact"><span>From you</span><strong id="dossier-distance">Location off</strong></div>
+          <div class="fact"><span>Catalogue point</span><strong id="dossier-point"></strong></div>
+        </div>
+        <div class="dossier-actions">
+          <a id="source-link" href="#" target="_blank" rel="noopener">Source record</a>
+          <a id="directions-link" href="#" target="_blank" rel="noopener">Directions</a>
+          <button id="copy-link" type="button">Copy link</button>
+        </div>
+      </article>
+    </section>
+  </main>
+</div>
+
+<script src="./trees-data.js"></script>
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin=""
+></script>
+<script>
+(() => {
+  "use strict";
+
+  const data = window.WHITEKNIGHTS_TREE_DATA;
+  const searchInput = document.getElementById("tree-search");
+  const clearSearchButton = document.getElementById("clear-search");
+  const nativeFilter = document.getElementById("native-filter");
+  const fitResultsButton = document.getElementById("fit-results");
+  const resultCount = document.getElementById("result-count");
+  const speciesCount = document.getElementById("species-count");
+  const resultList = document.getElementById("result-list");
+  const locationStatus = document.getElementById("location-status");
+  const locateButton = document.getElementById("locate-button");
+  const campusButton = document.getElementById("campus-button");
+  const mapFailure = document.getElementById("map-failure");
+  const dossier = document.getElementById("dossier");
+  const dossierClose = document.getElementById("dossier-close");
+  const dossierKicker = document.getElementById("dossier-kicker");
+  const dossierName = document.getElementById("dossier-name");
+  const dossierLatin = document.getElementById("dossier-latin");
+  const dossierDistance = document.getElementById("dossier-distance");
+  const dossierPoint = document.getElementById("dossier-point");
+  const sourceLink = document.getElementById("source-link");
+  const directionsLink = document.getElementById("directions-link");
+  const copyLinkButton = document.getElementById("copy-link");
+  const mapShell = document.querySelector(".map-shell");
+
+  if (!data || !Array.isArray(data.species) || !Array.isArray(data.trees)) {
+    resultList.innerHTML = '<li class="empty-state">The catalogue data could not be loaded.</li>';
+    mapFailure.hidden = false;
+    return;
+  }
+
+  const species = data.species.map((item, index) => ({
+    index,
+    slug: item[0],
+    code: item[1],
+    latin: item[2],
+    common: item[3],
+    native: Boolean(item[4])
+  }));
+
+  const trees = data.trees.map((item, index) => {
+    const kind = species[item[0]];
+    return {
+      index,
+      kind,
+      lat: item[1],
+      lon: item[2],
+      sequence: item[3],
+      key: kind.slug + "|" + item[3],
+      distance: null,
+      marker: null
+    };
+  });
+
+  const treeByKey = new Map(trees.map((tree) => [tree.key, tree]));
+  const campusBounds = [[51.43435, -0.95455], [51.44625, -0.93235]];
+  const defaultCentre = [51.44026, -0.94341];
+  let visibleTrees = trees.slice();
+  let displayedLimit = 100;
+  let selectedTree = null;
+  let hoverTree = null;
+  let userPosition = null;
+  let locationWatch = null;
+  let locationMarker = null;
+  let accuracyCircle = null;
+  let firstLocationFix = true;
+  let searchTimer = null;
+
+  const normalise = (value) => String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[×'’._-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const escapeHtml = (value) => String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+  const displayName = (tree) => tree.kind.common || tree.kind.latin;
+  const sortName = (tree) => normalise(
+    displayName(tree).replace(/^\(([^)]+)\)\s*(.*)$/, "$2 $1")
+  );
+
+  const haversine = (lat1, lon1, lat2, lon2) => {
+    const radius = 6371000;
+    const toRadians = (degrees) => degrees * Math.PI / 180;
+    const phi1 = toRadians(lat1);
+    const phi2 = toRadians(lat2);
+    const deltaPhi = toRadians(lat2 - lat1);
+    const deltaLambda = toRadians(lon2 - lon1);
+    const a = Math.sin(deltaPhi / 2) ** 2
+      + Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) ** 2;
+    return radius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
+  const bearing = (lat1, lon1, lat2, lon2) => {
+    const toRadians = (degrees) => degrees * Math.PI / 180;
+    const phi1 = toRadians(lat1);
+    const phi2 = toRadians(lat2);
+    const lambda = toRadians(lon2 - lon1);
+    const y = Math.sin(lambda) * Math.cos(phi2);
+    const x = Math.cos(phi1) * Math.sin(phi2)
+      - Math.sin(phi1) * Math.cos(phi2) * Math.cos(lambda);
+    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+  };
+
+  const compassPoint = (degrees) => {
+    const points = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+    return points[Math.round(degrees / 22.5) % 16];
+  };
+
+  const formatDistance = (metres) => {
+    if (!Number.isFinite(metres)) return "";
+    if (metres < 1000) return Math.max(1, Math.round(metres)) + " m";
+    if (metres < 10000) return (metres / 1000).toFixed(1) + " km";
+    return Math.round(metres / 1000) + " km";
+  };
+
+  const sourceUrl = (tree) => {
+    const params = new URLSearchParams({
+      opt: "date",
+      species: tree.kind.slug,
+      sequence: tree.sequence
+    });
+    return "https://whiteknights-trees.uk/?" + params.toString();
+  };
+
+  const getMarkerStyle = (tree) => {
+    const zoom = map ? map.getZoom() : 16;
+    const selected = tree === selectedTree;
+    const hovered = tree === hoverTree;
+    return {
+      radius: selected ? 8 : hovered ? 7 : zoom >= 17 ? 5 : 3.6,
+      color: selected || hovered ? "#ffffff" : "rgba(255,255,255,.88)",
+      weight: selected ? 3 : hovered ? 2.5 : 1.2,
+      fillColor: selected ? "#c87320" : tree.kind.native ? "#087e78" : "#276247",
+      fillOpacity: selected ? 1 : hovered ? .98 : .8
+    };
+  };
+
+  const updateTreeMarker = (tree) => {
+    if (tree && tree.marker) tree.marker.setStyle(getMarkerStyle(tree));
+  };
+
+  let map = null;
+  let markerLayer = null;
+
+  if (!window.L) {
+    mapFailure.hidden = false;
+  } else {
+    map = L.map("map", {
+      preferCanvas: true,
+      zoomControl: false,
+      attributionControl: true,
+      minZoom: 4,
+      maxZoom: 20
+    });
+
+    L.control.zoom({ position: "topright" }).addTo(map);
+
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+
+    markerLayer = L.layerGroup().addTo(map);
+    map.setView(defaultCentre, 16);
+
+    trees.forEach((tree) => {
+      tree.marker = L.circleMarker([tree.lat, tree.lon], getMarkerStyle(tree));
+      tree.marker.bindTooltip(
+        "<strong>" + escapeHtml(displayName(tree)) + "</strong><br><em>" + escapeHtml(tree.kind.latin) + "</em>",
+        { direction: "top", offset: [0, -5], opacity: 1 }
+      );
+      tree.marker.on("click", () => selectTree(tree, true));
+      tree.marker.on("mouseover", () => setHoveredTree(tree));
+      tree.marker.on("mouseout", () => setHoveredTree(null));
+    });
+
+    map.on("zoomend", () => visibleTrees.forEach(updateTreeMarker));
+  }
+
+  function setHoveredTree(tree) {
+    if (hoverTree === tree) return;
+    const previous = hoverTree;
+    hoverTree = tree;
+    updateTreeMarker(previous);
+    updateTreeMarker(hoverTree);
+  }
+
+  function updateDistances() {
+    if (!userPosition) {
+      trees.forEach((tree) => { tree.distance = null; });
+      return;
+    }
+    trees.forEach((tree) => {
+      tree.distance = haversine(userPosition.lat, userPosition.lon, tree.lat, tree.lon);
+    });
+  }
+
+  function filterTrees() {
+    const query = normalise(searchInput.value);
+    const nativeOnly = nativeFilter.checked;
+
+    visibleTrees = trees.filter((tree) => {
+      if (nativeOnly && !tree.kind.native) return false;
+      if (!query) return true;
+      const haystack = normalise([
+        tree.kind.common,
+        tree.kind.latin,
+        tree.kind.code,
+        tree.sequence,
+        tree.kind.slug
+      ].join(" "));
+      return haystack.includes(query);
+    });
+
+    if (userPosition) {
+      visibleTrees.sort((a, b) => a.distance - b.distance || sortName(a).localeCompare(sortName(b)));
+    } else {
+      visibleTrees.sort((a, b) => sortName(a).localeCompare(sortName(b))
+        || a.sequence.localeCompare(b.sequence, undefined, { numeric: true }));
+    }
+
+    displayedLimit = 100;
+    renderMarkers();
+    renderResults();
+    clearSearchButton.hidden = !searchInput.value;
+
+    if (selectedTree && !visibleTrees.includes(selectedTree)) {
+      clearSelection(false);
+      setTreeUrl(null, false);
+    }
+    replaceFilterUrl();
+  }
+
+  function renderMarkers() {
+    if (!markerLayer) return;
+    markerLayer.clearLayers();
+    visibleTrees.forEach((tree) => {
+      updateTreeMarker(tree);
+      tree.marker.addTo(markerLayer);
+    });
+  }
+
+  function renderResults() {
+    const kinds = new Set(visibleTrees.map((tree) => tree.kind.index)).size;
+    resultCount.textContent = visibleTrees.length.toLocaleString("en-GB") + (visibleTrees.length === 1 ? " tree" : " trees");
+    speciesCount.textContent = kinds.toLocaleString("en-GB") + (kinds === 1 ? " kind" : " kinds");
+
+    if (!visibleTrees.length) {
+      resultList.innerHTML = '<li class="empty-state">No catalogue trees match these filters.</li>';
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    visibleTrees.slice(0, displayedLimit).forEach((tree) => {
+      const item = document.createElement("li");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "tree-row" + (tree.kind.native ? " native" : "");
+      button.dataset.treeKey = tree.key;
+      button.setAttribute("aria-current", String(tree === selectedTree));
+
+      const distanceText = userPosition
+        ? formatDistance(tree.distance) + " " + compassPoint(bearing(userPosition.lat, userPosition.lon, tree.lat, tree.lon))
+        : tree.sequence;
+
+      button.innerHTML =
+        '<span class="catalogue-code">' + escapeHtml(tree.kind.code) + '</span>' +
+        '<span class="tree-copy">' +
+          '<span class="tree-name">' + escapeHtml(displayName(tree)) + '</span>' +
+          '<span class="tree-latin">' + escapeHtml(tree.kind.latin) + '</span>' +
+        '</span>' +
+        '<span class="tree-distance">' + escapeHtml(distanceText) + '</span>';
+
+      button.addEventListener("click", () => selectTree(tree, true));
+      button.addEventListener("mouseenter", () => setHoveredTree(tree));
+      button.addEventListener("mouseleave", () => setHoveredTree(null));
+      item.appendChild(button);
+      fragment.appendChild(item);
+    });
+
+    if (displayedLimit < visibleTrees.length) {
+      const item = document.createElement("li");
+      const more = document.createElement("button");
+      more.type = "button";
+      more.className = "more-row";
+      more.textContent = "Show " + Math.min(100, visibleTrees.length - displayedLimit) + " more";
+      more.addEventListener("click", () => {
+        displayedLimit += 100;
+        renderResults();
+      });
+      item.appendChild(more);
+      fragment.appendChild(item);
+    }
+
+    resultList.replaceChildren(fragment);
+  }
+
+  function updateDossier() {
+    if (!selectedTree) {
+      dossier.hidden = true;
+      mapShell.classList.remove("has-dossier");
+      return;
+    }
+
+    const tree = selectedTree;
+    const nativeText = tree.kind.native ? "Native" : "Catalogue tree";
+    dossierKicker.textContent = tree.kind.code + " · " + tree.sequence + " · " + nativeText;
+    dossierName.textContent = displayName(tree);
+    dossierLatin.textContent = tree.kind.common ? tree.kind.latin : "No separate English name listed";
+    dossierPoint.textContent = tree.lat.toFixed(5) + ", " + tree.lon.toFixed(5);
+    sourceLink.href = sourceUrl(tree);
+    directionsLink.href = "https://www.google.com/maps/dir/?api=1&destination=" + tree.lat + "," + tree.lon;
+
+    if (userPosition) {
+      const direction = compassPoint(bearing(userPosition.lat, userPosition.lon, tree.lat, tree.lon));
+      dossierDistance.textContent = formatDistance(tree.distance) + " " + direction;
+    } else {
+      dossierDistance.textContent = "Location off";
+    }
+
+    dossier.hidden = false;
+    mapShell.classList.add("has-dossier");
+  }
+
+  function selectTree(tree, updateHistory, pan = true) {
+    const previous = selectedTree;
+    selectedTree = tree;
+    updateTreeMarker(previous);
+    updateTreeMarker(selectedTree);
+    updateDossier();
+    renderResults();
+
+    if (map && pan) {
+      const targetZoom = Math.max(map.getZoom(), 18);
+      map.setView([tree.lat, tree.lon], targetZoom, { animate: !window.matchMedia("(prefers-reduced-motion: reduce)").matches });
+    }
+
+    const row = resultList.querySelector('[data-tree-key="' + CSS.escape(tree.key) + '"]');
+    if (row) row.scrollIntoView({ block: "nearest" });
+    if (updateHistory) setTreeUrl(tree, true);
+  }
+
+  function clearSelection(updateHistory = true) {
+    const previous = selectedTree;
+    selectedTree = null;
+    updateTreeMarker(previous);
+    dossier.hidden = true;
+    mapShell.classList.remove("has-dossier");
+    renderResults();
+    if (updateHistory) setTreeUrl(null, true);
+  }
+
+  function fitVisibleResults() {
+    if (!map || !visibleTrees.length) return;
+    if (visibleTrees.length === 1) {
+      map.setView([visibleTrees[0].lat, visibleTrees[0].lon], 19);
+      return;
+    }
+    const bounds = L.latLngBounds(visibleTrees.map((tree) => [tree.lat, tree.lon]));
+    map.fitBounds(bounds, { padding: [30, 30], maxZoom: 18 });
+  }
+
+  function startLocation() {
+    if (locationWatch !== null) {
+      stopLocation();
+      return;
+    }
+    if (!navigator.geolocation) {
+      setLocationStatus("Location is not available in this browser.", true);
+      return;
+    }
+
+    firstLocationFix = true;
+    locateButton.textContent = "Locating…";
+    locateButton.classList.add("active");
+    locateButton.setAttribute("aria-pressed", "true");
+    setLocationStatus("Waiting for a location fix", false);
+
+    locationWatch = navigator.geolocation.watchPosition(
+      receiveLocation,
+      receiveLocationError,
+      { enableHighAccuracy: true, maximumAge: 15000, timeout: 12000 }
+    );
+  }
+
+  function stopLocation() {
+    if (locationWatch !== null) navigator.geolocation.clearWatch(locationWatch);
+    locationWatch = null;
+    userPosition = null;
+    firstLocationFix = true;
+    locateButton.textContent = "Use my location";
+    locateButton.classList.remove("active");
+    locateButton.setAttribute("aria-pressed", "false");
+    setLocationStatus("Location off", false);
+    if (map && locationMarker) map.removeLayer(locationMarker);
+    if (map && accuracyCircle) map.removeLayer(accuracyCircle);
+    locationMarker = null;
+    accuracyCircle = null;
+    updateDistances();
+    filterTrees();
+    updateDossier();
+  }
+
+  function receiveLocation(position) {
+    userPosition = {
+      lat: position.coords.latitude,
+      lon: position.coords.longitude,
+      accuracy: position.coords.accuracy
+    };
+    updateDistances();
+
+    locateButton.textContent = "Stop location";
+    locateButton.classList.add("active");
+    const accuracyText = Number.isFinite(userPosition.accuracy)
+      ? " · ±" + Math.round(userPosition.accuracy) + " m"
+      : "";
+    const nearest = trees.reduce((best, tree) => !best || tree.distance < best.distance ? tree : best, null);
+    setLocationStatus("Nearest tree " + formatDistance(nearest.distance) + accuracyText, false);
+
+    if (map) {
+      if (!locationMarker) {
+        accuracyCircle = L.circle([userPosition.lat, userPosition.lon], {
+          radius: userPosition.accuracy,
+          color: "#1769aa",
+          weight: 1,
+          fillColor: "#1769aa",
+          fillOpacity: .08,
+          interactive: false
+        }).addTo(map);
+        locationMarker = L.circleMarker([userPosition.lat, userPosition.lon], {
+          radius: 7,
+          color: "#ffffff",
+          weight: 3,
+          fillColor: "#1769aa",
+          fillOpacity: 1
+        }).addTo(map).bindTooltip("Your location", { direction: "top" });
+      } else {
+        locationMarker.setLatLng([userPosition.lat, userPosition.lon]);
+        accuracyCircle.setLatLng([userPosition.lat, userPosition.lon]).setRadius(userPosition.accuracy);
+      }
+
+      if (firstLocationFix) {
+        if (nearest.distance < 3000) {
+          map.setView([userPosition.lat, userPosition.lon], 18);
+        } else {
+          map.setView([nearest.lat, nearest.lon], 17);
+        }
+      }
+    }
+
+    firstLocationFix = false;
+    filterTrees();
+    updateDossier();
+  }
+
+  function receiveLocationError(error) {
+    if (locationWatch !== null) navigator.geolocation.clearWatch(locationWatch);
+    locationWatch = null;
+    locateButton.textContent = "Use my location";
+    locateButton.classList.remove("active");
+    locateButton.setAttribute("aria-pressed", "false");
+    const messages = {
+      1: "Location permission was not granted.",
+      2: "Your location could not be determined.",
+      3: "The location request timed out."
+    };
+    setLocationStatus(messages[error.code] || "Location could not be started.", true);
+  }
+
+  function setLocationStatus(message, isError) {
+    locationStatus.textContent = message;
+    locationStatus.classList.toggle("error", Boolean(isError));
+  }
+
+  function currentParams() {
+    return new URLSearchParams(window.location.search);
+  }
+
+  function setTreeUrl(tree, push) {
+    const params = currentParams();
+    if (tree) params.set("tree", tree.key);
+    else params.delete("tree");
+    const url = window.location.pathname + (params.toString() ? "?" + params : "") + window.location.hash;
+    history[push ? "pushState" : "replaceState"]({}, "", url);
+  }
+
+  function replaceFilterUrl() {
+    const params = currentParams();
+    const query = searchInput.value.trim();
+    if (query) params.set("q", query);
+    else params.delete("q");
+    if (nativeFilter.checked) params.set("native", "1");
+    else params.delete("native");
+    const url = window.location.pathname + (params.toString() ? "?" + params : "") + window.location.hash;
+    history.replaceState({}, "", url);
+  }
+
+  function restoreUrlState() {
+    const params = currentParams();
+    searchInput.value = params.get("q") || "";
+    nativeFilter.checked = params.get("native") === "1";
+    filterTrees();
+    const key = params.get("tree");
+    const restoredTree = key ? treeByKey.get(key) : null;
+    if (restoredTree && visibleTrees.includes(restoredTree)) {
+      selectTree(restoredTree, false, false);
+    } else {
+      if (selectedTree) clearSelection(false);
+      if (key) setTreeUrl(null, false);
+    }
+  }
+
+  searchInput.addEventListener("input", () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(filterTrees, 120);
+  });
+  clearSearchButton.addEventListener("click", () => {
+    searchInput.value = "";
+    filterTrees();
+    searchInput.focus();
+  });
+  nativeFilter.addEventListener("change", filterTrees);
+  fitResultsButton.addEventListener("click", fitVisibleResults);
+  campusButton.addEventListener("click", () => {
+    if (map) map.fitBounds(campusBounds, { padding: [18, 18] });
+  });
+  locateButton.addEventListener("click", startLocation);
+  dossierClose.addEventListener("click", () => clearSelection(true));
+  copyLinkButton.addEventListener("click", async () => {
+    const params = currentParams();
+    if (map) {
+      const centre = map.getCenter();
+      params.set("view", [centre.lat.toFixed(5), centre.lng.toFixed(5), map.getZoom()].join(","));
+    }
+    const url = new URL(window.location.href);
+    url.search = params.toString();
+    try {
+      await navigator.clipboard.writeText(url.toString());
+      copyLinkButton.textContent = "Copied";
+      setTimeout(() => { copyLinkButton.textContent = "Copy link"; }, 1600);
+    } catch (_) {
+      window.prompt("Copy this link", url.toString());
+    }
+  });
+  window.addEventListener("popstate", restoreUrlState);
+  window.addEventListener("resize", () => {
+    if (map) setTimeout(() => map.invalidateSize(), 80);
+  });
+  window.addEventListener("beforeunload", () => {
+    if (locationWatch !== null) navigator.geolocation.clearWatch(locationWatch);
+  });
+
+  restoreUrlState();
+
+  const initialView = currentParams().get("view");
+  if (map && initialView) {
+    const parts = initialView.split(",").map(Number);
+    if (parts.length === 3 && parts.every(Number.isFinite)) {
+      map.setView([parts[0], parts[1]], Math.min(20, Math.max(4, parts[2])));
+    }
+  }
+})();
+</script>
+</body>
+</html>
