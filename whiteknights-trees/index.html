@@ -68,7 +68,7 @@
     height: 100dvh;
     min-height: 620px;
     display: grid;
-    grid-template-rows: 66px minmax(0, 1fr);
+    grid-template-rows: 72px minmax(0, 1fr);
     overflow: hidden;
   }
 
@@ -84,15 +84,32 @@
     background: var(--green-dark);
     border-bottom: 1px solid rgba(255, 255, 255, .14);
   }
+  .identity {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .university-mark {
+    width: 136px;
+    flex: none;
+    display: block;
+  }
+  .university-mark img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
   .brand { min-width: 0; }
   .brand h1 {
     margin: 0;
     font-family: var(--serif);
-    font-size: 24px;
+    font-size: 22px;
     font-weight: 700;
     line-height: 1.05;
     letter-spacing: 0;
   }
+  .compact-title, .compact-back { display: none; }
   .brand p {
     margin: 4px 0 0;
     color: rgba(255, 255, 255, .68);
@@ -421,11 +438,11 @@
     z-index: 950;
     right: 16px;
     bottom: 16px;
-    width: min(360px, calc(100% - 32px));
-    padding: 17px;
+    width: min(338px, calc(100% - 32px));
+    padding: 12px;
     background: rgba(255, 255, 255, .98);
     border: 1px solid rgba(24, 34, 31, .23);
-    border-top: 5px solid var(--amber);
+    border-top: 4px solid var(--amber);
     border-radius: 7px;
     box-shadow: var(--shadow);
   }
@@ -446,9 +463,32 @@
     line-height: 1;
   }
   .dossier-close:hover { color: var(--ink); background: var(--surface-soft); }
+  .dossier-main {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: 11px;
+    align-items: start;
+  }
+  .dossier-photo {
+    width: 96px;
+    height: 96px;
+    display: block;
+    overflow: hidden;
+    background: #e8ece7;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+  }
+  .dossier-photo[hidden] { display: none; }
+  .dossier-photo img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .dossier-copy { min-width: 0; padding-top: 2px; }
   .dossier-kicker {
     max-width: calc(100% - 30px);
-    margin: 0 0 5px;
+    margin: 0 0 4px;
     color: var(--amber);
     font-size: 11px;
     font-weight: 850;
@@ -459,58 +499,47 @@
     margin: 0;
     padding-right: 26px;
     font-family: var(--serif);
-    font-size: 25px;
+    font-size: 21px;
     line-height: 1.06;
     letter-spacing: 0;
   }
   .dossier-latin {
-    margin: 5px 0 0;
+    margin: 4px 0 0;
     color: var(--muted);
     font-family: var(--serif);
     font-style: italic;
   }
-  .dossier-facts {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-    margin: 14px 0;
-  }
-  .fact {
-    padding: 8px 9px;
-    background: var(--surface-soft);
-    border-left: 3px solid var(--line-strong);
-  }
-  .fact span {
-    display: block;
-    color: var(--faint);
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: .07em;
-    text-transform: uppercase;
-  }
-  .fact strong {
-    display: block;
-    margin-top: 2px;
-    font-size: 13px;
+  .dossier-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px 9px;
+    margin: 9px 0 0;
+    color: var(--muted);
+    font-size: 11px;
     font-variant-numeric: tabular-nums;
+  }
+  .dossier-meta strong {
+    color: var(--ink);
+    font-size: 12px;
   }
   .dossier-actions {
     display: flex;
     flex-wrap: wrap;
     gap: 7px;
+    margin-top: 10px;
   }
   .dossier-actions a, .dossier-actions button {
-    min-height: 38px;
+    min-height: 34px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 0 11px;
+    padding: 0 9px;
     color: var(--green-dark);
     background: var(--surface);
     border: 1px solid var(--line-strong);
     border-radius: 5px;
     cursor: pointer;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 800;
     text-decoration: none;
   }
@@ -539,12 +568,16 @@
     .app {
       min-height: 100dvh;
       height: auto;
-      grid-template-rows: 59px auto;
+      grid-template-rows: 64px auto;
       overflow: visible;
     }
-    .topbar { padding: 0 12px 0 15px; }
-    .brand h1 { font-size: 18px; white-space: nowrap; }
-    .brand p { margin-top: 2px; font-size: 9px; }
+    .topbar { gap: 10px; padding: 0 12px; }
+    .identity { gap: 9px; }
+    .university-mark { width: 102px; }
+    .brand h1 { font-size: 16px; white-space: nowrap; }
+    .brand p { display: none; }
+    .full-title, .full-back { display: none; }
+    .compact-title, .compact-back { display: inline; }
     .back-link { font-size: 12px; }
     .workspace {
       grid-template-columns: 1fr;
@@ -574,20 +607,33 @@
     .dossier {
       right: 9px;
       bottom: 9px;
-      width: calc(100% - 18px);
+      width: min(310px, calc(100% - 18px));
       max-height: calc(100% - 65px);
       overflow: auto;
-      padding: 14px;
+      padding: 10px;
     }
     .map-shell.has-dossier .legend { display: none; }
-    .dossier h2 { font-size: 22px; }
-    .dossier-facts { margin: 11px 0; }
+    .dossier-main { grid-template-columns: 82px minmax(0, 1fr); gap: 9px; }
+    .dossier-photo { width: 82px; height: 82px; }
+    .dossier h2 { font-size: 18px; }
+    .dossier-kicker { font-size: 9px; }
+    .dossier-latin { font-size: 13px; }
+    .dossier-meta { margin-top: 6px; font-size: 10px; }
+    .dossier-actions { gap: 5px; margin-top: 8px; }
+    .dossier-actions a, .dossier-actions button { min-height: 31px; padding: 0 7px; font-size: 10px; }
   }
 
   @media (max-width: 420px) {
-    .brand p { display: none; }
-    .dossier-facts { grid-template-columns: 1fr 1fr; }
-    .dossier-actions a, .dossier-actions button { flex: 1 1 auto; }
+    .dossier-actions a, .dossier-actions button { flex: 0 1 auto; }
+  }
+
+  @media (max-width: 360px) {
+    .topbar { gap: 7px; padding: 0 10px; }
+    .identity { gap: 7px; }
+    .university-mark { width: 88px; }
+    .brand h1 { font-size: 14px; }
+    .compact-back { font-size: 0; }
+    .compact-back::after { content: "\2190"; font-size: 18px; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -603,11 +649,16 @@
 <body>
 <div class="app">
   <header class="topbar">
-    <div class="brand">
-      <h1>Whiteknights Tree Finder</h1>
-      <p>Campus field guide · Reading</p>
+    <div class="identity">
+      <a class="university-mark" href="https://www.reading.ac.uk/" target="_blank" rel="noopener" aria-label="University of Reading">
+        <img src="../assets/uor-logo.png" alt="University of Reading">
+      </a>
+      <div class="brand">
+        <h1><span class="full-title">Whiteknights Tree Finder</span><span class="compact-title">Whiteknights Trees</span></h1>
+        <p>Campus field guide · Reading</p>
+      </div>
     </div>
-    <a class="back-link" href="../">All projects</a>
+    <a class="back-link" href="../" aria-label="All projects"><span class="full-back">All projects</span><span class="compact-back">Projects</span></a>
   </header>
 
   <main class="workspace">
@@ -640,7 +691,7 @@
         <summary>Data, coverage and credits</summary>
         <div>
           <p>Locations, identifications and catalogue codes are derived from <a href="https://whiteknights-trees.uk/" target="_blank" rel="noopener">Whiteknights Trees</a>, accessed 25 July 2026: 817 mapped trees representing 300 kinds.</p>
-          <p>The source describes itself as an independent project which is not approved or supported by the University of Reading and may contain errors. Its photographs remain on the source site and are not reproduced here.</p>
+          <p>The source describes itself as an independent project which is not approved or supported by the University of Reading and may contain errors. Selected-tree thumbnails are served from the source site and remain &copy; Jonathan Gregory.</p>
           <p>Map data &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>.</p>
         </div>
       </details>
@@ -663,12 +714,16 @@
 
       <article class="dossier" id="dossier" aria-live="polite" hidden>
         <button class="dossier-close" id="dossier-close" type="button" aria-label="Close tree details" title="Close">&times;</button>
-        <p class="dossier-kicker" id="dossier-kicker"></p>
-        <h2 id="dossier-name"></h2>
-        <p class="dossier-latin" id="dossier-latin"></p>
-        <div class="dossier-facts">
-          <div class="fact"><span>From you</span><strong id="dossier-distance">Location off</strong></div>
-          <div class="fact"><span>Catalogue point</span><strong id="dossier-point"></strong></div>
+        <div class="dossier-main">
+          <a class="dossier-photo" id="dossier-photo-link" href="#" target="_blank" rel="noopener">
+            <img id="dossier-photo" src="" alt="" referrerpolicy="no-referrer">
+          </a>
+          <div class="dossier-copy">
+            <p class="dossier-kicker" id="dossier-kicker"></p>
+            <h2 id="dossier-name"></h2>
+            <p class="dossier-latin" id="dossier-latin"></p>
+            <p class="dossier-meta"><strong id="dossier-distance">Location off</strong><span id="dossier-point"></span></p>
+          </div>
         </div>
         <div class="dossier-actions">
           <a id="source-link" href="#" target="_blank" rel="noopener">Source record</a>
@@ -697,6 +752,7 @@
   const fitResultsButton = document.getElementById("fit-results");
   const resultCount = document.getElementById("result-count");
   const speciesCount = document.getElementById("species-count");
+  const results = document.querySelector(".results");
   const resultList = document.getElementById("result-list");
   const locationStatus = document.getElementById("location-status");
   const locateButton = document.getElementById("locate-button");
@@ -709,6 +765,8 @@
   const dossierLatin = document.getElementById("dossier-latin");
   const dossierDistance = document.getElementById("dossier-distance");
   const dossierPoint = document.getElementById("dossier-point");
+  const dossierPhoto = document.getElementById("dossier-photo");
+  const dossierPhotoLink = document.getElementById("dossier-photo-link");
   const sourceLink = document.getElementById("source-link");
   const directionsLink = document.getElementById("directions-link");
   const copyLinkButton = document.getElementById("copy-link");
@@ -726,7 +784,8 @@
     code: item[1],
     latin: item[2],
     common: item[3],
-    native: Boolean(item[4])
+    native: Boolean(item[4]),
+    photo: item[5]
   }));
 
   const trees = data.trees.map((item, index) => {
@@ -863,7 +922,10 @@
     map.setView(defaultCentre, 16);
 
     trees.forEach((tree) => {
-      tree.marker = L.circleMarker([tree.lat, tree.lon], getMarkerStyle(tree));
+      tree.marker = L.circleMarker([tree.lat, tree.lon], {
+        ...getMarkerStyle(tree),
+        bubblingMouseEvents: false
+      });
       tree.marker.bindTooltip(
         "<strong>" + escapeHtml(displayName(tree)) + "</strong><br><em>" + escapeHtml(tree.kind.latin) + "</em>",
         { direction: "top", offset: [0, -5], opacity: 1 }
@@ -874,6 +936,26 @@
     });
 
     map.on("zoomend", () => visibleTrees.forEach(updateTreeMarker));
+    map.on("click", (event) => {
+      const point = map.latLngToContainerPoint(event.latlng);
+      const generousTarget = window.matchMedia("(pointer: coarse)").matches || window.innerWidth <= 780;
+      const radius = generousTarget ? 25 : 14;
+      let nearest = null;
+      let nearestSquared = radius * radius;
+
+      visibleTrees.forEach((tree) => {
+        const treePoint = map.latLngToContainerPoint([tree.lat, tree.lon]);
+        const dx = point.x - treePoint.x;
+        const dy = point.y - treePoint.y;
+        const squared = dx * dx + dy * dy;
+        if (squared <= nearestSquared) {
+          nearest = tree;
+          nearestSquared = squared;
+        }
+      });
+
+      if (nearest) selectTree(nearest, true);
+    });
   }
 
   function setHoveredTree(tree) {
@@ -940,6 +1022,10 @@
   }
 
   function renderResults() {
+    const previousScrollTop = results.scrollTop;
+    const activeKey = document.activeElement && document.activeElement.dataset
+      ? document.activeElement.dataset.treeKey
+      : null;
     const kinds = new Set(visibleTrees.map((tree) => tree.kind.index)).size;
     resultCount.textContent = visibleTrees.length.toLocaleString("en-GB") + (visibleTrees.length === 1 ? " tree" : " trees");
     speciesCount.textContent = kinds.toLocaleString("en-GB") + (kinds === 1 ? " kind" : " kinds");
@@ -992,6 +1078,17 @@
     }
 
     resultList.replaceChildren(fragment);
+    results.scrollTop = previousScrollTop;
+    if (activeKey) {
+      const activeRow = resultList.querySelector('[data-tree-key="' + CSS.escape(activeKey) + '"]');
+      if (activeRow) activeRow.focus({ preventScroll: true });
+    }
+  }
+
+  function updateSelectedRows() {
+    resultList.querySelectorAll(".tree-row").forEach((row) => {
+      row.setAttribute("aria-current", String(Boolean(selectedTree) && row.dataset.treeKey === selectedTree.key));
+    });
   }
 
   function updateDossier() {
@@ -1008,6 +1105,14 @@
     dossierLatin.textContent = tree.kind.common ? tree.kind.latin : "No separate English name listed";
     dossierPoint.textContent = tree.lat.toFixed(5) + ", " + tree.lon.toFixed(5);
     sourceLink.href = sourceUrl(tree);
+    dossierPhotoLink.href = sourceUrl(tree);
+    if (tree.kind.photo) {
+      dossierPhotoLink.hidden = false;
+      dossierPhoto.alt = "Catalogue photograph of " + displayName(tree);
+      dossierPhoto.src = new URL(tree.kind.photo, data.source).href;
+    } else {
+      dossierPhotoLink.hidden = true;
+    }
     directionsLink.href = "https://www.google.com/maps/dir/?api=1&destination=" + tree.lat + "," + tree.lon;
 
     if (userPosition) {
@@ -1027,15 +1132,13 @@
     updateTreeMarker(previous);
     updateTreeMarker(selectedTree);
     updateDossier();
-    renderResults();
+    updateSelectedRows();
 
     if (map && pan) {
       const targetZoom = Math.max(map.getZoom(), 18);
       map.setView([tree.lat, tree.lon], targetZoom, { animate: !window.matchMedia("(prefers-reduced-motion: reduce)").matches });
     }
 
-    const row = resultList.querySelector('[data-tree-key="' + CSS.escape(tree.key) + '"]');
-    if (row) row.scrollIntoView({ block: "nearest" });
     if (updateHistory) setTreeUrl(tree, true);
   }
 
@@ -1045,7 +1148,7 @@
     updateTreeMarker(previous);
     dossier.hidden = true;
     mapShell.classList.remove("has-dossier");
-    renderResults();
+    updateSelectedRows();
     if (updateHistory) setTreeUrl(null, true);
   }
 
@@ -1240,6 +1343,9 @@
     } catch (_) {
       window.prompt("Copy this link", url.toString());
     }
+  });
+  dossierPhoto.addEventListener("error", () => {
+    dossierPhotoLink.hidden = true;
   });
   window.addEventListener("popstate", restoreUrlState);
   window.addEventListener("resize", () => {
