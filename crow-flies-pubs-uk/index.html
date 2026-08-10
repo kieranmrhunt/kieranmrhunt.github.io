@@ -476,12 +476,11 @@
         const similarity=nameSimilarity(pub.name,place.displayName);
         const pubPc=postcodeIn(pub.pc), googlePc=postcodeIn(place.formattedAddress);
         const samePostcode=Boolean(pubPc&&googlePc&&pubPc===googlePc);
-        const plausible=metres<=15 ||
-          (metres<=35&&similarity>=.16) ||
-          (metres<=80&&similarity>=.4) ||
-          (metres<=160&&similarity>=.65) ||
-          (metres<=300&&similarity>=.88) ||
-          (samePostcode&&metres<=180&&similarity>=.3);
+        const plausible=(metres<=35&&similarity>=.4) ||
+          (metres<=80&&similarity>=.55) ||
+          (metres<=160&&similarity>=.7) ||
+          (metres<=300&&similarity>=.9) ||
+          (samePostcode&&metres<=180&&similarity>=.45);
         if(!plausible) return;
         const score=metres/260+(1-similarity)*1.7-(samePostcode?.22:0);
         pairs.push({pubIndex,placeIndex,score});
