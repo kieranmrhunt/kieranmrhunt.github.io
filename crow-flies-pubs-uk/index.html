@@ -102,8 +102,25 @@
   li.pub.hot{border-color:rgba(255,107,94,.55);}
   .rank{font-family:"Spline Sans Mono",monospace;font-weight:600;font-size:14px;color:var(--ink-soft);width:26px;}
   li.pub.hot .rank{color:var(--coral);}
+  .pub-copy{min-width:0;}
   .name{font-family:"Mulish",sans-serif;font-weight:800;font-size:18.5px;line-height:1.15;color:var(--brown);}
   .addr{font-size:13px;color:var(--ink-soft);margin-top:2px;}
+  .rating-slot{min-height:22px;margin-top:7px;display:flex;align-items:center;font-size:12.5px;}
+  .rating-loading,.rating-unavailable{color:#9b8b7b;}
+  .rating-loading{position:relative;padding-left:15px;}
+  .rating-loading::before{content:"";position:absolute;left:0;top:50%;width:7px;height:7px;margin-top:-3.5px;
+    border-radius:50%;background:var(--gold);animation:pulse 1.2s ease-in-out infinite;}
+  @keyframes pulse{50%{opacity:.3;transform:scale(.72);}}
+  .google-rating{display:inline-flex;align-items:center;gap:5px;min-width:0;color:var(--ink);
+    text-decoration:none;border-bottom:1px solid transparent;line-height:1.25;}
+  .google-rating:hover{border-bottom-color:var(--gold);}
+  .google-rating:focus-visible{outline:2px solid var(--teal);outline-offset:3px;border-radius:2px;}
+  .google-star{color:#f9ab00;font-size:16px;line-height:1;}
+  .google-star::before{content:"\2605";}
+  .google-rating-number{font-family:"Spline Sans Mono",monospace;font-weight:600;font-size:13px;}
+  .google-review-count{color:var(--ink-soft);}
+  .gmp-attribution{font-family:Roboto,"Mulish",sans-serif;font-style:normal;font-weight:400;
+    font-size:12px;letter-spacing:0;white-space:nowrap;color:#5e5e5e;}
   .metric{text-align:right;display:flex;align-items:center;gap:12px;}
   .dist{font-family:"Spline Sans Mono",monospace;font-weight:600;font-size:18px;white-space:nowrap;}
   .dist span{display:block;font-size:11px;font-weight:400;color:var(--ink-soft);}
@@ -112,8 +129,23 @@
   .compass .arrow path{fill:var(--ink);}
   li.pub.hot .compass .arrow path{fill:var(--coral);}
   .compass circle{fill:#f1f7fc;stroke:var(--line);}
+  .places-state{min-height:20px;margin:12px 2px 0;color:var(--ink-soft);font-size:12.5px;text-align:right;}
+  .places-meta{margin:8px 0 0;padding:12px 14px;border:1px solid var(--line);border-radius:10px;
+    background:rgba(255,255,255,.62);color:#6f6256;font-size:12px;line-height:1.45;}
+  .places-meta[hidden]{display:none;}
+  .places-meta a,.privacy-note a{color:var(--teal);text-decoration:none;}
+  .places-meta a:hover,.privacy-note a:hover{text-decoration:underline;}
+  .third-party:not(:empty)::before{content:" \00b7 ";}
+  .privacy-note{max-width:660px;margin:12px auto 0;font-size:12px;color:var(--ink-soft);}
+  .privacy-note summary{cursor:pointer;display:inline-block;color:var(--teal);}
+  .privacy-note p{margin:7px 0 0;}
   footer{margin-top:40px;text-align:center;font-size:12.5px;color:var(--ink-soft);}
   footer a{color:var(--teal);text-decoration:none;}
+  @media(max-width:560px){
+    li.pub{grid-template-columns:auto minmax(0,1fr);gap:10px 12px;align-items:start;padding:14px;}
+    .metric{grid-column:2;justify-content:space-between;text-align:left;}
+    .places-state{text-align:left;}
+  }
   @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important;}}
 </style>
 </head>
@@ -177,13 +209,25 @@
       <p class="origin" id="originLbl"></p>
       <svg class="radar" id="radar" viewBox="0 0 320 320" role="img" aria-label="Radial map of pubs by bearing and distance"></svg>
     </div>
-    <ol class="list" id="list"></ol>
+    <div class="results-list">
+      <ol class="list" id="list"></ol>
+      <div class="places-state" id="placesState" role="status" aria-live="polite"></div>
+      <div class="places-meta" id="placesMeta" hidden>
+        Ratings are temporary data from <span class="gmp-attribution" translate="no">Google Maps</span>.
+        Reviews are not verified, but Google checks for and removes fake content when it is identified.
+        <a href="https://support.google.com/contributionpolicy/answer/7400114" target="_blank" rel="noopener">Review policy</a><span class="third-party" id="placesThirdParty"></span>
+      </div>
+    </div>
   </div>
 
   <footer id="foot">
     Pub data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors (ODbL) ·
     Geocoding by <a href="https://postcodes.io" target="_blank" rel="noopener">postcodes.io</a> with offline fallback ·
     Distances are great-circle (haversine).
+    <details class="privacy-note">
+      <summary>Ratings and privacy</summary>
+      <p>After a search, its location and radius are sent to Google Maps to retrieve live nearby ratings. This site does not store those ratings or your location. Use of the ratings is subject to the <a href="https://cloud.google.com/maps-platform/terms" target="_blank" rel="noopener">Google Maps Platform Terms</a> and <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google Privacy Policy</a>.</p>
+    </details>
   </footer>
 </div>
 
@@ -195,7 +239,12 @@
   const originIn = $("#origin"), goBtn = $("#go"), statusEl = $("#status"),
         resultsEl = $("#results"), listEl = $("#list"), radarEl = $("#radar"),
         originLbl = $("#originLbl"), chipsEl = $("#chips"), footEl = $("#foot"), warnEl = $("#warn"),
-        locateBtn = $("#locate");
+        locateBtn = $("#locate"), placesStateEl = $("#placesState"), placesMetaEl = $("#placesMeta"),
+        placesThirdPartyEl = $("#placesThirdParty");
+
+  const GOOGLE_MAPS_API_KEY="AIzaSyCxstl1sXmDEqYxGQFbtekzclkCTYW82mQ";
+  const ratingCountFormat=new Intl.NumberFormat("en-GB");
+  let googlePlacesPromise=null, resultVersion=0;
 
   let PUBS = [];          // [name, lat, lon, addr, pc]
   const pcExact = new Map();   // "RG415FR" -> {sx,sy,n}
@@ -290,7 +339,7 @@
   function nearest(oLat,oLon,k){
     const out=[];
     for(const p of PUBS){
-      out.push({ name:p[0], lat:p[1], lon:p[2], addr:p[3],
+      out.push({ name:p[0], lat:p[1], lon:p[2], addr:p[3], pc:p[4],
                  km:haversine(oLat,oLon,p[1],p[2]) });
     }
     out.sort((a,b)=>a.km-b.km);
@@ -302,12 +351,14 @@
   async function run(){
     if(!originIn.value.trim()){ originIn.focus(); return; }
     if(!PUBS.length) return;
+    const version=++resultVersion;
     goBtn.disabled=true; resultsEl.classList.remove("show"); warnEl.hidden=true;
     setStatus('<div class="spinner"></div>Finding the nearest ten…');
     try{
       const origin=await resolveOrigin(originIn.value);
+      if(version!==resultVersion) return;
       const pubs=nearest(origin.lat, origin.lon, 10);
-      render(origin, pubs);
+      render(origin, pubs, version);
       if(origin.approx){
         warnEl.hidden=false;
         warnEl.innerHTML="<b>Approximate origin.</b> The online postcode lookup couldn’t be reached, so <b>"+
@@ -324,23 +375,206 @@
     }finally{ goBtn.disabled=false; }
   }
 
-  function render(origin, pubs){
+  function render(origin, pubs, version){
     originLbl.innerHTML="from <b>"+esc(origin.label)+"</b>"+(origin.place?" · "+esc(origin.place):"");
     listEl.innerHTML="";
+    placesStateEl.textContent="Checking Google Maps ratings...";
+    placesMetaEl.hidden=true;
+    placesThirdPartyEl.textContent="";
     pubs.forEach((p,i)=>{
       const li=document.createElement("li");
       li.className="pub"+(i===0?" hot":""); li.dataset.idx=i;
       const miles=p.km*0.621371;
       li.innerHTML=
         '<div class="rank">'+String(i+1).padStart(2,"0")+'</div>'+
-        '<div><div class="name">'+esc(p.name)+'</div>'+
-          (p.addr?'<div class="addr">'+esc(p.addr)+'</div>':'')+'</div>'+
+        '<div class="pub-copy"><div class="name">'+esc(p.name)+'</div>'+
+          (p.addr?'<div class="addr">'+esc(p.addr)+'</div>':'')+
+          '<div class="rating-slot" data-rating-index="'+i+'"><span class="rating-loading">Checking rating</span></div></div>'+
         '<div class="metric"><div class="dist">'+miles.toFixed(2)+' mi<span>'+
           p.km.toFixed(2)+' km · '+dirName(p.brg)+'</span></div>'+compassSVG(p.brg)+'</div>';
       listEl.appendChild(li);
     });
     drawRadar(pubs);
     resultsEl.classList.add("show");
+    void addGoogleRatings(origin, pubs, version);
+  }
+
+  function loadGooglePlaces(){
+    if(window.google&&window.google.maps&&window.google.maps.importLibrary) return Promise.resolve(window.google.maps);
+    if(googlePlacesPromise) return googlePlacesPromise;
+    googlePlacesPromise=new Promise((resolve,reject)=>{
+      const callback="__crowGoogleMapsReady";
+      let settled=false;
+      const finish=(fn,value)=>{
+        if(settled) return;
+        settled=true;
+        clearTimeout(timer);
+        window[callback]=()=>{};
+        fn(value);
+      };
+      const timer=setTimeout(()=>finish(reject,new Error("google-timeout")),15000);
+      const previousAuthFailure=window.gm_authFailure;
+      window.gm_authFailure=()=>{
+        if(typeof previousAuthFailure==="function") previousAuthFailure();
+        finish(reject,new Error("google-auth"));
+      };
+      window[callback]=()=>finish(resolve,window.google.maps);
+      const script=document.createElement("script");
+      script.async=true;
+      script.src="https://maps.googleapis.com/maps/api/js?key="+encodeURIComponent(GOOGLE_MAPS_API_KEY)+
+        "&loading=async&v=weekly&libraries=places&callback="+callback;
+      script.onerror=()=>finish(reject,new Error("google-load"));
+      document.head.appendChild(script);
+    });
+    return googlePlacesPromise;
+  }
+
+  function normalName(value){
+    return String(value||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase()
+      .replace(/&/g," and ").replace(/\b(public house|the|pub|bar|inn|hotel|limited|ltd)\b/g," ")
+      .replace(/[^a-z0-9]+/g," ").trim().replace(/\s+/g," ");
+  }
+  function bigramDice(a,b){
+    if(a===b) return a?1:0;
+    if(a.length<2||b.length<2) return 0;
+    const counts=new Map();
+    for(let i=0;i<a.length-1;i++){ const g=a.slice(i,i+2); counts.set(g,(counts.get(g)||0)+1); }
+    let hits=0;
+    for(let i=0;i<b.length-1;i++){
+      const g=b.slice(i,i+2), n=counts.get(g)||0;
+      if(n){ hits++; counts.set(g,n-1); }
+    }
+    return 2*hits/(a.length+b.length-2);
+  }
+  function nameSimilarity(a,b){
+    a=normalName(a); b=normalName(b);
+    if(!a||!b) return 0;
+    if(a===b) return 1;
+    const aa=new Set(a.split(" ")), bb=new Set(b.split(" "));
+    let common=0; aa.forEach(x=>{ if(bb.has(x)) common++; });
+    const tokenJaccard=common/(aa.size+bb.size-common);
+    return Math.max(tokenJaccard,bigramDice(a,b));
+  }
+  function postcodeIn(value){
+    const match=String(value||"").toUpperCase().match(/\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/);
+    return match?match[0].replace(/\s+/g,""):"";
+  }
+  function placeCoordinates(place){
+    const loc=place&&place.location;
+    if(!loc) return null;
+    const lat=typeof loc.lat==="function"?loc.lat():loc.lat;
+    const lon=typeof loc.lng==="function"?loc.lng():loc.lng;
+    return Number.isFinite(lat)&&Number.isFinite(lon)?{lat,lon}:null;
+  }
+  function matchGooglePlaces(pubs,places){
+    const pairs=[];
+    pubs.forEach((pub,pubIndex)=>{
+      places.forEach((place,placeIndex)=>{
+        const point=placeCoordinates(place); if(!point) return;
+        const metres=haversine(pub.lat,pub.lon,point.lat,point.lon)*1000;
+        if(metres>300) return;
+        const similarity=nameSimilarity(pub.name,place.displayName);
+        const pubPc=postcodeIn(pub.pc), googlePc=postcodeIn(place.formattedAddress);
+        const samePostcode=Boolean(pubPc&&googlePc&&pubPc===googlePc);
+        const plausible=metres<=15 ||
+          (metres<=35&&similarity>=.16) ||
+          (metres<=80&&similarity>=.4) ||
+          (metres<=160&&similarity>=.65) ||
+          (metres<=300&&similarity>=.88) ||
+          (samePostcode&&metres<=180&&similarity>=.3);
+        if(!plausible) return;
+        const score=metres/260+(1-similarity)*1.7-(samePostcode?.22:0);
+        pairs.push({pubIndex,placeIndex,score});
+      });
+    });
+    pairs.sort((a,b)=>a.score-b.score);
+    const matches=new Map(), usedPlaces=new Set();
+    pairs.forEach(pair=>{
+      if(matches.has(pair.pubIndex)||usedPlaces.has(pair.placeIndex)) return;
+      matches.set(pair.pubIndex,places[pair.placeIndex]);
+      usedPlaces.add(pair.placeIndex);
+    });
+    return matches;
+  }
+  function renderGoogleRating(slot,place){
+    const rating=Number(place.rating);
+    if(!Number.isFinite(rating)){
+      slot.textContent="No Google rating yet";
+      slot.className="rating-slot rating-unavailable";
+      return false;
+    }
+    const count=Number(place.userRatingCount)||0;
+    const link=document.createElement("a");
+    link.className="google-rating";
+    link.href=place.googleMapsURI||("https://www.google.com/maps/search/?api=1&query="+
+      encodeURIComponent(place.displayName||"pub")+(place.id?"&query_place_id="+encodeURIComponent(place.id):""));
+    link.target="_blank"; link.rel="noopener";
+    link.title="Matched with "+(place.displayName||"this place")+" on Google Maps";
+    link.setAttribute("aria-label",rating.toFixed(1)+" out of 5 on Google Maps from "+
+      ratingCountFormat.format(count)+" ratings; opens in a new tab");
+    const star=document.createElement("span"); star.className="google-star"; star.setAttribute("aria-hidden","true");
+    const number=document.createElement("span"); number.className="google-rating-number"; number.textContent=rating.toFixed(1);
+    const reviews=document.createElement("span"); reviews.className="google-review-count";
+    reviews.textContent="("+ratingCountFormat.format(count)+")";
+    const source=document.createElement("span"); source.className="gmp-attribution"; source.translate=false; source.textContent="Google Maps";
+    link.append(star,number,reviews,source);
+    slot.className="rating-slot"; slot.replaceChildren(link);
+    return true;
+  }
+  function showThirdPartyAttributions(matches){
+    const providers=new Map();
+    matches.forEach(place=>{
+      (place.attributions||[]).forEach(item=>{
+        if(item&&item.provider) providers.set(item.provider,item.providerURI||"");
+      });
+    });
+    if(!providers.size) return;
+    placesThirdPartyEl.append("Data providers: ");
+    [...providers].forEach(([name,uri],index)=>{
+      if(index) placesThirdPartyEl.append(", ");
+      if(uri){
+        const a=document.createElement("a"); a.href=uri; a.target="_blank"; a.rel="noopener"; a.textContent=name;
+        placesThirdPartyEl.append(a);
+      }else placesThirdPartyEl.append(name);
+    });
+  }
+  async function addGoogleRatings(origin,pubs,version){
+    try{
+      await loadGooglePlaces();
+      if(version!==resultVersion) return;
+      const {Place,SearchNearbyRankPreference}=await window.google.maps.importLibrary("places");
+      const farthestMetres=Math.max(...pubs.map(pub=>pub.km))*1000;
+      const radius=Math.min(50000,Math.max(500,farthestMetres+Math.max(300,farthestMetres*.2)));
+      const {places=[]}=await Place.searchNearby({
+        fields:["id","displayName","formattedAddress","location","rating","userRatingCount","googleMapsURI"],
+        locationRestriction:{center:{lat:origin.lat,lng:origin.lon},radius},
+        includedTypes:["bar","brewpub","beer_garden"],
+        maxResultCount:20,
+        rankPreference:SearchNearbyRankPreference.DISTANCE
+      });
+      if(version!==resultVersion) return;
+      const matches=matchGooglePlaces(pubs,places);
+      let rated=0;
+      pubs.forEach((pub,index)=>{
+        const slot=listEl.querySelector('[data-rating-index="'+index+'"]'); if(!slot) return;
+        const place=matches.get(index);
+        if(place){ if(renderGoogleRating(slot,place)) rated++; }
+        else { slot.textContent="No reliable Google Maps match"; slot.className="rating-slot rating-unavailable"; }
+      });
+      placesStateEl.textContent=rated===pubs.length?"Google ratings found for all ten pubs.":
+        "Google ratings found for "+rated+" of "+pubs.length+" pubs.";
+      placesMetaEl.hidden=rated===0;
+      showThirdPartyAttributions(matches);
+    }catch(error){
+      if(version!==resultVersion) return;
+      listEl.querySelectorAll(".rating-slot").forEach(slot=>{
+        slot.textContent="Rating unavailable";
+        slot.className="rating-slot rating-unavailable";
+      });
+      placesStateEl.textContent="Google ratings are temporarily unavailable.";
+      placesMetaEl.hidden=true;
+      console.warn("Google Places ratings unavailable",error);
+    }
   }
 
   function compassSVG(brg){
@@ -388,15 +622,17 @@
   });
   function useLocation(){
     if(!PUBS.length) return;
+    const version=++resultVersion;
     if(!("geolocation" in navigator)){ setStatus("This browser can’t share a location — type a postcode instead.", "err"); return; }
     locateBtn.disabled=true; goBtn.disabled=true; warnEl.hidden=true; resultsEl.classList.remove("show");
     setStatus('<div class="spinner"></div>Getting your location…');
     navigator.geolocation.getCurrentPosition(
       pos=>{
+        if(version!==resultVersion) return;
         const {latitude,longitude,accuracy}=pos.coords;
         const origin={ lat:latitude, lon:longitude, label:"your location",
                        place:"GPS · ±"+Math.round(accuracy)+" m" };
-        render(origin, nearest(latitude, longitude, 10));
+        render(origin, nearest(latitude, longitude, 10), version);
         setStatus(""); locateBtn.disabled=false; goBtn.disabled=false;
       },
       err=>{
