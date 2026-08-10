@@ -446,8 +446,13 @@
     }
     return 2*hits/(a.length+b.length-2);
   }
-  function nameSimilarity(a,b){
-    a=normalName(a); b=normalName(b);
+  function contextualName(value,context){
+    const base=normalName(value), contextWords=new Set(normalName(context).split(" ").filter(Boolean));
+    const reduced=base.split(" ").filter(word=>!contextWords.has(word)).join(" ");
+    return reduced||base;
+  }
+  function nameSimilarity(a,b,aContext,bContext){
+    a=contextualName(a,aContext); b=contextualName(b,bContext);
     if(!a||!b) return 0;
     if(a===b) return 1;
     const aa=new Set(a.split(" ")), bb=new Set(b.split(" "));
@@ -473,7 +478,7 @@
         const point=placeCoordinates(place); if(!point) return;
         const metres=haversine(pub.lat,pub.lon,point.lat,point.lon)*1000;
         if(metres>300) return;
-        const similarity=nameSimilarity(pub.name,place.displayName);
+        const similarity=nameSimilarity(pub.name,place.displayName,pub.addr,place.formattedAddress);
         const pubPc=postcodeIn(pub.pc), googlePc=postcodeIn(place.formattedAddress);
         const samePostcode=Boolean(pubPc&&googlePc&&pubPc===googlePc);
         const plausible=(metres<=35&&similarity>=.4) ||
