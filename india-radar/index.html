@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#17131d">
+  <meta name="description" content="A fast, touch-friendly animated rain-radar map for India, updated every five minutes.">
+  <meta name="radar-manifest" content="https://gws-access.jasmin.ac.uk/public/incompass/kieran/india-radar/data/manifest.json">
+  <meta name="radar-manifest-fallback" content="https://www.met.reading.ac.uk/~rz908899/india-radar/data/manifest.php">
+  <title>India Rain Radar</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./radar-icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://gws-access.jasmin.ac.uk">
+  <link rel="preconnect" href="https://www.met.reading.ac.uk">
+  <link rel="preconnect" href="https://tile.openstreetmap.org">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous">
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body>
+  <a class="skip-link" href="#timeline">Skip to timeline controls</a>
+
+  <header class="app-header">
+    <a class="brand" href="../" aria-label="Kieran Hunt projects home">
+      <span class="brand-mark" aria-hidden="true">ϟ</span>
+      <span>
+        <strong>India Rain Radar</strong>
+        <small>Five-minute live view</small>
+      </span>
+    </a>
+    <div class="header-status" aria-live="polite">
+      <span class="status-pill" id="feedStatus" data-state="loading"><i></i><span>Connecting</span></span>
+      <span class="header-time" id="headerTime">—</span>
+    </div>
+    <div class="header-actions">
+      <button class="icon-button" id="locateButton" type="button" aria-label="Show my location" title="Show my location">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path></svg>
+      </button>
+      <button class="icon-button" id="aboutButton" type="button" aria-label="About this radar" title="About this radar">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v6M12 7.5v.1"></path></svg>
+      </button>
+    </div>
+  </header>
+
+  <main id="map" aria-label="Animated rain-radar map of India"></main>
+
+  <div class="map-loading" id="mapLoading" role="status">
+    <span class="loader" aria-hidden="true"></span>
+    <span id="loadingText">Loading radar archive…</span>
+  </div>
+
+  <aside class="radar-key" aria-label="Radar intensity key">
+    <span class="key-title">Relative intensity</span>
+    <span class="key-gradient" aria-hidden="true"></span>
+    <span class="key-labels"><span>Light</span><span>Heavy</span></span>
+  </aside>
+
+  <button class="map-button fit-button" id="fitButton" type="button" aria-label="Fit India in view" title="Fit India in view">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path></svg>
+  </button>
+
+  <section class="timeline" id="timeline" aria-label="Radar timeline">
+    <div class="timeline-handle" aria-hidden="true"></div>
+    <div class="timeline-topline">
+      <div>
+        <span class="selected-time" id="selectedTime">—</span>
+        <span class="selected-date" id="selectedDate">Waiting for data</span>
+      </div>
+      <div class="frame-badges">
+        <span class="frame-kind" id="frameKind">Source frame</span>
+        <button class="live-button" id="latestButton" type="button">Latest</button>
+      </div>
+    </div>
+
+    <div class="playback-row">
+      <button class="transport-button" id="previousButton" type="button" aria-label="Previous five minutes">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"></path></svg>
+      </button>
+      <button class="play-button" id="playButton" type="button" aria-label="Play radar animation" aria-pressed="false">
+        <svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6Z"></path></svg>
+        <svg class="pause-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6v12M15 6v12"></path></svg>
+      </button>
+      <button class="transport-button" id="nextButton" type="button" aria-label="Next five minutes">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 6 6 6-6 6"></path></svg>
+      </button>
+      <div class="range-wrap">
+        <input id="timeRange" type="range" min="0" max="0" value="0" step="1" aria-label="Radar time">
+        <div class="range-labels"><span id="rangeStart">—</span><span>5-min steps</span><span id="rangeEnd">—</span></div>
+      </div>
+    </div>
+
+    <div class="timeline-meta">
+      <button class="date-button" id="dateButton" type="button" aria-label="Choose a date">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5zM8 2v4M16 2v4M5 9h14"></path></svg>
+        <span id="dateButtonLabel">Archive</span>
+      </button>
+      <input class="date-picker" id="datePicker" type="date" aria-label="Choose archive date" tabindex="-1">
+      <span id="archiveSummary">Building the archive from today</span>
+      <span class="source-short">Radar via <a href="https://www.rainviewer.com/radars/india.html" target="_blank" rel="noopener">RainViewer</a> · IMD sources</span>
+    </div>
+  </section>
+
+  <dialog class="about-dialog" id="aboutDialog">
+    <form method="dialog">
+      <button class="dialog-close" value="close" aria-label="Close">×</button>
+      <p class="dialog-eyebrow">About the map</p>
+      <h2>India Rain Radar</h2>
+      <p>This experimental map archives the public RainViewer radar composite for India. RainViewer identifies the India Meteorological Department as its source in India.</p>
+      <dl>
+        <div><dt>Update check</dt><dd>Every five minutes</dd></div>
+        <div><dt>Observed frames</dt><dd>Nominally every ten minutes</dd></div>
+        <div><dt>Five-minute midpoint</dt><dd>A labelled cross-fade between adjacent source frames</dd></div>
+        <div><dt>Map resolution</dt><dd>Web-Mercator zoom 6, approximately 2–3 km per pixel over India</dd></div>
+      </dl>
+      <label class="opacity-control" for="opacityRange">
+        <span>Radar opacity <output id="opacityOutput">82%</output></span>
+        <input id="opacityRange" type="range" min="35" max="100" value="82" step="1">
+      </label>
+      <p class="caveat">Radar can be delayed, unavailable, affected by ground clutter, or absent outside station coverage. Do not use this experimental service for safety-critical decisions.</p>
+      <p class="credits">Data: <a href="https://www.rainviewer.com/api/weather-maps-api.html" target="_blank" rel="noopener">RainViewer Weather Maps API</a> and its <a href="https://mausam.imd.gov.in/responsive/radar.php" target="_blank" rel="noopener">IMD sources</a>. Basemap © OpenStreetMap contributors. Contact: <a href="mailto:k.m.r.hunt@reading.ac.uk">Kieran Hunt</a>.</p>
+      <p class="views">
+        <a href="https://vbr.nathanchung.dev/info/kieranmrhunt-india-radar" target="_blank" rel="noopener" aria-label="Open public page-view summary">
+          <img src="https://vbr.nathanchung.dev/badge?page_id=kieranmrhunt-india-radar&amp;color=e87419&amp;lcolor=211c2a&amp;text=Page_views&amp;style=flat&amp;hit=true" alt="India Rain Radar page views">
+        </a><br>
+        <small>Cookie-free request count via Visitor Badge Reloaded.</small>
+      </p>
+      <menu><button class="dialog-done" value="close">Done</button></menu>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <noscript><div class="noscript">This animated radar requires JavaScript.</div></noscript>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
+  <script src="./app.js" defer></script>
+</body>
+</html>

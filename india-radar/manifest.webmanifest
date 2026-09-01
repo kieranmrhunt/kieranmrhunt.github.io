@@ -1,0 +1,18 @@
+{
+  "name": "India Rain Radar",
+  "short_name": "India Radar",
+  "description": "A fast, touch-friendly animated rain-radar map for India.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#e8e5df",
+  "theme_color": "#17131d",
+  "icons": [
+    {
+      "src": "./radar-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
