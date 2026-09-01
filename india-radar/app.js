@@ -8,7 +8,13 @@
   };
   const manifestEndpoints = [meta('radar-manifest'), meta('radar-manifest-fallback')].filter(Boolean);
   const FIVE_MINUTES = 300;
-  const LIGHTNING_WINDOW_SECONDS = 600;
+  const LIGHTNING_WINDOW_SECONDS = 3600;
+  const LIGHTNING_AGE_STOPS = [
+    { seconds: 0, colour: [255, 240, 90] },
+    { seconds: 900, colour: [255, 174, 34] },
+    { seconds: 1800, colour: [232, 93, 26] },
+    { seconds: 3600, colour: [123, 65, 99] },
+  ];
   const SCRUB_PREFETCH_STEPS = 12;
   const IST_OFFSET_SECONDS = 5.5 * 3600;
   const DEFAULT_BOUNDS = { south: 0, west: 61.875, north: 40.979898, east: 106.875 };
@@ -29,6 +35,23 @@
       timeZone: 'UTC', hour: '2-digit', minute: '2-digit', hour12: false,
     }),
   };
+
+  function lightningColourAt(ageSeconds) {
+    const age = Math.max(0, Math.min(LIGHTNING_WINDOW_SECONDS, Number(ageSeconds) || 0));
+    const upperIndex = LIGHTNING_AGE_STOPS.findIndex((stop) => stop.seconds >= age);
+    if (upperIndex <= 0) return LIGHTNING_AGE_STOPS[0].colour;
+    const upper = LIGHTNING_AGE_STOPS[upperIndex];
+    const lower = LIGHTNING_AGE_STOPS[upperIndex - 1];
+    const ratio = (age - lower.seconds) / (upper.seconds - lower.seconds);
+    return lower.colour.map((channel, index) => (
+      Math.round(channel + (upper.colour[index] - channel) * ratio)
+    ));
+  }
+
+  const LIGHTNING_AGE_PALETTE = Array.from(
+    { length: LIGHTNING_WINDOW_SECONDS / 60 + 1 },
+    (_, minute) => lightningColourAt(minute * 60),
+  );
 
   function readOpacityPreference() {
     try {
@@ -217,21 +240,27 @@
       context.setTransform(ratio, 0, 0, ratio, 0, 0);
       context.clearRect(0, 0, size.x, size.y);
       if (!this._enabled) return;
-      const radius = Math.min(4.5, 2.9 + Math.max(0, this._map.getZoom() - 4) * 0.28);
+      const baseRadius = Math.min(4.5, 2.9 + Math.max(0, this._map.getZoom() - 4) * 0.28);
       for (const strike of this._strikes) {
         const point = this._map.latLngToContainerPoint([strike.latitude, strike.longitude]);
         if (point.x < -8 || point.y < -8 || point.x > size.x + 8 || point.y > size.y + 8) continue;
         const age = Math.max(0, this._epoch - strike.time);
-        const alpha = Math.max(0.42, 0.96 - age / LIGHTNING_WINDOW_SECONDS * 0.5);
+        const ageFraction = Math.min(1, age / LIGHTNING_WINDOW_SECONDS);
+        const radius = baseRadius * (1 - ageFraction * 0.35);
+        const alpha = 0.96 - ageFraction * 0.46;
+        const colour = LIGHTNING_AGE_PALETTE[Math.min(
+          LIGHTNING_AGE_PALETTE.length - 1,
+          Math.floor(age / 60),
+        )];
         context.beginPath();
         context.moveTo(point.x, point.y - radius);
         context.lineTo(point.x + radius, point.y);
         context.lineTo(point.x, point.y + radius);
         context.lineTo(point.x - radius, point.y);
         context.closePath();
-        context.fillStyle = `rgba(255,174,34,${alpha})`;
-        context.strokeStyle = 'rgba(45,24,7,.78)';
-        context.lineWidth = 0.9;
+        context.fillStyle = `rgba(${colour[0]},${colour[1]},${colour[2]},${alpha})`;
+        context.strokeStyle = 'rgba(45,24,35,.76)';
+        context.lineWidth = 0.85;
         context.fill();
         context.stroke();
         if (age <= 180) {

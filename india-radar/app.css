@@ -74,9 +74,10 @@ a{color:inherit}
 .key-title{display:block;margin-bottom:5px;color:var(--muted);font:9px/1 var(--mono);text-transform:uppercase;letter-spacing:.08em}
 .key-gradient{display:block;height:7px;border-radius:3px;background:linear-gradient(90deg,#004e78 0%,#008fc7 34%,#00d1ee 56%,#ffe900 74%,#ff8c00 88%,#ee2929 100%)}
 .key-labels{display:flex;justify-content:space-between;margin-top:3px;color:var(--muted);font:8px/1 var(--mono);text-transform:uppercase}
-.lightning-key{position:fixed;z-index:800;left:10px;bottom:calc(224px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:7px;min-width:154px;padding:7px 9px;border:1px solid rgba(255,255,255,.5);border-radius:8px;background:rgba(252,250,245,.86);box-shadow:0 8px 28px -22px #000;backdrop-filter:blur(10px);pointer-events:none}
+.lightning-key{position:fixed;z-index:800;left:10px;bottom:calc(224px + env(safe-area-inset-bottom));display:flex;align-items:flex-start;gap:8px;width:176px;padding:8px 9px;border:1px solid rgba(255,255,255,.5);border-radius:8px;background:rgba(252,250,245,.88);box-shadow:0 8px 28px -22px #000;backdrop-filter:blur(10px);pointer-events:none}
 .lightning-key[data-state="off"]{opacity:.66}.lightning-key-mark{display:grid;place-items:center;width:25px;height:25px;flex:none;border-radius:50%;background:#ffad22;color:#2c1807;font:900 18px/1 var(--sans);box-shadow:inset 0 0 0 1px rgba(75,34,3,.18)}
-.lightning-key span:last-child{display:grid;gap:3px}.lightning-key strong{font:700 9px/1.1 var(--mono);text-transform:uppercase;letter-spacing:.04em}.lightning-key small{color:var(--muted);font:8px/1 var(--mono)}
+.lightning-key-copy{display:grid;flex:1;gap:3px;min-width:0}.lightning-key strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:700 9px/1.1 var(--mono);text-transform:uppercase;letter-spacing:.04em}.lightning-key small{color:var(--muted);font:8px/1 var(--mono)}
+.lightning-age-scale{display:grid;gap:2px;margin-top:3px}.lightning-age-marks{position:relative;display:flex;align-items:center;justify-content:space-between;height:10px;padding:0 2px}.lightning-age-marks::before{position:absolute;z-index:0;left:3px;right:3px;top:4px;height:2px;border-radius:2px;background:linear-gradient(90deg,#fff05a 0%,#ffad22 25%,#e85d1a 50%,#7b4163 100%);content:""}.lightning-age-marks i{position:relative;z-index:1;display:block;transform:rotate(45deg);border:1px solid rgba(45,24,35,.76);background:#fff05a}.lightning-age-marks i:nth-child(1){width:9px;height:9px}.lightning-age-marks i:nth-child(2){width:7px;height:7px;background:#e85d1a;opacity:.73}.lightning-age-marks i:nth-child(3){width:5px;height:5px;background:#7b4163;opacity:.5}.lightning-age-labels{display:flex;justify-content:space-between;color:var(--muted);font:7px/1 var(--mono);text-transform:uppercase}
 
 .timeline{
   position:fixed;z-index:1000;left:50%;bottom:max(10px,env(safe-area-inset-bottom));width:min(760px,calc(100% - 20px));
@@ -148,7 +149,7 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid rgba(
   .transport-button{width:36px;height:36px}.play-button{width:42px;height:42px}.range-wrap{margin-left:2px}.range-labels{font-size:7px}
   .timeline-meta{gap:6px;font-size:8px}.source-short{display:none}#archiveSummary{flex:1;text-align:right}
   .radar-key{left:7px;bottom:calc(162px + env(safe-area-inset-bottom));width:137px;padding:6px 7px}.key-title{font-size:8px}
-  .lightning-key{left:7px;bottom:calc(211px + env(safe-area-inset-bottom));min-width:137px;padding:6px 7px}.lightning-key-mark{width:23px;height:23px;font-size:16px}.lightning-key strong{font-size:8px}.lightning-key small{font-size:7px}
+  .lightning-key{left:7px;bottom:calc(211px + env(safe-area-inset-bottom));width:166px;padding:7px}.lightning-key-mark{width:23px;height:23px;font-size:16px}.lightning-key strong{font-size:8px}.lightning-key small{font-size:7px}
   .leaflet-control-attribution{margin-bottom:calc(156px + env(safe-area-inset-bottom))!important;max-width:65vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .about-dialog form{padding:21px 18px}.about-dialog dl{grid-template-columns:1fr}.about-dialog{max-height:calc(100dvh - 16px)}
 }

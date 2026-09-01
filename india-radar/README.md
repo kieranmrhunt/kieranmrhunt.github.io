@@ -8,8 +8,8 @@ The upstream composite currently contains nominal ten-minute frames. The page
 checks for updates every five minutes and offers a five-minute slider; midpoint
 positions are visibly labelled cross-fades between adjacent genuine frames.
 At every position, a single canvas layer renders ILDN strokes from the preceding
-ten minutes. Hour-sized chunks and month indexes keep archive browsing light on
-phones.
+hour, with colour, size, and opacity showing their age. Hour-sized chunks and
+month indexes keep archive browsing light on phones.
 
 Public radar frames have persistent station-centred radial spokes conservatively
 inpainted from adjacent pixels. The original source frames are retained in the

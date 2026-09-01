@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://www.met.reading.ac.uk">
   <link rel="preconnect" href="https://tile.openstreetmap.org">
   <link rel="stylesheet" href="./vendor/leaflet/leaflet.css?v=1.9.4">
-  <link rel="stylesheet" href="./app.css?v=3">
+  <link rel="stylesheet" href="./app.css?v=4">
 </head>
 <body>
   <a class="skip-link" href="#timeline">Skip to timeline controls</a>
@@ -55,9 +55,16 @@
     <span class="key-labels"><span>Light</span><span>Heavy</span></span>
   </aside>
 
-  <aside class="lightning-key" id="lightningKey" aria-live="polite">
+  <aside class="lightning-key" id="lightningKey" aria-label="Lightning history" aria-live="polite">
     <span class="lightning-key-mark" aria-hidden="true">ϟ</span>
-    <span><strong id="lightningSummary">Lightning loading…</strong><small>Previous 10 min · ILDN</small></span>
+    <span class="lightning-key-copy">
+      <strong id="lightningSummary">Lightning loading…</strong>
+      <small>Previous hour · ILDN</small>
+      <span class="lightning-age-scale" role="img" aria-label="Age key: larger yellow strokes are newest; smaller purple strokes are up to 60 minutes old.">
+        <span class="lightning-age-marks" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="lightning-age-labels" aria-hidden="true"><span>Now</span><span>30m</span><span>60m</span></span>
+      </span>
+    </span>
   </aside>
 
   <button class="map-button fit-button" id="fitButton" type="button" aria-label="Fit India in view" title="Fit India in view">
@@ -119,7 +126,7 @@
         <div><dt>Update check</dt><dd>Every five minutes</dd></div>
         <div><dt>Observed frames</dt><dd>Nominally every ten minutes</dd></div>
         <div><dt>Five-minute midpoint</dt><dd>A labelled cross-fade between adjacent source frames</dd></div>
-        <div><dt>Lightning window</dt><dd>Strokes in the previous ten minutes at every timeline position</dd></div>
+        <div><dt>Lightning history</dt><dd>Previous-hour strokes at every timeline position, coloured and sized by age</dd></div>
         <div><dt>Map resolution</dt><dd>Web-Mercator zoom 6, approximately 2–3 km per pixel over India</dd></div>
         <div><dt>Radar cleaning</dt><dd>Persistent radial spokes through known radar sites are detected over time and inpainted</dd></div>
       </dl>
@@ -147,6 +154,6 @@
 
   <noscript><div class="noscript">This animated radar requires JavaScript.</div></noscript>
   <script src="./vendor/leaflet/leaflet.js?v=1.9.4"></script>
-  <script src="./app.js?v=4" defer></script>
+  <script src="./app.js?v=5" defer></script>
 </body>
 </html>
