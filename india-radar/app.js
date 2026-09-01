@@ -8,6 +8,7 @@
   };
   const manifestEndpoints = [meta('radar-manifest'), meta('radar-manifest-fallback')].filter(Boolean);
   const FIVE_MINUTES = 300;
+  const LIGHTNING_WINDOW_SECONDS = 600;
   const IST_OFFSET_SECONDS = 5.5 * 3600;
   const DEFAULT_BOUNDS = { south: 0, west: 61.875, north: 40.979898, east: 106.875 };
 
@@ -23,6 +24,22 @@
   function saveOpacityPreference(value) {
     try {
       window.localStorage.setItem('indiaRadarOpacity', String(value));
+    } catch (_) {
+      // Storage can be unavailable in private or embedded browser contexts.
+    }
+  }
+
+  function readLightningPreference() {
+    try {
+      return window.localStorage.getItem('indiaRadarLightning') !== 'off';
+    } catch (_) {
+      return true;
+    }
+  }
+
+  function saveLightningPreference(enabled) {
+    try {
+      window.localStorage.setItem('indiaRadarLightning', enabled ? 'on' : 'off');
     } catch (_) {
       // Storage can be unavailable in private or embedded browser contexts.
     }
@@ -51,6 +68,16 @@
     scrubTimer: null,
     toastTimer: null,
     userMarker: null,
+    lightningManifest: null,
+    lightningManifestUrl: '',
+    lightningRadarEndpoint: '',
+    lightningEnabled: readLightningPreference(),
+    lightningHours: new Map(),
+    lightningMonthUrls: new Map(),
+    lightningLoadedMonths: new Set(),
+    lightningLoadingMonths: new Map(),
+    lightningCache: new Map(),
+    lightningRenderToken: 0,
   };
 
   if (!window.L) {
@@ -79,10 +106,101 @@
   map.createPane('radarPane');
   map.getPane('radarPane').style.zIndex = 410;
   map.getPane('radarPane').style.pointerEvents = 'none';
+  map.createPane('lightningPane');
+  map.getPane('lightningPane').style.zIndex = 450;
+  map.getPane('lightningPane').style.pointerEvents = 'none';
+
+  const LightningCanvasLayer = L.Layer.extend({
+    initialize() {
+      this._strikes = [];
+      this._epoch = 0;
+      this._enabled = true;
+      this._drawRequest = null;
+    },
+    onAdd(activeMap) {
+      this._map = activeMap;
+      this._canvas = L.DomUtil.create('canvas', 'leaflet-layer lightning-canvas leaflet-zoom-hide');
+      activeMap.getPane('lightningPane').appendChild(this._canvas);
+      activeMap.on('moveend zoomend resize viewreset', this._reset, this);
+      this._reset();
+    },
+    onRemove(activeMap) {
+      activeMap.off('moveend zoomend resize viewreset', this._reset, this);
+      if (this._drawRequest) cancelAnimationFrame(this._drawRequest);
+      this._canvas.remove();
+      this._canvas = null;
+      this._map = null;
+    },
+    setStrikes(strikes, epoch) {
+      this._strikes = strikes || [];
+      this._epoch = Number(epoch) || 0;
+      this._scheduleDraw();
+    },
+    setEnabled(enabled) {
+      this._enabled = Boolean(enabled);
+      if (this._canvas) this._canvas.hidden = !this._enabled;
+      this._scheduleDraw();
+    },
+    _reset() {
+      if (!this._map || !this._canvas) return;
+      const size = this._map.getSize();
+      const ratio = Math.min(2, window.devicePixelRatio || 1);
+      this._canvas.width = Math.max(1, Math.round(size.x * ratio));
+      this._canvas.height = Math.max(1, Math.round(size.y * ratio));
+      this._canvas.style.width = `${size.x}px`;
+      this._canvas.style.height = `${size.y}px`;
+      L.DomUtil.setPosition(this._canvas, this._map.containerPointToLayerPoint([0, 0]));
+      this._ratio = ratio;
+      this._scheduleDraw();
+    },
+    _scheduleDraw() {
+      if (!this._canvas || this._drawRequest) return;
+      this._drawRequest = requestAnimationFrame(() => {
+        this._drawRequest = null;
+        this._draw();
+      });
+    },
+    _draw() {
+      if (!this._map || !this._canvas) return;
+      const context = this._canvas.getContext('2d');
+      const ratio = this._ratio || 1;
+      const size = this._map.getSize();
+      context.setTransform(ratio, 0, 0, ratio, 0, 0);
+      context.clearRect(0, 0, size.x, size.y);
+      if (!this._enabled) return;
+      const radius = Math.min(4.5, 2.9 + Math.max(0, this._map.getZoom() - 4) * 0.28);
+      for (const strike of this._strikes) {
+        const point = this._map.latLngToContainerPoint([strike.latitude, strike.longitude]);
+        if (point.x < -8 || point.y < -8 || point.x > size.x + 8 || point.y > size.y + 8) continue;
+        const age = Math.max(0, this._epoch - strike.time);
+        const alpha = Math.max(0.42, 0.96 - age / LIGHTNING_WINDOW_SECONDS * 0.5);
+        context.beginPath();
+        context.moveTo(point.x, point.y - radius);
+        context.lineTo(point.x + radius, point.y);
+        context.lineTo(point.x, point.y + radius);
+        context.lineTo(point.x - radius, point.y);
+        context.closePath();
+        context.fillStyle = `rgba(255,174,34,${alpha})`;
+        context.strokeStyle = 'rgba(45,24,7,.78)';
+        context.lineWidth = 0.9;
+        context.fill();
+        context.stroke();
+        if (age <= 180) {
+          context.beginPath();
+          context.arc(point.x, point.y, 0.9, 0, Math.PI * 2);
+          context.fillStyle = 'rgba(255,255,235,.95)';
+          context.fill();
+        }
+      }
+    },
+  });
+
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
   }).addTo(map);
+  const lightningLayer = new LightningCanvasLayer();
+  lightningLayer.addTo(map);
   L.control.zoom({ position: 'topright' }).addTo(map);
 
   const controls = {
@@ -111,14 +229,23 @@
     aboutDialog: $('#aboutDialog'),
     opacityRange: $('#opacityRange'),
     opacityOutput: $('#opacityOutput'),
+    lightningButton: $('#lightningButton'),
+    lightningToggle: $('#lightningToggle'),
+    lightningKey: $('#lightningKey'),
+    lightningSummary: $('#lightningSummary'),
     toast: $('#toast'),
   };
 
   controls.opacityRange.value = String(Math.round(state.opacity * 100));
   controls.opacityOutput.value = `${Math.round(state.opacity * 100)}%`;
+  setLightningEnabled(state.lightningEnabled);
 
   function validManifest(payload) {
     return payload && payload.schema_version === 1 && payload.bounds && Array.isArray(payload.frames);
+  }
+
+  function validLightningManifest(payload) {
+    return payload && payload.schema_version === 1 && Array.isArray(payload.hours) && Array.isArray(payload.months);
   }
 
   function baseFromManifestUrl(url) {
@@ -127,6 +254,53 @@
     parsed.hash = '';
     parsed.pathname = parsed.pathname.replace(/\/[^/]+$/, '/');
     return parsed.href;
+  }
+
+  function lightningManifestEndpoint(radarEndpoint) {
+    const endpoint = new URL(radarEndpoint);
+    if (endpoint.pathname.endsWith('.php')) {
+      endpoint.search = '';
+      endpoint.searchParams.set('lightning', 'manifest');
+      return endpoint.href;
+    }
+    return new URL('lightning/manifest.json', baseFromManifestUrl(radarEndpoint)).href;
+  }
+
+  function lightningMonthManifestUrl(month, relative) {
+    const radarEndpoint = state.lightningRadarEndpoint || state.manifestUrl;
+    const endpoint = new URL(radarEndpoint);
+    if (endpoint.pathname.endsWith('.php')) {
+      endpoint.search = '';
+      endpoint.searchParams.set('lightning_month', month);
+      return endpoint.href;
+    }
+    return new URL(relative, baseFromManifestUrl(radarEndpoint)).href;
+  }
+
+  function lightningHourUrl(summary) {
+    const radarEndpoint = state.lightningRadarEndpoint || state.manifestUrl;
+    const endpoint = new URL(radarEndpoint);
+    if (endpoint.pathname.endsWith('.php')) {
+      endpoint.search = '';
+      endpoint.searchParams.set('lightning_hour', String(summary.time));
+      return endpoint.href;
+    }
+    return new URL(summary.url, baseFromManifestUrl(radarEndpoint)).href;
+  }
+
+  function updateLightningUi(kind, text) {
+    controls.lightningKey.dataset.state = kind;
+    controls.lightningSummary.textContent = text;
+  }
+
+  function mergeLightningHours(hours) {
+    for (const summary of hours || []) {
+      const time = Number(summary.time);
+      if (!Number.isFinite(time) || !summary.url) continue;
+      const old = state.lightningHours.get(time);
+      if (old && old.sha256 !== summary.sha256) state.lightningCache.delete(time);
+      state.lightningHours.set(time, { ...summary, time });
+    }
   }
 
   async function fetchJson(url, timeoutMs = 15000) {
@@ -232,7 +406,9 @@
   }
 
   function frameUrl(frame) {
-    return new URL(frame.url, state.manifestBase).href;
+    const url = new URL(frame.url, state.manifestBase);
+    if (frame.sha256) url.searchParams.set('v', String(frame.sha256).slice(0, 12));
+    return url.href;
   }
 
   function monthManifestUrl(month, relative) {
@@ -242,6 +418,148 @@
       return manifestUrl.href;
     }
     return new URL(relative, state.manifestBase).href;
+  }
+
+  async function loadLightningMonth(month) {
+    if (state.lightningLoadedMonths.has(month)) return true;
+    if (state.lightningLoadingMonths.has(month)) return state.lightningLoadingMonths.get(month);
+    const relative = state.lightningMonthUrls.get(month);
+    if (!relative) return false;
+    const promise = (async () => {
+      try {
+        const payload = await fetchJson(lightningMonthManifestUrl(month, relative));
+        if (!payload || !Array.isArray(payload.hours)) throw new Error('invalid lightning month');
+        mergeLightningHours(payload.hours);
+        state.lightningLoadedMonths.add(month);
+        return true;
+      } catch (_) {
+        return false;
+      } finally {
+        state.lightningLoadingMonths.delete(month);
+      }
+    })();
+    state.lightningLoadingMonths.set(month, promise);
+    return promise;
+  }
+
+  async function ensureLightningSummaries(epoch) {
+    const firstHour = Math.floor((epoch - LIGHTNING_WINDOW_SECONDS) / 3600) * 3600;
+    const lastHour = Math.floor(epoch / 3600) * 3600;
+    const needed = [];
+    for (let hour = firstHour; hour <= lastHour; hour += 3600) needed.push(hour);
+    const missingMonths = new Set(
+      needed.filter((hour) => !state.lightningHours.has(hour)).map(monthKey),
+    );
+    if (missingMonths.size) await Promise.all([...missingMonths].map(loadLightningMonth));
+    return needed.map((hour) => state.lightningHours.get(hour)).filter(Boolean);
+  }
+
+  async function loadLightningHour(summary) {
+    if (!summary || Number(summary.count) === 0) return [];
+    if (state.lightningCache.has(summary.time)) return state.lightningCache.get(summary.time);
+    const promise = (async () => {
+      const payload = await fetchJson(lightningHourUrl(summary));
+      if (!payload || !Array.isArray(payload.fields) || !Array.isArray(payload.strokes)) {
+        throw new Error('invalid lightning hour');
+      }
+      const timestampIndex = payload.fields.indexOf('unix_seconds');
+      const latitudeIndex = payload.fields.indexOf('latitude');
+      const longitudeIndex = payload.fields.indexOf('longitude');
+      if (timestampIndex < 0 || latitudeIndex < 0 || longitudeIndex < 0) {
+        throw new Error('lightning fields are incomplete');
+      }
+      return payload.strokes.map((record) => ({
+        time: Number(record[timestampIndex]),
+        latitude: Number(record[latitudeIndex]),
+        longitude: Number(record[longitudeIndex]),
+      })).filter((strike) => (
+        Number.isFinite(strike.time)
+        && Number.isFinite(strike.latitude)
+        && Number.isFinite(strike.longitude)
+        && strike.latitude >= -90 && strike.latitude <= 90
+        && strike.longitude >= -180 && strike.longitude <= 180
+      ));
+    })();
+    state.lightningCache.set(summary.time, promise);
+    while (state.lightningCache.size > 8) {
+      const oldest = state.lightningCache.keys().next().value;
+      if (oldest === summary.time) break;
+      state.lightningCache.delete(oldest);
+    }
+    try {
+      return await promise;
+    } catch (error) {
+      state.lightningCache.delete(summary.time);
+      throw error;
+    }
+  }
+
+  async function renderLightning(epoch) {
+    const token = ++state.lightningRenderToken;
+    if (!state.lightningEnabled) {
+      lightningLayer.setStrikes([], epoch);
+      updateLightningUi('off', 'Lightning hidden');
+      return;
+    }
+    if (!state.lightningManifest) {
+      lightningLayer.setStrikes([], epoch);
+      updateLightningUi('loading', 'Lightning loading…');
+      return;
+    }
+    updateLightningUi('loading', 'Loading strokes…');
+    try {
+      const summaries = await ensureLightningSummaries(epoch);
+      const chunks = await Promise.all(summaries.map(loadLightningHour));
+      if (token !== state.lightningRenderToken) return;
+      const start = epoch - LIGHTNING_WINDOW_SECONDS;
+      const strikes = chunks.flat().filter((strike) => strike.time > start && strike.time <= epoch);
+      lightningLayer.setStrikes(strikes, epoch);
+      const count = strikes.length.toLocaleString('en-IN');
+      updateLightningUi('live', `${count} ${strikes.length === 1 ? 'stroke' : 'strokes'}`);
+    } catch (_) {
+      if (token !== state.lightningRenderToken) return;
+      lightningLayer.setStrikes([], epoch);
+      updateLightningUi('error', 'Lightning unavailable');
+    }
+  }
+
+  async function refreshLightningManifest(radarEndpoint) {
+    const candidates = [...new Set([radarEndpoint, ...manifestEndpoints])];
+    let lastError = null;
+    for (const candidate of candidates) {
+      try {
+        const endpoint = lightningManifestEndpoint(candidate);
+        const payload = await fetchJson(endpoint, 8000);
+        if (!validLightningManifest(payload)) throw new Error('invalid lightning manifest');
+        state.lightningManifest = payload;
+        state.lightningManifestUrl = endpoint;
+        state.lightningRadarEndpoint = candidate;
+        mergeLightningHours(payload.hours);
+        state.lightningMonthUrls.clear();
+        for (const month of payload.months) state.lightningMonthUrls.set(month.month, month.url);
+        const epoch = state.timeline[state.index];
+        if (epoch) renderLightning(epoch);
+        return true;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    state.lightningManifest = null;
+    lightningLayer.setStrikes([], state.timeline[state.index] || 0);
+    updateLightningUi('error', 'Lightning unavailable');
+    throw lastError || new Error('no lightning manifest configured');
+  }
+
+  function setLightningEnabled(enabled) {
+    state.lightningEnabled = Boolean(enabled);
+    saveLightningPreference(state.lightningEnabled);
+    controls.lightningToggle.checked = state.lightningEnabled;
+    controls.lightningButton.classList.toggle('is-active', state.lightningEnabled);
+    controls.lightningButton.setAttribute('aria-pressed', String(state.lightningEnabled));
+    controls.lightningButton.setAttribute('aria-label', state.lightningEnabled ? 'Hide lightning' : 'Show lightning');
+    controls.lightningButton.title = state.lightningEnabled ? 'Hide lightning' : 'Show lightning';
+    lightningLayer.setEnabled(state.lightningEnabled);
+    renderLightning(state.timeline[state.index] || 0);
   }
 
   function preload(url) {
@@ -274,6 +592,7 @@
     controls.timeRange.value = String(clamped);
     const epoch = state.timeline[clamped];
     const token = ++state.renderToken;
+    renderLightning(epoch);
     const bracket = await ensureFramesForEpoch(epoch);
     if (token !== state.renderToken) return;
     if (!bracket) {
@@ -408,6 +727,7 @@
       state.manifest = result.payload;
       state.manifestUrl = result.endpoint;
       state.manifestBase = baseFromManifestUrl(result.endpoint);
+      refreshLightningManifest(result.endpoint).catch(() => false);
       mergeFrames(result.payload.frames);
       state.monthUrls.clear();
       for (const month of result.payload.months || []) state.monthUrls.set(month.month, month.url);
@@ -591,6 +911,8 @@
     controls.opacityOutput.value = `${controls.opacityRange.value}%`;
     renderIndex(state.index, { prefetch: false });
   });
+  controls.lightningButton.addEventListener('click', () => setLightningEnabled(!state.lightningEnabled));
+  controls.lightningToggle.addEventListener('change', () => setLightningEnabled(controls.lightningToggle.checked));
   controls.dateButton.addEventListener('click', () => {
     if (typeof controls.datePicker.showPicker === 'function') controls.datePicker.showPicker();
     else controls.datePicker.click();

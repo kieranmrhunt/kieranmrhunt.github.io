@@ -4,17 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#17131d">
-  <meta name="description" content="A fast, touch-friendly animated rain-radar map for India, updated every five minutes.">
+  <meta name="description" content="A fast, touch-friendly animated rain-radar and lightning map for India, updated every five minutes.">
   <meta name="radar-manifest" content="https://www.met.reading.ac.uk/~rz908899/india-radar/data/manifest.php">
   <meta name="radar-manifest-fallback" content="https://gws-access.jasmin.ac.uk/public/incompass/kieran/india-radar/data/manifest.json">
-  <title>India Rain Radar</title>
+  <title>India Rain &amp; Lightning</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./radar-icon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://gws-access.jasmin.ac.uk">
   <link rel="preconnect" href="https://www.met.reading.ac.uk">
   <link rel="preconnect" href="https://tile.openstreetmap.org">
   <link rel="stylesheet" href="./vendor/leaflet/leaflet.css?v=1.9.4">
-  <link rel="stylesheet" href="./app.css?v=2">
+  <link rel="stylesheet" href="./app.css?v=3">
 </head>
 <body>
   <a class="skip-link" href="#timeline">Skip to timeline controls</a>
@@ -23,7 +23,7 @@
     <a class="brand" href="../" aria-label="Kieran Hunt projects home">
       <span class="brand-mark" aria-hidden="true">ϟ</span>
       <span>
-        <strong>India Rain Radar</strong>
+        <strong><span class="brand-wide">India Rain + Lightning</span><span class="brand-compact">India Weather</span></strong>
         <small>Five-minute live view</small>
       </span>
     </a>
@@ -41,7 +41,7 @@
     </div>
   </header>
 
-  <main id="map" aria-label="Animated rain-radar map of India"></main>
+  <main id="map" aria-label="Animated rain-radar and lightning map of India"></main>
 
   <div class="map-loading" id="mapLoading" role="status">
     <span class="loader" aria-hidden="true"></span>
@@ -55,8 +55,17 @@
     <span class="key-labels"><span>Light</span><span>Heavy</span></span>
   </aside>
 
+  <aside class="lightning-key" id="lightningKey" aria-live="polite">
+    <span class="lightning-key-mark" aria-hidden="true">ϟ</span>
+    <span><strong id="lightningSummary">Lightning loading…</strong><small>Previous 10 min · ILDN</small></span>
+  </aside>
+
   <button class="map-button fit-button" id="fitButton" type="button" aria-label="Fit India in view" title="Fit India in view">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path></svg>
+  </button>
+
+  <button class="map-button lightning-button is-active" id="lightningButton" type="button" aria-label="Hide lightning" aria-pressed="true" title="Hide lightning">
+    <span aria-hidden="true">ϟ</span>
   </button>
 
   <section class="timeline" id="timeline" aria-label="Radar timeline">
@@ -96,7 +105,7 @@
       </button>
       <input class="date-picker" id="datePicker" type="date" aria-label="Choose archive date" tabindex="-1">
       <span id="archiveSummary">Building the archive from today</span>
-      <span class="source-short">Radar via <a href="https://www.rainviewer.com/radars/india.html" target="_blank" rel="noopener">RainViewer</a> · IMD sources</span>
+      <span class="source-short">Radar: <a href="https://www.rainviewer.com/radars/india.html" target="_blank" rel="noopener">RainViewer / IMD</a> · Lightning: <a href="https://ildn.in/" target="_blank" rel="noopener">ILDN</a></span>
     </div>
   </section>
 
@@ -104,20 +113,26 @@
     <form method="dialog">
       <button class="dialog-close" value="close" aria-label="Close">×</button>
       <p class="dialog-eyebrow">About the map</p>
-      <h2>India Rain Radar</h2>
-      <p>This experimental map archives the public RainViewer radar composite for India. RainViewer identifies the India Meteorological Department as its source in India.</p>
+      <h2>India Rain + Lightning</h2>
+      <p>This experimental map combines the public RainViewer radar composite for India with time-matched strokes from the Indian Lightning Detection Network.</p>
       <dl>
         <div><dt>Update check</dt><dd>Every five minutes</dd></div>
         <div><dt>Observed frames</dt><dd>Nominally every ten minutes</dd></div>
         <div><dt>Five-minute midpoint</dt><dd>A labelled cross-fade between adjacent source frames</dd></div>
+        <div><dt>Lightning window</dt><dd>Strokes in the previous ten minutes at every timeline position</dd></div>
         <div><dt>Map resolution</dt><dd>Web-Mercator zoom 6, approximately 2–3 km per pixel over India</dd></div>
+        <div><dt>Radar cleaning</dt><dd>Persistent radial spokes through known radar sites are detected over time and inpainted</dd></div>
       </dl>
       <label class="opacity-control" for="opacityRange">
         <span>Radar opacity <output id="opacityOutput">82%</output></span>
         <input id="opacityRange" type="range" min="35" max="100" value="82" step="1">
       </label>
-      <p class="caveat">Radar can be delayed, unavailable, affected by ground clutter, or absent outside station coverage. Do not use this experimental service for safety-critical decisions.</p>
-      <p class="credits">Data: <a href="https://www.rainviewer.com/api/weather-maps-api.html" target="_blank" rel="noopener">RainViewer Weather Maps API</a> and its <a href="https://mausam.imd.gov.in/responsive/radar.php" target="_blank" rel="noopener">IMD sources</a>. Basemap © OpenStreetMap contributors. Contact: <a href="mailto:k.m.r.hunt@reading.ac.uk">Kieran Hunt</a>.</p>
+      <label class="layer-toggle" for="lightningToggle">
+        <span><strong>Show lightning</strong><small>Original ILDN stroke locations and times</small></span>
+        <input id="lightningToggle" type="checkbox" checked>
+      </label>
+      <p class="caveat">Radar and lightning can be delayed, unavailable, or incomplete. The experimental spoke filter may miss artefacts or alter a small area of genuine echo; untouched radar frames remain in the private archive. Do not use this service for safety-critical decisions.</p>
+      <p class="credits">Data: <a href="https://www.rainviewer.com/api/weather-maps-api.html" target="_blank" rel="noopener">RainViewer Weather Maps API</a> and its <a href="https://mausam.imd.gov.in/responsive/radar.php" target="_blank" rel="noopener">IMD sources</a>; lightning © <a href="https://ildn.in/" target="_blank" rel="noopener">Indian Lightning Detection Network</a> under its <a href="https://ildn.in/legal.php" target="_blank" rel="noopener">non-commercial terms</a>. Basemap © OpenStreetMap contributors. Contact: <a href="mailto:k.m.r.hunt@reading.ac.uk">Kieran Hunt</a>.</p>
       <p class="views">
         <a href="https://vbr.nathanchung.dev/info/kieranmrhunt-india-radar" target="_blank" rel="noopener" aria-label="Open public page-view summary">
           <img src="https://vbr.nathanchung.dev/badge?page_id=kieranmrhunt-india-radar&amp;color=e87419&amp;lcolor=211c2a&amp;text=Page_views&amp;style=flat&amp;hit=true" alt="India Rain Radar page views">
@@ -132,6 +147,6 @@
 
   <noscript><div class="noscript">This animated radar requires JavaScript.</div></noscript>
   <script src="./vendor/leaflet/leaflet.js?v=1.9.4"></script>
-  <script src="./app.js?v=2" defer></script>
+  <script src="./app.js?v=3" defer></script>
 </body>
 </html>

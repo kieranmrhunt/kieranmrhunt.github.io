@@ -1,7 +1,7 @@
 {
-  "name": "India Rain Radar",
-  "short_name": "India Radar",
-  "description": "A fast, touch-friendly animated rain-radar map for India.",
+  "name": "India Rain and Lightning",
+  "short_name": "India Weather",
+  "description": "A fast, touch-friendly animated rain-radar and lightning map for India.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
