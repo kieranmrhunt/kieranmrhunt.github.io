@@ -9,8 +9,26 @@
   const manifestEndpoints = [meta('radar-manifest'), meta('radar-manifest-fallback')].filter(Boolean);
   const FIVE_MINUTES = 300;
   const LIGHTNING_WINDOW_SECONDS = 600;
+  const SCRUB_PREFETCH_STEPS = 12;
   const IST_OFFSET_SECONDS = 5.5 * 3600;
   const DEFAULT_BOUNDS = { south: 0, west: 61.875, north: 40.979898, east: 106.875 };
+  const timeFormatters = {
+    istTime: new Intl.DateTimeFormat('en-IN', {
+      timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: false,
+    }),
+    istDate: new Intl.DateTimeFormat('en-IN', {
+      timeZone: 'Asia/Kolkata', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
+    }),
+    istDayMonth: new Intl.DateTimeFormat('en-IN', {
+      timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short',
+    }),
+    istRange: new Intl.DateTimeFormat('en-IN', {
+      timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false,
+    }),
+    utcTime: new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'UTC', hour: '2-digit', minute: '2-digit', hour12: false,
+    }),
+  };
 
   function readOpacityPreference() {
     try {
@@ -65,7 +83,8 @@
     loadedMonths: new Set(),
     loadingMonths: new Map(),
     refreshing: false,
-    scrubTimer: null,
+    scrubFrame: null,
+    scrubTarget: null,
     toastTimer: null,
     userMarker: null,
     lightningManifest: null,
@@ -116,17 +135,24 @@
       this._epoch = 0;
       this._enabled = true;
       this._drawRequest = null;
+      this._viewRequest = null;
+      this._drawZoom = null;
+      this._drawTopLeft = null;
     },
     onAdd(activeMap) {
       this._map = activeMap;
-      this._canvas = L.DomUtil.create('canvas', 'leaflet-layer lightning-canvas leaflet-zoom-hide');
+      this._canvas = L.DomUtil.create('canvas', 'leaflet-layer lightning-canvas');
+      if (activeMap._zoomAnimated) L.DomUtil.addClass(this._canvas, 'leaflet-zoom-animated');
       activeMap.getPane('lightningPane').appendChild(this._canvas);
-      activeMap.on('moveend zoomend resize viewreset', this._reset, this);
-      this._reset();
+      activeMap.on('move zoom moveend zoomend resize viewreset', this._scheduleViewSync, this);
+      if (activeMap._zoomAnimated) activeMap.on('zoomanim', this._animateZoom, this);
+      this._syncView();
     },
     onRemove(activeMap) {
-      activeMap.off('moveend zoomend resize viewreset', this._reset, this);
+      activeMap.off('move zoom moveend zoomend resize viewreset', this._scheduleViewSync, this);
+      if (activeMap._zoomAnimated) activeMap.off('zoomanim', this._animateZoom, this);
       if (this._drawRequest) cancelAnimationFrame(this._drawRequest);
+      if (this._viewRequest) cancelAnimationFrame(this._viewRequest);
       this._canvas.remove();
       this._canvas = null;
       this._map = null;
@@ -141,17 +167,40 @@
       if (this._canvas) this._canvas.hidden = !this._enabled;
       this._scheduleDraw();
     },
-    _reset() {
+    _scheduleViewSync() {
+      if (!this._canvas || this._viewRequest) return;
+      this._viewRequest = requestAnimationFrame(() => {
+        this._viewRequest = null;
+        this._syncView();
+      });
+    },
+    _syncView() {
       if (!this._map || !this._canvas) return;
       const size = this._map.getSize();
       const ratio = Math.min(2, window.devicePixelRatio || 1);
-      this._canvas.width = Math.max(1, Math.round(size.x * ratio));
-      this._canvas.height = Math.max(1, Math.round(size.y * ratio));
-      this._canvas.style.width = `${size.x}px`;
-      this._canvas.style.height = `${size.y}px`;
+      const width = Math.max(1, Math.round(size.x * ratio));
+      const height = Math.max(1, Math.round(size.y * ratio));
+      if (this._canvas.width !== width || this._canvas.height !== height) {
+        this._canvas.width = width;
+        this._canvas.height = height;
+        this._canvas.style.width = `${size.x}px`;
+        this._canvas.style.height = `${size.y}px`;
+      }
       L.DomUtil.setPosition(this._canvas, this._map.containerPointToLayerPoint([0, 0]));
       this._ratio = ratio;
-      this._scheduleDraw();
+      this._drawZoom = this._map.getZoom();
+      this._drawTopLeft = this._map.containerPointToLatLng([0, 0]);
+      if (this._drawRequest) {
+        cancelAnimationFrame(this._drawRequest);
+        this._drawRequest = null;
+      }
+      this._draw();
+    },
+    _animateZoom(event) {
+      if (!this._map || !this._canvas || !this._drawTopLeft || this._drawZoom == null) return;
+      const scale = this._map.getZoomScale(event.zoom, this._drawZoom);
+      const offset = this._map._latLngToNewLayerPoint(this._drawTopLeft, event.zoom, event.center);
+      L.DomUtil.setTransform(this._canvas, offset, scale);
     },
     _scheduleDraw() {
       if (!this._canvas || this._drawRequest) return;
@@ -442,11 +491,21 @@
     return promise;
   }
 
-  async function ensureLightningSummaries(epoch) {
+  function lightningHourStarts(epoch) {
     const firstHour = Math.floor((epoch - LIGHTNING_WINDOW_SECONDS) / 3600) * 3600;
     const lastHour = Math.floor(epoch / 3600) * 3600;
     const needed = [];
     for (let hour = firstHour; hour <= lastHour; hour += 3600) needed.push(hour);
+    return needed;
+  }
+
+  function knownLightningSummaries(epoch) {
+    const summaries = lightningHourStarts(epoch).map((hour) => state.lightningHours.get(hour));
+    return summaries.every(Boolean) ? summaries : null;
+  }
+
+  async function ensureLightningSummaries(epoch) {
+    const needed = lightningHourStarts(epoch);
     const missingMonths = new Set(
       needed.filter((hour) => !state.lightningHours.has(hour)).map(monthKey),
     );
@@ -456,8 +515,10 @@
 
   async function loadLightningHour(summary) {
     if (!summary || Number(summary.count) === 0) return [];
-    if (state.lightningCache.has(summary.time)) return state.lightningCache.get(summary.time);
-    const promise = (async () => {
+    const cached = state.lightningCache.get(summary.time);
+    if (cached) return cached.promise;
+    const entry = { data: null, promise: null };
+    entry.promise = (async () => {
       const payload = await fetchJson(lightningHourUrl(summary));
       if (!payload || !Array.isArray(payload.fields) || !Array.isArray(payload.strokes)) {
         throw new Error('invalid lightning hour');
@@ -468,7 +529,7 @@
       if (timestampIndex < 0 || latitudeIndex < 0 || longitudeIndex < 0) {
         throw new Error('lightning fields are incomplete');
       }
-      return payload.strokes.map((record) => ({
+      const strokes = payload.strokes.map((record) => ({
         time: Number(record[timestampIndex]),
         latitude: Number(record[latitudeIndex]),
         longitude: Number(record[longitudeIndex]),
@@ -479,18 +540,50 @@
         && strike.latitude >= -90 && strike.latitude <= 90
         && strike.longitude >= -180 && strike.longitude <= 180
       ));
+      entry.data = strokes;
+      return strokes;
     })();
-    state.lightningCache.set(summary.time, promise);
+    state.lightningCache.set(summary.time, entry);
     while (state.lightningCache.size > 8) {
-      const oldest = state.lightningCache.keys().next().value;
-      if (oldest === summary.time) break;
-      state.lightningCache.delete(oldest);
+      const discard = [...state.lightningCache.keys()].find((key) => key !== summary.time);
+      if (discard == null) break;
+      state.lightningCache.delete(discard);
     }
     try {
-      return await promise;
+      return await entry.promise;
     } catch (error) {
-      state.lightningCache.delete(summary.time);
+      if (state.lightningCache.get(summary.time) === entry) state.lightningCache.delete(summary.time);
       throw error;
+    }
+  }
+
+  function cachedLightningChunks(summaries) {
+    const chunks = [];
+    for (const summary of summaries || []) {
+      if (Number(summary.count) === 0) {
+        chunks.push([]);
+        continue;
+      }
+      const entry = state.lightningCache.get(summary.time);
+      if (!entry || !entry.data) return null;
+      chunks.push(entry.data);
+    }
+    return chunks;
+  }
+
+  function showLightningChunks(epoch, chunks) {
+    const start = epoch - LIGHTNING_WINDOW_SECONDS;
+    const strikes = chunks.flat().filter((strike) => strike.time > start && strike.time <= epoch);
+    lightningLayer.setStrikes(strikes, epoch);
+    const count = strikes.length.toLocaleString('en-IN');
+    updateLightningUi('live', `${count} ${strikes.length === 1 ? 'stroke' : 'strokes'}`);
+  }
+
+  function prefetchLightningNeighbours(epoch) {
+    const centre = Math.floor(epoch / 3600) * 3600;
+    for (const hour of [centre - 3600, centre + 3600]) {
+      const summary = state.lightningHours.get(hour);
+      if (summary) loadLightningHour(summary).catch(() => false);
     }
   }
 
@@ -506,16 +599,20 @@
       updateLightningUi('loading', 'Lightning loading…');
       return;
     }
+    const known = knownLightningSummaries(epoch);
+    const cached = known && cachedLightningChunks(known);
+    if (cached) {
+      showLightningChunks(epoch, cached);
+      prefetchLightningNeighbours(epoch);
+      return;
+    }
     updateLightningUi('loading', 'Loading strokes…');
     try {
       const summaries = await ensureLightningSummaries(epoch);
       const chunks = await Promise.all(summaries.map(loadLightningHour));
       if (token !== state.lightningRenderToken) return;
-      const start = epoch - LIGHTNING_WINDOW_SECONDS;
-      const strikes = chunks.flat().filter((strike) => strike.time > start && strike.time <= epoch);
-      lightningLayer.setStrikes(strikes, epoch);
-      const count = strikes.length.toLocaleString('en-IN');
-      updateLightningUi('live', `${count} ${strikes.length === 1 ? 'stroke' : 'strokes'}`);
+      showLightningChunks(epoch, chunks);
+      prefetchLightningNeighbours(epoch);
     } catch (_) {
       if (token !== state.lightningRenderToken) return;
       lightningLayer.setStrikes([], epoch);
@@ -562,18 +659,19 @@
     renderLightning(state.timeline[state.index] || 0);
   }
 
-  function preload(url) {
+  function preload(url, priority = 'auto') {
     if (!url) return Promise.resolve(false);
     if (state.preloaded.has(url)) return state.preloaded.get(url);
     const promise = new Promise((resolve) => {
       const image = new Image();
       image.decoding = 'async';
+      image.fetchPriority = priority;
       image.onload = () => resolve(true);
       image.onerror = () => resolve(false);
       image.src = url;
     });
     state.preloaded.set(url, promise);
-    if (state.preloaded.size > 18) {
+    if (state.preloaded.size > 48) {
       const firstKey = state.preloaded.keys().next().value;
       state.preloaded.delete(firstKey);
     }
@@ -585,14 +683,27 @@
     return [[bounds.south, bounds.west], [bounds.north, bounds.east]];
   }
 
-  async function renderIndex(index, options = {}) {
-    if (!state.timeline.length) return;
+  function selectIndex(index, { invalidate = false } = {}) {
     const clamped = Math.max(0, Math.min(state.timeline.length - 1, Number(index)));
     state.index = clamped;
     controls.timeRange.value = String(clamped);
     const epoch = state.timeline[clamped];
+    const immediate = frameBracket(epoch);
+    const available = usableBracket(immediate, epoch);
+    updateTimeLabels(epoch, available ? immediate : { after: null });
+    if (!available) {
+      controls.frameKind.textContent = 'Loading frame';
+      controls.frameKind.dataset.kind = 'blend';
+    }
+    if (invalidate) state.renderToken += 1;
+    return { clamped, epoch };
+  }
+
+  async function renderIndex(index, options = {}) {
+    if (!state.timeline.length) return;
+    const { clamped, epoch } = selectIndex(index);
     const token = ++state.renderToken;
-    renderLightning(epoch);
+    if (options.lightning !== false) renderLightning(epoch);
     const bracket = await ensureFramesForEpoch(epoch);
     if (token !== state.renderToken) return;
     if (!bracket) {
@@ -607,7 +718,10 @@
     updateTimeLabels(epoch, bracket);
     const beforeUrl = frameUrl(bracket.before);
     const afterUrl = bracket.after ? frameUrl(bracket.after) : '';
-    const loaded = await Promise.all([preload(beforeUrl), afterUrl ? preload(afterUrl) : true]);
+    const loaded = await Promise.all([
+      preload(beforeUrl, 'high'),
+      afterUrl ? preload(afterUrl, 'high') : true,
+    ]);
     if (token !== state.renderToken) return;
     if (!loaded[0]) {
       showToast('That radar frame could not be loaded.');
@@ -642,26 +756,31 @@
   }
 
   function prefetchNeighbours(index) {
-    for (const offset of [-2, -1, 1, 2]) {
-      const epoch = state.timeline[index + offset];
-      if (!epoch) continue;
-      const bracket = frameBracket(epoch);
-      if (bracket.before) preload(frameUrl(bracket.before));
-      if (bracket.after) preload(frameUrl(bracket.after));
+    const urls = new Set();
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    const constrained = Boolean(connection && (connection.saveData || /(^|-)2g$/.test(connection.effectiveType || '')));
+    if (!constrained && state.frames.length <= 48) {
+      state.frames.forEach((frame) => urls.add(frameUrl(frame)));
+    } else {
+      for (let distance = 1; distance <= SCRUB_PREFETCH_STEPS; distance += 1) {
+        for (const offset of [-distance, distance]) {
+          const epoch = state.timeline[index + offset];
+          if (!epoch) continue;
+          const bracket = frameBracket(epoch);
+          if (!usableBracket(bracket, epoch)) continue;
+          if (bracket.before) urls.add(frameUrl(bracket.before));
+          if (bracket.after) urls.add(frameUrl(bracket.after));
+        }
+      }
     }
+    urls.forEach((url) => preload(url, 'low'));
   }
 
   function formatParts(epoch) {
     const date = new Date(epoch * 1000);
-    const ist = new Intl.DateTimeFormat('en-IN', {
-      timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: false,
-    }).format(date);
-    const istDate = new Intl.DateTimeFormat('en-IN', {
-      timeZone: 'Asia/Kolkata', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
-    }).format(date);
-    const utc = new Intl.DateTimeFormat('en-GB', {
-      timeZone: 'UTC', hour: '2-digit', minute: '2-digit', hour12: false,
-    }).format(date);
+    const ist = timeFormatters.istTime.format(date);
+    const istDate = timeFormatters.istDate.format(date);
+    const utc = timeFormatters.utcTime.format(date);
     return { ist, istDate, utc };
   }
 
@@ -670,10 +789,7 @@
   }
 
   function shortRangeLabel(epoch) {
-    const date = new Date(epoch * 1000);
-    return new Intl.DateTimeFormat('en-IN', {
-      timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false,
-    }).format(date);
+    return timeFormatters.istRange.format(new Date(epoch * 1000));
   }
 
   function updateTimeLabels(epoch, bracket) {
@@ -687,9 +803,7 @@
     const latest = state.index === state.timeline.length - 1;
     controls.latestButton.classList.toggle('is-latest', latest);
     controls.latestButton.textContent = latest ? 'Live' : 'Latest';
-    controls.dateButtonLabel.textContent = new Intl.DateTimeFormat('en-IN', {
-      timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short',
-    }).format(new Date(epoch * 1000));
+    controls.dateButtonLabel.textContent = timeFormatters.istDayMonth.format(new Date(epoch * 1000));
   }
 
   function updateFeedStatus() {
@@ -741,7 +855,7 @@
       controls.mapLoading.classList.remove('is-error');
       controls.retryButton.hidden = true;
       controls.mapLoading.hidden = true;
-      if (initial) fitIndia();
+      if (initial) fitIndia(false);
     } catch (error) {
       setFeedStatus('error', 'Offline');
       if (initial) showFatal(`Radar data are temporarily unavailable. ${error.message || error}`);
@@ -807,6 +921,26 @@
     renderIndex(state.index + delta);
   }
 
+  function queueScrub(index) {
+    const selection = selectIndex(index, { invalidate: true });
+    renderLightning(selection.epoch);
+    state.scrubTarget = selection.clamped;
+    if (state.scrubFrame) return;
+    state.scrubFrame = requestAnimationFrame(() => {
+      state.scrubFrame = null;
+      const target = state.scrubTarget;
+      state.scrubTarget = null;
+      renderIndex(target, { prefetch: false, lightning: false });
+    });
+  }
+
+  function finishScrub(index) {
+    if (state.scrubFrame) cancelAnimationFrame(state.scrubFrame);
+    state.scrubFrame = null;
+    state.scrubTarget = null;
+    renderIndex(index);
+  }
+
   function startPlayback() {
     if (state.timeline.length < 2) return;
     const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -842,12 +976,12 @@
     else startPlayback();
   }
 
-  function fitIndia() {
+  function fitIndia(animate = true) {
     const mobile = matchMedia('(max-width: 640px)').matches;
     map.fitBounds([[6.2, 67.2], [37.6, 98.6]], {
       paddingTopLeft: [16, 76],
       paddingBottomRight: [16, mobile ? 182 : 178],
-      animate: true,
+      animate,
     });
   }
 
@@ -884,13 +1018,10 @@
 
   controls.timeRange.addEventListener('input', () => {
     pausePlayback();
-    clearTimeout(state.scrubTimer);
-    const target = Number(controls.timeRange.value);
-    state.scrubTimer = setTimeout(() => renderIndex(target), 120);
+    queueScrub(Number(controls.timeRange.value));
   });
   controls.timeRange.addEventListener('change', () => {
-    clearTimeout(state.scrubTimer);
-    renderIndex(Number(controls.timeRange.value));
+    finishScrub(Number(controls.timeRange.value));
   });
   controls.previousButton.addEventListener('click', () => step(-1));
   controls.nextButton.addEventListener('click', () => step(1));
@@ -899,7 +1030,7 @@
     pausePlayback();
     renderIndex(state.timeline.length - 1);
   });
-  controls.fitButton.addEventListener('click', fitIndia);
+  controls.fitButton.addEventListener('click', () => fitIndia(true));
   controls.locateButton.addEventListener('click', locateUser);
   controls.aboutButton.addEventListener('click', () => {
     if (typeof controls.aboutDialog.showModal === 'function') controls.aboutDialog.showModal();
