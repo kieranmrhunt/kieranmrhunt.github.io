@@ -2,11 +2,31 @@
   'use strict';
 
   const $ = (selector) => document.querySelector(selector);
-  const meta = (name) => document.querySelector(`meta[name="${name}"]`)?.content || '';
+  const meta = (name) => {
+    const element = document.querySelector(`meta[name="${name}"]`);
+    return element ? element.content : '';
+  };
   const manifestEndpoints = [meta('radar-manifest'), meta('radar-manifest-fallback')].filter(Boolean);
   const FIVE_MINUTES = 300;
   const IST_OFFSET_SECONDS = 5.5 * 3600;
   const DEFAULT_BOUNDS = { south: 0, west: 61.875, north: 40.979898, east: 106.875 };
+
+  function readOpacityPreference() {
+    try {
+      const value = Number(window.localStorage.getItem('indiaRadarOpacity') || 82);
+      return Number.isFinite(value) && value >= 35 && value <= 100 ? value / 100 : 0.82;
+    } catch (_) {
+      return 0.82;
+    }
+  }
+
+  function saveOpacityPreference(value) {
+    try {
+      window.localStorage.setItem('indiaRadarOpacity', String(value));
+    } catch (_) {
+      // Storage can be unavailable in private or embedded browser contexts.
+    }
+  }
 
   const state = {
     manifest: null,
@@ -17,7 +37,7 @@
     timeline: [],
     index: 0,
     layers: [],
-    opacity: Number(localStorage.getItem('indiaRadarOpacity') || 82) / 100,
+    opacity: readOpacityPreference(),
     playing: false,
     playTimer: null,
     playStart: 0,
@@ -34,7 +54,13 @@
   };
 
   if (!window.L) {
-    showFatal('The map library could not be loaded. Check your connection and reload.');
+    const loading = $('#mapLoading');
+    const loadingText = $('#loadingText');
+    const retry = $('#retryButton');
+    loading.classList.add('is-error');
+    loadingText.textContent = 'The map library could not start.';
+    retry.hidden = false;
+    retry.addEventListener('click', () => window.location.reload());
     return;
   }
 
@@ -64,6 +90,7 @@
     headerTime: $('#headerTime'),
     mapLoading: $('#mapLoading'),
     loadingText: $('#loadingText'),
+    retryButton: $('#retryButton'),
     selectedTime: $('#selectedTime'),
     selectedDate: $('#selectedDate'),
     frameKind: $('#frameKind'),
@@ -103,18 +130,17 @@
   }
 
   async function fetchJson(url, timeoutMs = 15000) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
     try {
       const separator = url.includes('?') ? '&' : '?';
-      const response = await fetch(`${url}${separator}_=${Date.now()}`, {
-        cache: 'no-store',
-        signal: controller.signal,
-      });
+      const options = { cache: 'no-store' };
+      if (controller) options.signal = controller.signal;
+      const response = await fetch(`${url}${separator}_=${Date.now()}`, options);
       if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
       return await response.json();
     } finally {
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
     }
   }
 
@@ -143,13 +169,13 @@
 
   function rebuildTimeline(preserveTime = null) {
     if (!state.frames.length || !state.manifest) return;
-    const first = Number(state.manifest.first_time ?? state.frames[0].time);
-    const last = Number(state.manifest.latest_time ?? state.frames[state.frames.length - 1].time);
+    const first = Number(state.manifest.first_time != null ? state.manifest.first_time : state.frames[0].time);
+    const last = Number(state.manifest.latest_time != null ? state.manifest.latest_time : state.frames[state.frames.length - 1].time);
     state.timeline = [];
     for (let time = first; time <= last; time += FIVE_MINUTES) state.timeline.push(time);
 
     controls.timeRange.max = String(Math.max(0, state.timeline.length - 1));
-    const target = preserveTime ?? last;
+    const target = preserveTime != null ? preserveTime : last;
     state.index = closestTimelineIndex(target);
     controls.timeRange.value = String(state.index);
     controls.rangeStart.textContent = shortRangeLabel(first);
@@ -182,11 +208,11 @@
   }
 
   function usableBracket(bracket, epoch) {
-    if (!bracket?.before) return false;
+    if (!bracket || !bracket.before) return false;
     if (!bracket.after) {
       return Math.abs(epoch - bracket.before.time) <= FIVE_MINUTES;
     }
-    const sourceInterval = Number(state.manifest?.source_interval_seconds || 600);
+    const sourceInterval = Number((state.manifest && state.manifest.source_interval_seconds) || 600);
     return bracket.after.time - bracket.before.time <= sourceInterval * 1.6;
   }
 
@@ -237,7 +263,7 @@
   }
 
   function leafletBounds() {
-    const bounds = state.manifest?.bounds || DEFAULT_BOUNDS;
+    const bounds = (state.manifest && state.manifest.bounds) || DEFAULT_BOUNDS;
     return [[bounds.south, bounds.west], [bounds.north, bounds.east]];
   }
 
@@ -363,10 +389,10 @@
 
   function updateArchiveSummary() {
     if (!state.frames.length || !state.manifest) return;
-    const first = Number(state.manifest.first_time ?? state.frames[0].time);
-    const last = Number(state.manifest.latest_time ?? state.frames[state.frames.length - 1].time);
+    const first = Number(state.manifest.first_time != null ? state.manifest.first_time : state.frames[0].time);
+    const last = Number(state.manifest.latest_time != null ? state.manifest.latest_time : state.frames[state.frames.length - 1].time);
     const hours = Math.max(0, (last - first) / 3600);
-    const sourceFrames = Number(state.manifest.frame_count ?? state.frames.length).toLocaleString('en-GB');
+    const sourceFrames = Number(state.manifest.frame_count != null ? state.manifest.frame_count : state.frames.length).toLocaleString('en-GB');
     controls.archiveSummary.textContent = hours < 48
       ? `${sourceFrames} source frames · ${hours.toFixed(hours < 10 ? 1 : 0)} h archived`
       : `${sourceFrames} source frames · ${Math.round(hours / 24)} days archived`;
@@ -392,6 +418,8 @@
       rebuildTimeline(wasLatest ? null : selectedEpoch);
       updateFeedStatus();
       await renderIndex(state.index);
+      controls.mapLoading.classList.remove('is-error');
+      controls.retryButton.hidden = true;
       controls.mapLoading.hidden = true;
       if (initial) fitIndia();
     } catch (error) {
@@ -529,6 +557,8 @@
 
   function showFatal(message) {
     controls.loadingText.textContent = message;
+    controls.mapLoading.classList.add('is-error');
+    controls.retryButton.hidden = false;
     controls.mapLoading.hidden = false;
   }
 
@@ -551,10 +581,13 @@
   });
   controls.fitButton.addEventListener('click', fitIndia);
   controls.locateButton.addEventListener('click', locateUser);
-  controls.aboutButton.addEventListener('click', () => controls.aboutDialog.showModal());
+  controls.aboutButton.addEventListener('click', () => {
+    if (typeof controls.aboutDialog.showModal === 'function') controls.aboutDialog.showModal();
+    else controls.aboutDialog.setAttribute('open', '');
+  });
   controls.opacityRange.addEventListener('input', () => {
     state.opacity = Number(controls.opacityRange.value) / 100;
-    localStorage.setItem('indiaRadarOpacity', String(controls.opacityRange.value));
+    saveOpacityPreference(controls.opacityRange.value);
     controls.opacityOutput.value = `${controls.opacityRange.value}%`;
     renderIndex(state.index, { prefetch: false });
   });
@@ -563,6 +596,12 @@
     else controls.datePicker.click();
   });
   controls.datePicker.addEventListener('change', () => chooseDate(controls.datePicker.value));
+  controls.retryButton.addEventListener('click', () => {
+    controls.retryButton.hidden = true;
+    controls.mapLoading.classList.remove('is-error');
+    controls.loadingText.textContent = 'Loading radar archive…';
+    refreshManifest({ initial: true });
+  });
 
   document.addEventListener('keydown', (event) => {
     if (controls.aboutDialog.open) return;

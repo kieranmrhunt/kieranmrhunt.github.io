@@ -5,16 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#17131d">
   <meta name="description" content="A fast, touch-friendly animated rain-radar map for India, updated every five minutes.">
-  <meta name="radar-manifest" content="https://gws-access.jasmin.ac.uk/public/incompass/kieran/india-radar/data/manifest.json">
-  <meta name="radar-manifest-fallback" content="https://www.met.reading.ac.uk/~rz908899/india-radar/data/manifest.php">
+  <meta name="radar-manifest" content="https://www.met.reading.ac.uk/~rz908899/india-radar/data/manifest.php">
+  <meta name="radar-manifest-fallback" content="https://gws-access.jasmin.ac.uk/public/incompass/kieran/india-radar/data/manifest.json">
   <title>India Rain Radar</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./radar-icon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://gws-access.jasmin.ac.uk">
   <link rel="preconnect" href="https://www.met.reading.ac.uk">
   <link rel="preconnect" href="https://tile.openstreetmap.org">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous">
-  <link rel="stylesheet" href="./app.css">
+  <link rel="stylesheet" href="./vendor/leaflet/leaflet.css?v=1.9.4">
+  <link rel="stylesheet" href="./app.css?v=2">
 </head>
 <body>
   <a class="skip-link" href="#timeline">Skip to timeline controls</a>
@@ -46,6 +46,7 @@
   <div class="map-loading" id="mapLoading" role="status">
     <span class="loader" aria-hidden="true"></span>
     <span id="loadingText">Loading radar archive…</span>
+    <button class="retry-button" id="retryButton" type="button" hidden>Retry</button>
   </div>
 
   <aside class="radar-key" aria-label="Radar intensity key">
@@ -130,7 +131,7 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <noscript><div class="noscript">This animated radar requires JavaScript.</div></noscript>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
-  <script src="./app.js" defer></script>
+  <script src="./vendor/leaflet/leaflet.js?v=1.9.4"></script>
+  <script src="./app.js?v=2" defer></script>
 </body>
 </html>
