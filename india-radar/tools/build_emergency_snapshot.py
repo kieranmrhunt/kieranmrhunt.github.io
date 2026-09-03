@@ -72,6 +72,8 @@ def build_snapshot(archive: Path, output: Path, window_hours: float) -> tuple[in
         copied_bytes += copy_referenced_file(archive, output, frame["url"])
     for summary in hours:
         copied_bytes += copy_referenced_file(archive, output, summary["url"])
+        if summary.get("display_url"):
+            copied_bytes += copy_referenced_file(archive, output, summary["display_url"])
 
     built_at = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
     snapshot_note = {

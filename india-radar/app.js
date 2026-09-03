@@ -23,15 +23,16 @@
     { seconds: 1800, colour: [232, 93, 26] },
     { seconds: 3600, colour: [123, 65, 99] },
   ];
-  const LIGHTNING_CACHE_SIZE = 8;
+  const LIGHTNING_CACHE_SIZE = 96;
   const LIGHTNING_PREFETCH_OFFSETS = [-2, 1, -3, 2];
   const SCRUB_PREFETCH_STEPS = 24;
   const CONSTRAINED_PREFETCH_STEPS = 6;
   const SCRUB_RADAR_INTERVAL_MS = 48;
-  const SCRUB_LIGHTNING_INTERVAL_MS = 80;
+  const SCRUB_LIGHTNING_INTERVAL_MS = 48;
   const ARCHIVE_WARM_MAX_DESKTOP_BYTES = 32 * 1024 * 1024;
   const ARCHIVE_WARM_MAX_MOBILE_BYTES = 20 * 1024 * 1024;
   const ARCHIVE_WARM_IDLE_MS = 350;
+  const LIGHTNING_WARM_IDLE_MS = 240;
   const RADAR_LAYER_CACHE_SIZE = 6;
   const RADAR_WARM_FRAME_COUNT = 4;
   const RADAR_PRELOAD_CACHE_SIZE = 64;
@@ -71,6 +72,18 @@
     { length: LIGHTNING_WINDOW_SECONDS / 60 + 1 },
     (_, minute) => lightningColourAt(minute * 60),
   );
+
+  function lightningUpperBound(chunk, epoch) {
+    const targetOffset = (Number(epoch) - chunk.hour) * 1000;
+    let low = 0;
+    let high = chunk.count;
+    while (low < high) {
+      const middle = (low + high) >> 1;
+      if (chunk.timeOffsets[middle] <= targetOffset) low = middle + 1;
+      else high = middle;
+    }
+    return low;
+  }
 
   function readOpacityPreference() {
     try {
@@ -149,12 +162,14 @@
     lightningLoadedMonths: new Set(),
     lightningLoadingMonths: new Map(),
     lightningCache: new Map(),
-    lightningVisible: [],
     lightningRenderToken: 0,
     lastLightningPrefetchHour: null,
     scrubLightningTimer: null,
     pendingScrubLightningEpoch: null,
     lastScrubLightningAt: 0,
+    lightningWarmTimer: null,
+    lightningWarmRunning: false,
+    lightningWarmRequested: false,
   };
 
   if (!window.L) {
@@ -189,14 +204,13 @@
 
   const LightningCanvasLayer = L.Layer.extend({
     initialize() {
-      this._strikes = [];
+      this._chunks = [];
       this._epoch = 0;
       this._enabled = true;
       this._drawRequest = null;
       this._viewRequest = null;
       this._drawZoom = null;
       this._drawTopLeft = null;
-      this._projectionRevision = 0;
       this._ageBuckets = Array.from({ length: LIGHTNING_AGE_PALETTE.length }, () => []);
       this._newestPoints = [];
     },
@@ -218,8 +232,8 @@
       this._canvas = null;
       this._map = null;
     },
-    setStrikes(strikes, epoch, immediate = false) {
-      this._strikes = strikes || [];
+    setChunks(chunks, epoch, immediate = false) {
+      this._chunks = chunks || [];
       this._epoch = Number(epoch) || 0;
       if (immediate) {
         if (this._drawRequest) {
@@ -259,7 +273,6 @@
       this._ratio = ratio;
       this._drawZoom = this._map.getZoom();
       this._drawTopLeft = this._map.containerPointToLatLng([0, 0]);
-      this._projectionRevision += 1;
       if (this._drawRequest) {
         cancelAnimationFrame(this._drawRequest);
         this._drawRequest = null;
@@ -292,23 +305,27 @@
       for (const bucket of ageBuckets) bucket.length = 0;
       const newestPoints = this._newestPoints;
       newestPoints.length = 0;
-      for (const strike of this._strikes) {
-        if (strike._lightningProjectionRevision !== this._projectionRevision) {
-          const point = this._map.latLngToContainerPoint([strike.latitude, strike.longitude]);
-          strike._lightningX = point.x;
-          strike._lightningY = point.y;
-          strike._lightningProjectionRevision = this._projectionRevision;
+      const start = this._epoch - LIGHTNING_WINDOW_SECONDS;
+      const drawZoom = this._drawZoom == null ? this._map.getZoom() : this._drawZoom;
+      const worldSize = 256 * (2 ** drawZoom);
+      const topLeft = this._drawTopLeft || this._map.containerPointToLatLng([0, 0]);
+      const topLeftWorld = this._map.project(topLeft, drawZoom);
+      for (const chunk of this._chunks) {
+        const first = lightningUpperBound(chunk, start);
+        const last = lightningUpperBound(chunk, this._epoch);
+        for (let index = first; index < last; index += 1) {
+          const x = chunk.worldX[index] * worldSize - topLeftWorld.x;
+          const y = chunk.worldY[index] * worldSize - topLeftWorld.y;
+          if (x < -8 || y < -8 || x > size.x + 8 || y > size.y + 8) continue;
+          const strikeTime = chunk.hour + chunk.timeOffsets[index] / 1000;
+          const age = Math.max(0, this._epoch - strikeTime);
+          const ageMinute = Math.min(
+            LIGHTNING_AGE_PALETTE.length - 1,
+            Math.floor(age / 60),
+          );
+          ageBuckets[ageMinute].push(x, y);
+          if (age <= 180) newestPoints.push(x, y);
         }
-        const x = strike._lightningX;
-        const y = strike._lightningY;
-        if (x < -8 || y < -8 || x > size.x + 8 || y > size.y + 8) continue;
-        const age = Math.max(0, this._epoch - strike.time);
-        const ageMinute = Math.min(
-          LIGHTNING_AGE_PALETTE.length - 1,
-          Math.floor(age / 60),
-        );
-        ageBuckets[ageMinute].push(x, y);
-        if (age <= 180) newestPoints.push(x, y);
       }
 
       context.strokeStyle = 'rgba(45,24,35,.76)';
@@ -442,6 +459,22 @@
     return endpoint.href;
   }
 
+  function lightningDisplayUrl(summary) {
+    if (!summary.display_url || summary.display_format !== 'ildn-hour-v1') return '';
+    const radarEndpoint = state.lightningRadarEndpoint || state.manifestUrl;
+    const endpoint = new URL(radarEndpoint);
+    if (endpoint.pathname.endsWith('.php')) {
+      endpoint.search = '';
+      endpoint.searchParams.set('lightning_bin', String(summary.time));
+    } else {
+      endpoint.href = new URL(summary.display_url, baseFromManifestUrl(radarEndpoint)).href;
+    }
+    if (summary.display_sha256) {
+      endpoint.searchParams.set('v', String(summary.display_sha256).slice(0, 12));
+    }
+    return endpoint.href;
+  }
+
   function updateLightningUi(kind, text) {
     if (controls.lightningKey.dataset.state !== kind) controls.lightningKey.dataset.state = kind;
     if (controls.lightningSummary.textContent !== text) controls.lightningSummary.textContent = text;
@@ -452,7 +485,10 @@
       const time = Number(summary.time);
       if (!Number.isFinite(time) || !summary.url) continue;
       const old = state.lightningHours.get(time);
-      if (old && old.sha256 !== summary.sha256) state.lightningCache.delete(time);
+      if (old && (
+        old.sha256 !== summary.sha256
+        || old.display_sha256 !== summary.display_sha256
+      )) state.lightningCache.delete(time);
       state.lightningHours.set(time, { ...summary, time });
     }
   }
@@ -469,6 +505,21 @@
       const response = await fetch(requestUrl, options);
       if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
       return await response.json();
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
+  async function fetchArrayBuffer(url, timeoutMs = 15000, priority = 'auto', controller = null) {
+    const activeController = controller
+      || (typeof AbortController === 'function' ? new AbortController() : null);
+    const timer = activeController ? setTimeout(() => activeController.abort(), timeoutMs) : null;
+    try {
+      const options = { cache: 'force-cache', priority };
+      if (activeController) options.signal = activeController.signal;
+      const response = await fetch(url, options);
+      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+      return await response.arrayBuffer();
     } finally {
       if (timer) clearTimeout(timer);
     }
@@ -666,46 +717,150 @@
     return needed.map((hour) => state.lightningHours.get(hour)).filter(Boolean);
   }
 
-  async function loadLightningHour(summary) {
-    if (!summary || Number(summary.count) === 0) return [];
-    const cached = state.lightningCache.get(summary.time);
+  function emptyLightningChunk(hour) {
+    return {
+      hour: Number(hour) || 0,
+      count: 0,
+      timeOffsets: new Uint32Array(0),
+      worldX: new Float32Array(0),
+      worldY: new Float32Array(0),
+    };
+  }
+
+  function lightningChunk(hour, timeOffsets, latitudes, longitudes) {
+    const count = timeOffsets.length;
+    const worldX = new Float32Array(count);
+    const worldY = new Float32Array(count);
+    for (let index = 0; index < count; index += 1) {
+      const longitude = longitudes[index] / 100000;
+      const latitude = Math.max(-85.05112878, Math.min(85.05112878, latitudes[index] / 100000));
+      const sinLatitude = Math.sin(latitude * Math.PI / 180);
+      worldX[index] = (longitude + 180) / 360;
+      worldY[index] = 0.5 - Math.log((1 + sinLatitude) / (1 - sinLatitude)) / (4 * Math.PI);
+    }
+    return {
+      hour,
+      count,
+      timeOffsets,
+      worldX,
+      worldY,
+    };
+  }
+
+  function decodeLightningBinary(buffer, summary) {
+    const view = new DataView(buffer);
+    if (view.byteLength < 12) throw new Error('lightning binary is truncated');
+    const magic = String.fromCharCode(
+      view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3),
+    );
+    const hour = view.getUint32(4, true);
+    const count = view.getUint32(8, true);
+    if (magic !== 'ILB1' || hour !== Number(summary.time)) {
+      throw new Error('lightning binary header is invalid');
+    }
+    if (view.byteLength !== 12 + count * 12 || count !== Number(summary.count)) {
+      throw new Error('lightning binary length is invalid');
+    }
+    const timeOffsets = new Uint32Array(count);
+    const latitudes = new Int32Array(count);
+    const longitudes = new Int32Array(count);
+    let cursor = 12;
+    for (let index = 0; index < count; index += 1, cursor += 4) {
+      timeOffsets[index] = view.getUint32(cursor, true);
+    }
+    for (let index = 0; index < count; index += 1, cursor += 4) {
+      latitudes[index] = view.getInt32(cursor, true);
+    }
+    for (let index = 0; index < count; index += 1, cursor += 4) {
+      longitudes[index] = view.getInt32(cursor, true);
+    }
+    return lightningChunk(hour, timeOffsets, latitudes, longitudes);
+  }
+
+  function decodeLightningJson(payload, summary) {
+    if (!payload || !Array.isArray(payload.fields) || !Array.isArray(payload.strokes)) {
+      throw new Error('invalid lightning hour');
+    }
+    const timestampIndex = payload.fields.indexOf('unix_seconds');
+    const latitudeIndex = payload.fields.indexOf('latitude');
+    const longitudeIndex = payload.fields.indexOf('longitude');
+    if (timestampIndex < 0 || latitudeIndex < 0 || longitudeIndex < 0) {
+      throw new Error('lightning fields are incomplete');
+    }
+    const valid = payload.strokes.filter((record) => {
+      const time = Number(record[timestampIndex]);
+      const latitude = Number(record[latitudeIndex]);
+      const longitude = Number(record[longitudeIndex]);
+      return Number.isFinite(time)
+        && Number.isFinite(latitude)
+        && Number.isFinite(longitude)
+        && latitude >= -90 && latitude <= 90
+        && longitude >= -180 && longitude <= 180;
+    });
+    const timeOffsets = new Uint32Array(valid.length);
+    const latitudes = new Int32Array(valid.length);
+    const longitudes = new Int32Array(valid.length);
+    for (let index = 0; index < valid.length; index += 1) {
+      const record = valid[index];
+      timeOffsets[index] = Math.max(0, Math.min(
+        3599999,
+        Math.round((Number(record[timestampIndex]) - summary.time) * 1000),
+      ));
+      latitudes[index] = Math.round(Number(record[latitudeIndex]) * 100000);
+      longitudes[index] = Math.round(Number(record[longitudeIndex]) * 100000);
+    }
+    return lightningChunk(Number(summary.time), timeOffsets, latitudes, longitudes);
+  }
+
+  async function loadLightningHour(summary, priority = 'auto') {
+    if (!summary || Number(summary.count) === 0) return emptyLightningChunk(summary && summary.time);
+    let cached = state.lightningCache.get(summary.time);
+    if (cached) {
+      // A low-priority archive warm-up must never sit ahead of the hour the
+      // user has just selected. Restart that small request at high priority.
+      if (
+        !cached.data
+        && priority === 'high'
+        && cached.priority === 'low'
+        && cached.controller
+      ) {
+        state.lightningCache.delete(summary.time);
+        cached.controller.abort();
+        cached = null;
+      }
+    }
     if (cached) {
       state.lightningCache.delete(summary.time);
       state.lightningCache.set(summary.time, cached);
       return cached.promise;
     }
-    const entry = { data: null, promise: null };
+    const displayUrl = lightningDisplayUrl(summary);
+    const controller = displayUrl && typeof AbortController === 'function'
+      ? new AbortController()
+      : null;
+    const entry = {
+      data: null, promise: null, controller, priority,
+    };
     entry.promise = (async () => {
-      const payload = await fetchJson(lightningHourUrl(summary), 15000, {
-        cacheBust: false,
-        cache: 'force-cache',
-      });
-      if (!payload || !Array.isArray(payload.fields) || !Array.isArray(payload.strokes)) {
-        throw new Error('invalid lightning hour');
-      }
-      const timestampIndex = payload.fields.indexOf('unix_seconds');
-      const latitudeIndex = payload.fields.indexOf('latitude');
-      const longitudeIndex = payload.fields.indexOf('longitude');
-      if (timestampIndex < 0 || latitudeIndex < 0 || longitudeIndex < 0) {
-        throw new Error('lightning fields are incomplete');
-      }
-      const strokes = payload.strokes.map((record) => ({
-        time: Number(record[timestampIndex]),
-        latitude: Number(record[latitudeIndex]),
-        longitude: Number(record[longitudeIndex]),
-      })).filter((strike) => (
-        Number.isFinite(strike.time)
-        && Number.isFinite(strike.latitude)
-        && Number.isFinite(strike.longitude)
-        && strike.latitude >= -90 && strike.latitude <= 90
-        && strike.longitude >= -180 && strike.longitude <= 180
-      )).sort((a, b) => a.time - b.time);
-      entry.data = strokes;
-      return strokes;
+      const chunk = displayUrl
+        ? decodeLightningBinary(
+          await fetchArrayBuffer(displayUrl, 15000, priority, controller),
+          summary,
+        )
+        : decodeLightningJson(await fetchJson(lightningHourUrl(summary), 15000, {
+          cacheBust: false,
+          cache: 'force-cache',
+        }), summary);
+      entry.data = chunk;
+      entry.controller = null;
+      return chunk;
     })();
     state.lightningCache.set(summary.time, entry);
     while (state.lightningCache.size > LIGHTNING_CACHE_SIZE) {
-      const discard = [...state.lightningCache.keys()].find((key) => key !== summary.time);
+      const centre = epochAtIndex();
+      const discard = [...state.lightningCache.keys()]
+        .filter((key) => key !== summary.time)
+        .sort((a, b) => Math.abs(b - centre) - Math.abs(a - centre))[0];
       if (discard == null) break;
       state.lightningCache.delete(discard);
     }
@@ -721,7 +876,7 @@
     const chunks = [];
     for (const summary of summaries || []) {
       if (Number(summary.count) === 0) {
-        chunks.push([]);
+        chunks.push(emptyLightningChunk(summary.time));
         continue;
       }
       const entry = state.lightningCache.get(summary.time);
@@ -733,38 +888,41 @@
     return chunks;
   }
 
+  function cancelObsoleteLightningLoads(keepHours) {
+    const keep = new Set(keepHours.map(Number));
+    for (const [hour, entry] of state.lightningCache) {
+      if (entry.data || keep.has(Number(hour)) || !entry.controller) continue;
+      state.lightningCache.delete(hour);
+      entry.controller.abort();
+    }
+  }
+
   function showLightningChunks(epoch, chunks, immediate = false) {
     const start = epoch - LIGHTNING_WINDOW_SECONDS;
-    const upperBound = (values, time) => {
-      let low = 0;
-      let high = values.length;
-      while (low < high) {
-        const middle = (low + high) >> 1;
-        if (values[middle].time <= time) low = middle + 1;
-        else high = middle;
-      }
-      return low;
-    };
-    const strikes = state.lightningVisible;
-    strikes.length = 0;
+    let strikeCount = 0;
     for (const chunk of chunks) {
-      const first = upperBound(chunk, start);
-      const last = upperBound(chunk, epoch);
-      for (let index = first; index < last; index += 1) strikes.push(chunk[index]);
+      strikeCount += lightningUpperBound(chunk, epoch) - lightningUpperBound(chunk, start);
     }
-    lightningLayer.setStrikes(strikes, epoch, immediate);
-    const count = strikes.length.toLocaleString('en-IN');
-    updateLightningUi('live', `${count} ${strikes.length === 1 ? 'stroke' : 'strokes'}`);
+    // Canvas drawing is RAF-coalesced even during scrubbing. This makes input
+    // handlers constant-time while still drawing the newest slider position on
+    // the very next display frame.
+    lightningLayer.setChunks(chunks, epoch, false);
+    const count = strikeCount.toLocaleString('en-IN');
+    updateLightningUi('live', `${count} ${strikeCount === 1 ? 'stroke' : 'strokes'}`);
   }
 
   function prefetchLightningNeighbours(epoch) {
+    if (
+      state.lastScrubInputAt > 0
+      && performance.now() - state.lastScrubInputAt < ARCHIVE_WARM_IDLE_MS
+    ) return;
     const centre = Math.floor(epoch / 3600) * 3600;
     if (state.lastLightningPrefetchHour === centre) return;
     state.lastLightningPrefetchHour = centre;
     for (const offset of LIGHTNING_PREFETCH_OFFSETS) {
       const hour = centre + offset * 3600;
       const summary = state.lightningHours.get(hour);
-      if (summary) loadLightningHour(summary).catch(() => false);
+      if (summary) loadLightningHour(summary, 'low').catch(() => false);
     }
   }
 
@@ -794,15 +952,24 @@
     const token = ++state.lightningRenderToken;
     const immediate = Boolean(options.immediate);
     if (!state.lightningEnabled) {
-      lightningLayer.setStrikes([], epoch, immediate);
+      lightningLayer.setChunks([], epoch, immediate);
       updateLightningUi('off', 'Lightning hidden');
       return;
     }
     if (!state.lightningManifest) {
-      lightningLayer.setStrikes([], epoch, immediate);
+      lightningLayer.setChunks([], epoch, immediate);
       updateLightningUi('loading', 'Lightning loading…');
       return;
     }
+    const scrubIsActive = Boolean(
+      options.scrubbing
+      || options.fromScrubQueue
+      || (
+        state.lastScrubInputAt > 0
+        && performance.now() - state.lastScrubInputAt < ARCHIVE_WARM_IDLE_MS
+      )
+    );
+    if (scrubIsActive) cancelObsoleteLightningLoads(lightningHourStarts(epoch));
     const known = knownLightningSummaries(epoch);
     const cached = known && cachedLightningChunks(known);
     if (cached) {
@@ -811,7 +978,7 @@
       return;
     }
     if (options.scrubbing && !options.fromScrubQueue) {
-      lightningLayer.setStrikes([], epoch, true);
+      lightningLayer.setChunks([], epoch, true);
       updateLightningUi('loading', 'Loading strokes…');
       queueScrubLightning(epoch);
       return;
@@ -819,13 +986,16 @@
     updateLightningUi('loading', 'Loading strokes…');
     try {
       const summaries = await ensureLightningSummaries(epoch);
-      const chunks = await Promise.all(summaries.map(loadLightningHour));
+      const chunks = await Promise.all(
+        summaries.map((summary) => loadLightningHour(summary, scrubIsActive ? 'high' : 'auto')),
+      );
       if (token !== state.lightningRenderToken) return;
       showLightningChunks(epoch, chunks, immediate);
       prefetchLightningNeighbours(epoch);
-    } catch (_) {
+    } catch (error) {
       if (token !== state.lightningRenderToken) return;
-      lightningLayer.setStrikes([], epoch, immediate);
+      console.error('Lightning render failed', error);
+      lightningLayer.setChunks([], epoch, immediate);
       updateLightningUi('error', 'Lightning unavailable');
     }
   }
@@ -847,13 +1017,14 @@
         const epoch = epochAtIndex();
         if (epoch) renderLightning(epoch);
         scheduleArchiveWarm();
+        scheduleLightningWarm();
         return true;
       } catch (error) {
         lastError = error;
       }
     }
     state.lightningManifest = null;
-    lightningLayer.setStrikes([], epochAtIndex());
+    lightningLayer.setChunks([], epochAtIndex());
     updateLightningUi('error', 'Lightning unavailable');
     throw lastError || new Error('no lightning manifest configured');
   }
@@ -948,18 +1119,7 @@
           }))
           .filter((item) => !state.httpWarmedUrls.has(item.url))
           .sort((a, b) => a.distance - b.distance);
-        const lightningCandidates = [...state.lightningHours.values()]
-          .filter((summary) => Number(summary.count) > 0)
-          .map((summary) => ({
-            url: lightningHourUrl(summary),
-            bytes: Math.max(0, Number(summary.bytes) || 0),
-            distance: Math.abs(summary.time - centre),
-          }))
-          .filter((item) => !state.httpWarmedUrls.has(item.url))
-          .sort((a, b) => a.distance - b.distance);
-        // Radar is tiny per frame and is the latency-critical layer. Fill the
-        // remaining session cache budget with lightning hours nearest in time.
-        const candidates = [...radarCandidates, ...lightningCandidates];
+        const candidates = radarCandidates;
         const urls = [];
         let bytes = 0;
         const mobile = matchMedia('(max-width: 640px)').matches;
@@ -995,6 +1155,50 @@
       state.archiveWarmTimer = null;
       warmArchiveHttpCache();
     }, ARCHIVE_WARM_IDLE_MS);
+  }
+
+  async function warmLightningCache() {
+    if (
+      state.lightningWarmRunning
+      || constrainedConnection()
+      || !state.lightningManifest
+      || !state.lightningHours.size
+    ) return;
+    state.lightningWarmRunning = true;
+    try {
+      do {
+        state.lightningWarmRequested = false;
+        const centre = epochAtIndex();
+        const summaries = [...state.lightningHours.values()]
+          .filter((summary) => Number(summary.count) > 0 && !state.lightningCache.has(summary.time))
+          .sort((a, b) => Math.abs(a.time - centre) - Math.abs(b.time - centre))
+          .slice(0, LIGHTNING_CACHE_SIZE);
+        let cursor = 0;
+        const mobile = matchMedia('(max-width: 640px)').matches;
+        const workerCount = Math.min(summaries.length, mobile ? 1 : 2);
+        const worker = async () => {
+          while (cursor < summaries.length) {
+            const summary = summaries[cursor];
+            cursor += 1;
+            await waitForArchiveWarmTurn();
+            await loadLightningHour(summary, 'low').catch(() => false);
+          }
+        };
+        await Promise.all(Array.from({ length: workerCount }, worker));
+      } while (state.lightningWarmRequested);
+    } finally {
+      state.lightningWarmRunning = false;
+    }
+  }
+
+  function scheduleLightningWarm() {
+    if (constrainedConnection()) return;
+    state.lightningWarmRequested = true;
+    clearTimeout(state.lightningWarmTimer);
+    state.lightningWarmTimer = setTimeout(() => {
+      state.lightningWarmTimer = null;
+      warmLightningCache();
+    }, LIGHTNING_WARM_IDLE_MS);
   }
 
   function isFrameReady(url) {
@@ -1463,6 +1667,7 @@
     cancelQueuedScrubLightning();
     renderIndex(index, { lightningImmediate: true });
     scheduleArchiveWarm();
+    scheduleLightningWarm();
   }
 
   function startPlayback() {
