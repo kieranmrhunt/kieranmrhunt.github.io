@@ -15,6 +15,8 @@
     { seconds: 1800, colour: [232, 93, 26] },
     { seconds: 3600, colour: [123, 65, 99] },
   ];
+  const LIGHTNING_CACHE_SIZE = 8;
+  const LIGHTNING_PREFETCH_OFFSETS = [-2, 1, -3, 2];
   const SCRUB_PREFETCH_STEPS = 24;
   const CONSTRAINED_PREFETCH_STEPS = 6;
   const RADAR_LAYER_CACHE_SIZE = 6;
@@ -123,7 +125,9 @@
     lightningLoadedMonths: new Set(),
     lightningLoadingMonths: new Map(),
     lightningCache: new Map(),
+    lightningVisible: [],
     lightningRenderToken: 0,
+    lastLightningPrefetchHour: null,
   };
 
   if (!window.L) {
@@ -165,6 +169,9 @@
       this._viewRequest = null;
       this._drawZoom = null;
       this._drawTopLeft = null;
+      this._projectionRevision = 0;
+      this._ageBuckets = Array.from({ length: LIGHTNING_AGE_PALETTE.length }, () => []);
+      this._newestPoints = [];
     },
     onAdd(activeMap) {
       this._map = activeMap;
@@ -184,10 +191,18 @@
       this._canvas = null;
       this._map = null;
     },
-    setStrikes(strikes, epoch) {
+    setStrikes(strikes, epoch, immediate = false) {
       this._strikes = strikes || [];
       this._epoch = Number(epoch) || 0;
-      this._scheduleDraw();
+      if (immediate) {
+        if (this._drawRequest) {
+          cancelAnimationFrame(this._drawRequest);
+          this._drawRequest = null;
+        }
+        this._draw();
+      } else {
+        this._scheduleDraw();
+      }
     },
     setEnabled(enabled) {
       this._enabled = Boolean(enabled);
@@ -217,6 +232,7 @@
       this._ratio = ratio;
       this._drawZoom = this._map.getZoom();
       this._drawTopLeft = this._map.containerPointToLatLng([0, 0]);
+      this._projectionRevision += 1;
       if (this._drawRequest) {
         cancelAnimationFrame(this._drawRequest);
         this._drawRequest = null;
@@ -245,34 +261,62 @@
       context.clearRect(0, 0, size.x, size.y);
       if (!this._enabled) return;
       const baseRadius = Math.min(4.5, 2.9 + Math.max(0, this._map.getZoom() - 4) * 0.28);
+      const ageBuckets = this._ageBuckets;
+      for (const bucket of ageBuckets) bucket.length = 0;
+      const newestPoints = this._newestPoints;
+      newestPoints.length = 0;
       for (const strike of this._strikes) {
-        const point = this._map.latLngToContainerPoint([strike.latitude, strike.longitude]);
-        if (point.x < -8 || point.y < -8 || point.x > size.x + 8 || point.y > size.y + 8) continue;
+        if (strike._lightningProjectionRevision !== this._projectionRevision) {
+          const point = this._map.latLngToContainerPoint([strike.latitude, strike.longitude]);
+          strike._lightningX = point.x;
+          strike._lightningY = point.y;
+          strike._lightningProjectionRevision = this._projectionRevision;
+        }
+        const x = strike._lightningX;
+        const y = strike._lightningY;
+        if (x < -8 || y < -8 || x > size.x + 8 || y > size.y + 8) continue;
         const age = Math.max(0, this._epoch - strike.time);
-        const ageFraction = Math.min(1, age / LIGHTNING_WINDOW_SECONDS);
-        const radius = baseRadius * (1 - ageFraction * 0.35);
-        const alpha = 0.96 - ageFraction * 0.46;
-        const colour = LIGHTNING_AGE_PALETTE[Math.min(
+        const ageMinute = Math.min(
           LIGHTNING_AGE_PALETTE.length - 1,
           Math.floor(age / 60),
-        )];
+        );
+        ageBuckets[ageMinute].push(x, y);
+        if (age <= 180) newestPoints.push(x, y);
+      }
+
+      context.strokeStyle = 'rgba(45,24,35,.76)';
+      context.lineWidth = 0.85;
+      for (let ageMinute = 0; ageMinute < ageBuckets.length; ageMinute += 1) {
+        const points = ageBuckets[ageMinute];
+        if (!points.length) continue;
+        const ageFraction = Math.min(1, ageMinute / 60);
+        const radius = baseRadius * (1 - ageFraction * 0.35);
+        const alpha = 0.96 - ageFraction * 0.46;
+        const colour = LIGHTNING_AGE_PALETTE[ageMinute];
         context.beginPath();
-        context.moveTo(point.x, point.y - radius);
-        context.lineTo(point.x + radius, point.y);
-        context.lineTo(point.x, point.y + radius);
-        context.lineTo(point.x - radius, point.y);
-        context.closePath();
+        for (let index = 0; index < points.length; index += 2) {
+          const x = points[index];
+          const y = points[index + 1];
+          context.moveTo(x, y - radius);
+          context.lineTo(x + radius, y);
+          context.lineTo(x, y + radius);
+          context.lineTo(x - radius, y);
+          context.closePath();
+        }
         context.fillStyle = `rgba(${colour[0]},${colour[1]},${colour[2]},${alpha})`;
-        context.strokeStyle = 'rgba(45,24,35,.76)';
-        context.lineWidth = 0.85;
         context.fill();
         context.stroke();
-        if (age <= 180) {
-          context.beginPath();
-          context.arc(point.x, point.y, 0.9, 0, Math.PI * 2);
-          context.fillStyle = 'rgba(255,255,235,.95)';
-          context.fill();
+      }
+      if (newestPoints.length) {
+        context.beginPath();
+        for (let index = 0; index < newestPoints.length; index += 2) {
+          const x = newestPoints[index];
+          const y = newestPoints[index + 1];
+          context.moveTo(x + 0.9, y);
+          context.arc(x, y, 0.9, 0, Math.PI * 2);
         }
+        context.fillStyle = 'rgba(255,255,235,.95)';
+        context.fill();
       }
     },
   });
@@ -370,8 +414,8 @@
   }
 
   function updateLightningUi(kind, text) {
-    controls.lightningKey.dataset.state = kind;
-    controls.lightningSummary.textContent = text;
+    if (controls.lightningKey.dataset.state !== kind) controls.lightningKey.dataset.state = kind;
+    if (controls.lightningSummary.textContent !== text) controls.lightningSummary.textContent = text;
   }
 
   function mergeLightningHours(hours) {
@@ -554,7 +598,11 @@
   async function loadLightningHour(summary) {
     if (!summary || Number(summary.count) === 0) return [];
     const cached = state.lightningCache.get(summary.time);
-    if (cached) return cached.promise;
+    if (cached) {
+      state.lightningCache.delete(summary.time);
+      state.lightningCache.set(summary.time, cached);
+      return cached.promise;
+    }
     const entry = { data: null, promise: null };
     entry.promise = (async () => {
       const payload = await fetchJson(lightningHourUrl(summary));
@@ -582,7 +630,7 @@
       return strokes;
     })();
     state.lightningCache.set(summary.time, entry);
-    while (state.lightningCache.size > 8) {
+    while (state.lightningCache.size > LIGHTNING_CACHE_SIZE) {
       const discard = [...state.lightningCache.keys()].find((key) => key !== summary.time);
       if (discard == null) break;
       state.lightningCache.delete(discard);
@@ -604,12 +652,14 @@
       }
       const entry = state.lightningCache.get(summary.time);
       if (!entry || !entry.data) return null;
+      state.lightningCache.delete(summary.time);
+      state.lightningCache.set(summary.time, entry);
       chunks.push(entry.data);
     }
     return chunks;
   }
 
-  function showLightningChunks(epoch, chunks) {
+  function showLightningChunks(epoch, chunks, immediate = false) {
     const start = epoch - LIGHTNING_WINDOW_SECONDS;
     const upperBound = (values, time) => {
       let low = 0;
@@ -621,41 +671,46 @@
       }
       return low;
     };
-    const strikes = [];
+    const strikes = state.lightningVisible;
+    strikes.length = 0;
     for (const chunk of chunks) {
       const first = upperBound(chunk, start);
       const last = upperBound(chunk, epoch);
       for (let index = first; index < last; index += 1) strikes.push(chunk[index]);
     }
-    lightningLayer.setStrikes(strikes, epoch);
+    lightningLayer.setStrikes(strikes, epoch, immediate);
     const count = strikes.length.toLocaleString('en-IN');
     updateLightningUi('live', `${count} ${strikes.length === 1 ? 'stroke' : 'strokes'}`);
   }
 
   function prefetchLightningNeighbours(epoch) {
     const centre = Math.floor(epoch / 3600) * 3600;
-    for (const hour of [centre - 3600, centre + 3600]) {
+    if (state.lastLightningPrefetchHour === centre) return;
+    state.lastLightningPrefetchHour = centre;
+    for (const offset of LIGHTNING_PREFETCH_OFFSETS) {
+      const hour = centre + offset * 3600;
       const summary = state.lightningHours.get(hour);
       if (summary) loadLightningHour(summary).catch(() => false);
     }
   }
 
-  async function renderLightning(epoch) {
+  async function renderLightning(epoch, options = {}) {
     const token = ++state.lightningRenderToken;
+    const immediate = Boolean(options.immediate);
     if (!state.lightningEnabled) {
-      lightningLayer.setStrikes([], epoch);
+      lightningLayer.setStrikes([], epoch, immediate);
       updateLightningUi('off', 'Lightning hidden');
       return;
     }
     if (!state.lightningManifest) {
-      lightningLayer.setStrikes([], epoch);
+      lightningLayer.setStrikes([], epoch, immediate);
       updateLightningUi('loading', 'Lightning loading…');
       return;
     }
     const known = knownLightningSummaries(epoch);
     const cached = known && cachedLightningChunks(known);
     if (cached) {
-      showLightningChunks(epoch, cached);
+      showLightningChunks(epoch, cached, immediate);
       prefetchLightningNeighbours(epoch);
       return;
     }
@@ -664,11 +719,11 @@
       const summaries = await ensureLightningSummaries(epoch);
       const chunks = await Promise.all(summaries.map(loadLightningHour));
       if (token !== state.lightningRenderToken) return;
-      showLightningChunks(epoch, chunks);
+      showLightningChunks(epoch, chunks, immediate);
       prefetchLightningNeighbours(epoch);
     } catch (_) {
       if (token !== state.lightningRenderToken) return;
-      lightningLayer.setStrikes([], epoch);
+      lightningLayer.setStrikes([], epoch, immediate);
       updateLightningUi('error', 'Lightning unavailable');
     }
   }
@@ -871,7 +926,9 @@
     if (!state.timeline.length) return;
     const { clamped, epoch } = selectIndex(index);
     const token = ++state.renderToken;
-    if (options.lightning !== false) renderLightning(epoch);
+    if (options.lightning !== false) {
+      renderLightning(epoch, { immediate: Boolean(options.scrubbing) });
+    }
     const immediate = frameBracket(epoch);
     let bracket = usableBracket(immediate, epoch) ? immediate : null;
     if (bracket) {
