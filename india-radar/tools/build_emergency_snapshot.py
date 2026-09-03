@@ -114,7 +114,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--archive", type=Path, default=DEFAULT_ARCHIVE)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
-    parser.add_argument("--hours", type=float, default=6.0)
+    parser.add_argument("--hours", type=float, default=72.0)
     args = parser.parse_args()
     if args.hours <= 0:
         parser.error("--hours must be positive")

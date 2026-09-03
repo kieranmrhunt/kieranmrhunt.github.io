@@ -3,7 +3,7 @@
 Mobile-first GitHub Pages client for the radar and ILDN lightning archives
 generated in the ILDN workspace. The client races the University of Reading
 and JASMIN GWS mirrors, then falls back within a fraction of a second to a
-six-hour same-origin snapshot bundled with the site. The saved copy keeps the
+72-hour same-origin snapshot bundled with the site. The saved copy keeps the
 map usable during a hosting outage and is labelled clearly in the timeline.
 
 The upstream composite currently contains nominal ten-minute frames. The page
