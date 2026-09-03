@@ -1,8 +1,10 @@
 # India Rain + Lightning
 
 Mobile-first GitHub Pages client for the radar and ILDN lightning archives
-generated in the ILDN workspace. The client tries the University of Reading
-mirror first and the JASMIN GWS mirror as a fallback.
+generated in the ILDN workspace. The client races the University of Reading
+and JASMIN GWS mirrors, then falls back within a fraction of a second to a
+six-hour same-origin snapshot bundled with the site. The saved copy keeps the
+map usable during a hosting outage and is labelled clearly in the timeline.
 
 The upstream composite currently contains nominal ten-minute frames. The page
 checks for updates every five minutes and offers a continuous slider whose
@@ -16,6 +18,12 @@ inpainted from adjacent pixels. Unmistakable solid block corruption triggers
 whole-frame temporal reconstruction between clean neighbours. The original
 source frames are retained in the private archive, and the public manifest
 exposes filter diagnostics.
+
+Refresh the emergency snapshot from the ILDN workspace before publishing with:
+
+```bash
+python3 github-pages/india-radar/tools/build_emergency_snapshot.py
+```
 
 Data attribution and operational caveats are deliberately visible in the page.
 Visitor Badge Reloaded provides the cookie-free visible request count. The radar

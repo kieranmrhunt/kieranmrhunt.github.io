@@ -6,7 +6,15 @@
     const element = document.querySelector(`meta[name="${name}"]`);
     return element ? element.content : '';
   };
-  const manifestEndpoints = [meta('radar-manifest'), meta('radar-manifest-fallback')].filter(Boolean);
+  const absoluteUrl = (url) => (url ? new URL(url, window.location.href).href : '');
+  const liveManifestEndpoints = [meta('radar-manifest'), meta('radar-manifest-fallback')]
+    .map(absoluteUrl)
+    .filter(Boolean);
+  const emergencyManifestEndpoint = absoluteUrl(meta('radar-manifest-emergency'));
+  const manifestEndpoints = [...new Set([
+    ...liveManifestEndpoints,
+    emergencyManifestEndpoint,
+  ].filter(Boolean))];
   const FIVE_MINUTES = 300;
   const LIGHTNING_WINDOW_SECONDS = 3600;
   const LIGHTNING_AGE_STOPS = [
@@ -96,6 +104,7 @@
     manifest: null,
     manifestUrl: '',
     manifestBase: '',
+    usingEmergencySnapshot: false,
     frames: [],
     frameByTime: new Map(),
     timeline: [],
@@ -445,18 +454,58 @@
     }
   }
 
-  async function firstUsableManifest() {
-    let lastError = null;
-    for (const [index, endpoint] of manifestEndpoints.entries()) {
-      try {
-        const payload = await fetchJson(endpoint, index === 0 ? 6000 : 15000);
-        if (!validManifest(payload)) throw new Error('invalid manifest structure');
-        return { payload, endpoint };
-      } catch (error) {
-        lastError = error;
+  async function loadManifest(endpoint, timeoutMs, emergency = false) {
+    const payload = await fetchJson(endpoint, timeoutMs);
+    if (!validManifest(payload)) throw new Error('invalid manifest structure');
+    return { payload, endpoint, emergency };
+  }
+
+  function firstSuccessful(promises) {
+    return new Promise((resolve, reject) => {
+      if (!promises.length) {
+        reject(new Error('no live radar manifest configured'));
+        return;
       }
+      let remaining = promises.length;
+      let lastError = null;
+      promises.forEach((promise) => {
+        promise.then(resolve).catch((error) => {
+          lastError = error;
+          remaining -= 1;
+          if (!remaining) reject(lastError);
+        });
+      });
+    });
+  }
+
+  async function firstUsableManifest() {
+    const liveReady = firstSuccessful(liveManifestEndpoints.map((endpoint, index) => (
+      loadManifest(endpoint, index === 0 ? 6000 : 8000)
+    ))).then(
+      (result) => ({ ok: true, result }),
+      (error) => ({ ok: false, error }),
+    );
+
+    if (!emergencyManifestEndpoint) {
+      const live = await liveReady;
+      if (live.ok) return live.result;
+      throw live.error;
     }
-    throw lastError || new Error('no radar manifest configured');
+
+    const emergencyReady = loadManifest(emergencyManifestEndpoint, 8000, true).then(
+      (result) => ({ ok: true, result }),
+      (error) => ({ ok: false, error }),
+    );
+    const graceElapsed = new Promise((resolve) => setTimeout(() => resolve(null), 700));
+    const quickLive = await Promise.race([liveReady, graceElapsed]);
+    if (quickLive && quickLive.ok) return quickLive.result;
+
+    const emergency = await emergencyReady;
+    if (emergency.ok) return emergency.result;
+
+    const live = quickLive || await liveReady;
+    if (live.ok) return live.result;
+    throw live.error || emergency.error || new Error('no radar manifest available');
   }
 
   function mergeFrames(frames) {
@@ -1072,9 +1121,10 @@
     const last = Number(state.manifest.latest_time != null ? state.manifest.latest_time : state.frames[state.frames.length - 1].time);
     const hours = Math.max(0, (last - first) / 3600);
     const sourceFrames = Number(state.manifest.frame_count != null ? state.manifest.frame_count : state.frames.length).toLocaleString('en-GB');
-    controls.archiveSummary.textContent = hours < 48
+    const prefix = state.usingEmergencySnapshot ? 'Saved copy · ' : '';
+    controls.archiveSummary.textContent = prefix + (hours < 48
       ? `${sourceFrames} source frames · ${hours.toFixed(hours < 10 ? 1 : 0)} h archived`
-      : `${sourceFrames} source frames · ${Math.round(hours / 24)} days archived`;
+      : `${sourceFrames} source frames · ${Math.round(hours / 24)} days archived`);
   }
 
   async function refreshManifest({ initial = false } = {}) {
@@ -1082,11 +1132,13 @@
     state.refreshing = true;
     const selectedEpoch = epochAtIndex() || null;
     const wasLatest = !state.timeline.length || state.index >= state.timeline.length - 2;
+    const wasEmergency = state.usingEmergencySnapshot;
     try {
       const result = await firstUsableManifest();
       state.manifest = result.payload;
       state.manifestUrl = result.endpoint;
       state.manifestBase = baseFromManifestUrl(result.endpoint);
+      state.usingEmergencySnapshot = Boolean(result.emergency);
       refreshLightningManifest(result.endpoint).catch(() => false);
       mergeFrames(result.payload.frames);
       state.monthUrls.clear();
@@ -1101,6 +1153,11 @@
       controls.retryButton.hidden = true;
       controls.mapLoading.hidden = true;
       if (initial) fitIndia(false);
+      if (state.usingEmergencySnapshot && (initial || !wasEmergency)) {
+        showToast('Live data hosts are unavailable; showing the latest saved copy.');
+      } else if (!state.usingEmergencySnapshot && wasEmergency) {
+        showToast('Live radar data restored.');
+      }
     } catch (error) {
       if (initial) showFatal(`Radar data are temporarily unavailable. ${error.message || error}`);
     } finally {
