@@ -27,6 +27,11 @@
   const LIGHTNING_PREFETCH_OFFSETS = [-2, 1, -3, 2];
   const SCRUB_PREFETCH_STEPS = 24;
   const CONSTRAINED_PREFETCH_STEPS = 6;
+  const SCRUB_RADAR_INTERVAL_MS = 48;
+  const SCRUB_LIGHTNING_INTERVAL_MS = 80;
+  const ARCHIVE_WARM_MAX_DESKTOP_BYTES = 32 * 1024 * 1024;
+  const ARCHIVE_WARM_MAX_MOBILE_BYTES = 20 * 1024 * 1024;
+  const ARCHIVE_WARM_IDLE_MS = 350;
   const RADAR_LAYER_CACHE_SIZE = 6;
   const RADAR_WARM_FRAME_COUNT = 4;
   const RADAR_PRELOAD_CACHE_SIZE = 64;
@@ -118,9 +123,17 @@
     playEnd: 0,
     scrubRequest: null,
     pendingScrubIndex: null,
+    scrubRadarTimer: null,
+    pendingScrubRadar: null,
+    lastScrubRadarAt: 0,
+    lastScrubInputAt: 0,
     renderToken: 0,
     preloaded: new Map(),
     lastPrefetchIndex: null,
+    archiveWarmTimer: null,
+    archiveWarmRunning: false,
+    archiveWarmRequested: false,
+    httpWarmedUrls: new Set(),
     monthUrls: new Map(),
     loadedMonths: new Set(),
     loadingMonths: new Map(),
@@ -139,6 +152,9 @@
     lightningVisible: [],
     lightningRenderToken: 0,
     lastLightningPrefetchHour: null,
+    scrubLightningTimer: null,
+    pendingScrubLightningEpoch: null,
+    lastScrubLightningAt: 0,
   };
 
   if (!window.L) {
@@ -419,9 +435,11 @@
     if (endpoint.pathname.endsWith('.php')) {
       endpoint.search = '';
       endpoint.searchParams.set('lightning_hour', String(summary.time));
-      return endpoint.href;
+    } else {
+      endpoint.href = new URL(summary.url, baseFromManifestUrl(radarEndpoint)).href;
     }
-    return new URL(summary.url, baseFromManifestUrl(radarEndpoint)).href;
+    if (summary.sha256) endpoint.searchParams.set('v', String(summary.sha256).slice(0, 12));
+    return endpoint.href;
   }
 
   function updateLightningUi(kind, text) {
@@ -439,14 +457,16 @@
     }
   }
 
-  async function fetchJson(url, timeoutMs = 15000) {
+  async function fetchJson(url, timeoutMs = 15000, fetchOptions = {}) {
     const controller = typeof AbortController === 'function' ? new AbortController() : null;
     const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
     try {
+      const cacheBust = fetchOptions.cacheBust !== false;
       const separator = url.includes('?') ? '&' : '?';
-      const options = { cache: 'no-store' };
+      const requestUrl = cacheBust ? `${url}${separator}_=${Date.now()}` : url;
+      const options = { cache: fetchOptions.cache || (cacheBust ? 'no-store' : 'force-cache') };
       if (controller) options.signal = controller.signal;
-      const response = await fetch(`${url}${separator}_=${Date.now()}`, options);
+      const response = await fetch(requestUrl, options);
       if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
       return await response.json();
     } finally {
@@ -656,7 +676,10 @@
     }
     const entry = { data: null, promise: null };
     entry.promise = (async () => {
-      const payload = await fetchJson(lightningHourUrl(summary));
+      const payload = await fetchJson(lightningHourUrl(summary), 15000, {
+        cacheBust: false,
+        cache: 'force-cache',
+      });
       if (!payload || !Array.isArray(payload.fields) || !Array.isArray(payload.strokes)) {
         throw new Error('invalid lightning hour');
       }
@@ -745,6 +768,28 @@
     }
   }
 
+  function cancelQueuedScrubLightning() {
+    if (state.scrubLightningTimer != null) clearTimeout(state.scrubLightningTimer);
+    state.scrubLightningTimer = null;
+    state.pendingScrubLightningEpoch = null;
+  }
+
+  function queueScrubLightning(epoch) {
+    state.pendingScrubLightningEpoch = epoch;
+    if (state.scrubLightningTimer != null) return;
+    const elapsed = performance.now() - state.lastScrubLightningAt;
+    const delay = Math.max(0, SCRUB_LIGHTNING_INTERVAL_MS - elapsed);
+    state.scrubLightningTimer = setTimeout(() => {
+      const pendingEpoch = state.pendingScrubLightningEpoch;
+      state.scrubLightningTimer = null;
+      state.pendingScrubLightningEpoch = null;
+      state.lastScrubLightningAt = performance.now();
+      if (pendingEpoch != null) {
+        renderLightning(pendingEpoch, { immediate: true, fromScrubQueue: true });
+      }
+    }, delay);
+  }
+
   async function renderLightning(epoch, options = {}) {
     const token = ++state.lightningRenderToken;
     const immediate = Boolean(options.immediate);
@@ -763,6 +808,12 @@
     if (cached) {
       showLightningChunks(epoch, cached, immediate);
       prefetchLightningNeighbours(epoch);
+      return;
+    }
+    if (options.scrubbing && !options.fromScrubQueue) {
+      lightningLayer.setStrikes([], epoch, true);
+      updateLightningUi('loading', 'Loading strokes…');
+      queueScrubLightning(epoch);
       return;
     }
     updateLightningUi('loading', 'Loading strokes…');
@@ -795,6 +846,7 @@
         for (const month of payload.months) state.lightningMonthUrls.set(month.month, month.url);
         const epoch = epochAtIndex();
         if (epoch) renderLightning(epoch);
+        scheduleArchiveWarm();
         return true;
       } catch (error) {
         lastError = error;
@@ -815,6 +867,7 @@
     controls.lightningButton.setAttribute('aria-label', state.lightningEnabled ? 'Hide lightning' : 'Show lightning');
     controls.lightningButton.title = state.lightningEnabled ? 'Hide lightning' : 'Show lightning';
     lightningLayer.setEnabled(state.lightningEnabled);
+    if (!state.lightningEnabled) cancelQueuedScrubLightning();
     renderLightning(epochAtIndex());
   }
 
@@ -850,6 +903,98 @@
       state.preloaded.delete(firstKey);
     }
     return entry.promise;
+  }
+
+  function constrainedConnection() {
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    return Boolean(connection && (
+      connection.saveData || /(^|-)2g$/.test(connection.effectiveType || '')
+    ));
+  }
+
+  function waitForArchiveWarmTurn() {
+    const elapsed = performance.now() - state.lastScrubInputAt;
+    if (elapsed >= ARCHIVE_WARM_IDLE_MS) return Promise.resolve();
+    return new Promise((resolve) => {
+      setTimeout(resolve, ARCHIVE_WARM_IDLE_MS - elapsed);
+    });
+  }
+
+  async function warmArchiveResponse(url) {
+    if (state.httpWarmedUrls.has(url)) return;
+    await waitForArchiveWarmTurn();
+    try {
+      const response = await fetch(url, { cache: 'force-cache', priority: 'low' });
+      if (!response.ok) return;
+      await response.arrayBuffer();
+      state.httpWarmedUrls.add(url);
+    } catch (_) {
+      // The normal image loader remains the fallback when a host disallows CORS.
+    }
+  }
+
+  async function warmArchiveHttpCache() {
+    if (state.archiveWarmRunning || constrainedConnection() || !state.frames.length) return;
+    state.archiveWarmRunning = true;
+    try {
+      do {
+        state.archiveWarmRequested = false;
+        const centre = epochAtIndex();
+        const radarCandidates = state.frames
+          .map((frame) => ({
+            url: frameUrl(frame),
+            bytes: Math.max(0, Number(frame.bytes) || 0),
+            distance: Math.abs(frame.time - centre),
+          }))
+          .filter((item) => !state.httpWarmedUrls.has(item.url))
+          .sort((a, b) => a.distance - b.distance);
+        const lightningCandidates = [...state.lightningHours.values()]
+          .filter((summary) => Number(summary.count) > 0)
+          .map((summary) => ({
+            url: lightningHourUrl(summary),
+            bytes: Math.max(0, Number(summary.bytes) || 0),
+            distance: Math.abs(summary.time - centre),
+          }))
+          .filter((item) => !state.httpWarmedUrls.has(item.url))
+          .sort((a, b) => a.distance - b.distance);
+        // Radar is tiny per frame and is the latency-critical layer. Fill the
+        // remaining session cache budget with lightning hours nearest in time.
+        const candidates = [...radarCandidates, ...lightningCandidates];
+        const urls = [];
+        let bytes = 0;
+        const mobile = matchMedia('(max-width: 640px)').matches;
+        const maximumBytes = mobile
+          ? ARCHIVE_WARM_MAX_MOBILE_BYTES
+          : ARCHIVE_WARM_MAX_DESKTOP_BYTES;
+        for (const item of candidates) {
+          if (urls.length && bytes + item.bytes > maximumBytes) break;
+          urls.push(item.url);
+          bytes += item.bytes;
+        }
+        let cursor = 0;
+        const workerCount = Math.min(urls.length, mobile ? 2 : 4);
+        const worker = async () => {
+          while (cursor < urls.length) {
+            const url = urls[cursor];
+            cursor += 1;
+            await warmArchiveResponse(url);
+          }
+        };
+        await Promise.all(Array.from({ length: workerCount }, worker));
+      } while (state.archiveWarmRequested);
+    } finally {
+      state.archiveWarmRunning = false;
+    }
+  }
+
+  function scheduleArchiveWarm() {
+    if (constrainedConnection()) return;
+    state.archiveWarmRequested = true;
+    clearTimeout(state.archiveWarmTimer);
+    state.archiveWarmTimer = setTimeout(() => {
+      state.archiveWarmTimer = null;
+      warmArchiveHttpCache();
+    }, ARCHIVE_WARM_IDLE_MS);
   }
 
   function isFrameReady(url) {
@@ -973,14 +1118,77 @@
     pruneRadarLayers();
   }
 
+  function cancelQueuedScrubRadar() {
+    if (state.scrubRadarTimer != null) clearTimeout(state.scrubRadarTimer);
+    state.scrubRadarTimer = null;
+    state.pendingScrubRadar = null;
+  }
+
+  async function loadScrubRadar(pending) {
+    const { bracket, epoch, token } = pending;
+    const beforeUrl = frameUrl(bracket.before);
+    const afterUrl = bracket.after ? frameUrl(bracket.after) : '';
+    const beforeEntry = mountRadarLayer(beforeUrl, bracket.before, 'high');
+    const afterEntry = bracket.after
+      ? mountRadarLayer(afterUrl, bracket.after, 'high')
+      : null;
+    // Keep at most a few decoded/in-flight mosaics alive while a fast drag
+    // crosses hundreds of archive positions. Removing an obsolete overlay
+    // also gives the browser a chance to cancel its image request.
+    pruneRadarLayers();
+
+    if (beforeEntry.loaded && (!afterEntry || afterEntry.loaded)) {
+      if (token === state.renderToken && epoch === epochAtIndex()) showRadarBracket(bracket);
+      return;
+    }
+    if (beforeEntry.loaded && token === state.renderToken && epoch === epochAtIndex()) {
+      showRadarBracket(bracket, false);
+    }
+
+    const beforeLoaded = await beforeEntry.promise;
+    if (!beforeLoaded || token !== state.renderToken || epoch !== epochAtIndex()) return;
+    showRadarBracket(bracket, !afterEntry || afterEntry.loaded);
+    if (!afterEntry || afterEntry.loaded) return;
+    const afterLoaded = await afterEntry.promise;
+    if (afterLoaded && token === state.renderToken && epoch === epochAtIndex()) {
+      showRadarBracket(bracket);
+    }
+  }
+
+  function queueScrubRadar(bracket, epoch, token) {
+    state.pendingScrubRadar = { bracket, epoch, token };
+    if (state.scrubRadarTimer != null) return;
+    const elapsed = performance.now() - state.lastScrubRadarAt;
+    const delay = Math.max(0, SCRUB_RADAR_INTERVAL_MS - elapsed);
+    state.scrubRadarTimer = setTimeout(() => {
+      const pending = state.pendingScrubRadar;
+      state.scrubRadarTimer = null;
+      state.pendingScrubRadar = null;
+      state.lastScrubRadarAt = performance.now();
+      if (pending) loadScrubRadar(pending);
+      if (state.pendingScrubRadar) {
+        queueScrubRadar(
+          state.pendingScrubRadar.bracket,
+          state.pendingScrubRadar.epoch,
+          state.pendingScrubRadar.token,
+        );
+      }
+    }, delay);
+  }
+
   async function renderIndex(index, options = {}) {
     if (!state.timeline.length) return;
-    if (!options.fromScrubQueue) cancelQueuedScrub();
+    if (!options.fromScrubQueue) {
+      cancelQueuedScrub();
+      cancelQueuedScrubRadar();
+      cancelQueuedScrubLightning();
+    }
     const { clamped, epoch } = selectIndex(index);
     const token = ++state.renderToken;
     if (options.lightning !== false) {
       renderLightning(epoch, {
         immediate: Boolean(options.scrubbing || options.lightningImmediate),
+        scrubbing: Boolean(options.scrubbing),
       });
     }
     const immediate = frameBracket(epoch);
@@ -988,8 +1196,13 @@
     if (bracket) {
       if (options.scrubbing) {
         updateTimeLabels(epoch, bracket);
-        showRadarBracket(bracket);
-        if (options.prefetch !== false) prefetchNeighbours(clamped);
+        const beforeUrl = frameUrl(bracket.before);
+        const afterUrl = bracket.after ? frameUrl(bracket.after) : '';
+        if (isFrameReady(beforeUrl) && (!afterUrl || isFrameReady(afterUrl))) {
+          showRadarBracket(bracket);
+        } else {
+          queueScrubRadar(bracket, epoch, token);
+        }
         return;
       }
       const beforeUrl = frameUrl(bracket.before);
@@ -1038,8 +1251,7 @@
     const urls = new Set();
     const centre = Math.round(index);
     state.lastPrefetchIndex = centre;
-    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-    const constrained = Boolean(connection && (connection.saveData || /(^|-)2g$/.test(connection.effectiveType || '')));
+    const constrained = constrainedConnection();
     if (!constrained && state.frames.length <= 48) {
       state.frames.forEach((frame) => urls.add(frameUrl(frame)));
     } else {
@@ -1149,6 +1361,7 @@
       if (initial) controls.datePicker.value = controls.datePicker.max;
       rebuildTimeline(wasLatest ? null : selectedEpoch);
       await renderIndex(state.index);
+      scheduleArchiveWarm();
       controls.mapLoading.classList.remove('is-error');
       controls.retryButton.hidden = true;
       controls.mapLoading.hidden = true;
@@ -1229,16 +1442,15 @@
   }
 
   function queueScrub(index) {
+    state.lastScrubInputAt = performance.now();
     state.pendingScrubIndex = index;
     if (state.scrubRequest != null) return;
     state.scrubRequest = requestAnimationFrame(() => {
       const pendingIndex = state.pendingScrubIndex;
       state.scrubRequest = null;
       state.pendingScrubIndex = null;
-      const shouldPrefetch = state.lastPrefetchIndex == null
-        || Math.abs(Math.round(pendingIndex) - state.lastPrefetchIndex) >= 6;
       renderIndex(pendingIndex, {
-        prefetch: shouldPrefetch,
+        prefetch: false,
         scrubbing: true,
         fromScrubQueue: true,
       });
@@ -1247,7 +1459,10 @@
 
   function finishScrub(index) {
     cancelQueuedScrub();
+    cancelQueuedScrubRadar();
+    cancelQueuedScrubLightning();
     renderIndex(index, { lightningImmediate: true });
+    scheduleArchiveWarm();
   }
 
   function startPlayback() {
