@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#17131d">
+  <meta name="theme-color" content="#ffffff">
   <meta name="description" content="A fast, touch-friendly animated rain-radar and lightning map for India, updated every five minutes.">
   <meta name="radar-manifest" content="https://www.met.reading.ac.uk/~rz908899/india-radar/data/manifest.php">
   <meta name="radar-manifest-fallback" content="https://gws-access.jasmin.ac.uk/public/incompass/kieran/india-radar/data/manifest.json">
@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://www.met.reading.ac.uk">
   <link rel="preconnect" href="https://tile.openstreetmap.org">
   <link rel="stylesheet" href="./vendor/leaflet/leaflet.css?v=1.9.4">
-  <link rel="stylesheet" href="./app.css?v=4">
+  <link rel="stylesheet" href="./app.css?v=5">
 </head>
 <body>
   <a class="skip-link" href="#timeline">Skip to timeline controls</a>
@@ -24,11 +24,9 @@
       <span class="brand-mark" aria-hidden="true">ϟ</span>
       <span>
         <strong><span class="brand-wide">India Rain + Lightning</span><span class="brand-compact">India Weather</span></strong>
-        <small>Five-minute live view</small>
       </span>
     </a>
-    <div class="header-status" aria-live="polite">
-      <span class="status-pill" id="feedStatus" data-state="loading"><i></i><span>Connecting</span></span>
+    <div class="header-status">
       <span class="header-time" id="headerTime">—</span>
     </div>
     <div class="header-actions">
@@ -84,7 +82,7 @@
       </div>
       <div class="frame-badges">
         <span class="frame-kind" id="frameKind">Source frame</span>
-        <button class="live-button" id="latestButton" type="button">Latest</button>
+        <button class="latest-button" id="latestButton" type="button">Latest</button>
       </div>
     </div>
 
@@ -100,8 +98,8 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 6 6 6-6 6"></path></svg>
       </button>
       <div class="range-wrap">
-        <input id="timeRange" type="range" min="0" max="0" value="0" step="1" aria-label="Radar time">
-        <div class="range-labels"><span id="rangeStart">—</span><span>5-min steps</span><span id="rangeEnd">—</span></div>
+        <input id="timeRange" type="range" min="0" max="0" value="0" step="any" aria-label="Radar time">
+        <div class="range-labels"><span id="rangeStart">—</span><span>Continuous interpolation</span><span id="rangeEnd">—</span></div>
       </div>
     </div>
 
@@ -119,16 +117,15 @@
   <dialog class="about-dialog" id="aboutDialog">
     <form method="dialog">
       <button class="dialog-close" value="close" aria-label="Close">×</button>
-      <p class="dialog-eyebrow">About the map</p>
       <h2>India Rain + Lightning</h2>
       <p>This experimental map combines the public RainViewer radar composite for India with time-matched strokes from the Indian Lightning Detection Network.</p>
       <dl>
         <div><dt>Update check</dt><dd>Every five minutes</dd></div>
         <div><dt>Observed frames</dt><dd>Nominally every ten minutes</dd></div>
-        <div><dt>Five-minute midpoint</dt><dd>A labelled cross-fade between adjacent source frames</dd></div>
+        <div><dt>Between observations</dt><dd>A continuous cross-fade between adjacent source frames</dd></div>
         <div><dt>Lightning history</dt><dd>Previous-hour strokes at every timeline position, coloured and sized by age</dd></div>
         <div><dt>Map resolution</dt><dd>Web-Mercator zoom 6, approximately 2–3 km per pixel over India</dd></div>
-        <div><dt>Radar cleaning</dt><dd>Persistent radial spokes through known radar sites are detected over time and inpainted</dd></div>
+        <div><dt>Radar cleaning</dt><dd>Persistent radial spokes are inpainted; clearly corrupt block frames are reconstructed from clean time neighbours</dd></div>
       </dl>
       <label class="opacity-control" for="opacityRange">
         <span>Radar opacity <output id="opacityOutput">82%</output></span>
@@ -138,7 +135,7 @@
         <span><strong>Show lightning</strong><small>Original ILDN stroke locations and times</small></span>
         <input id="lightningToggle" type="checkbox" checked>
       </label>
-      <p class="caveat">Radar and lightning can be delayed, unavailable, or incomplete. The experimental spoke filter may miss artefacts or alter a small area of genuine echo; untouched radar frames remain in the private archive. Do not use this service for safety-critical decisions.</p>
+      <p class="caveat">Radar and lightning can be delayed, unavailable, or incomplete. Automated quality control may miss artefacts or alter genuine echo; untouched radar frames remain in the private archive. Do not use this service for safety-critical decisions.</p>
       <p class="credits">Data: <a href="https://www.rainviewer.com/api/weather-maps-api.html" target="_blank" rel="noopener">RainViewer Weather Maps API</a> and its <a href="https://mausam.imd.gov.in/responsive/radar.php" target="_blank" rel="noopener">IMD sources</a>; lightning © <a href="https://ildn.in/" target="_blank" rel="noopener">Indian Lightning Detection Network</a> under its <a href="https://ildn.in/legal.php" target="_blank" rel="noopener">non-commercial terms</a>. Basemap © OpenStreetMap contributors. Contact: <a href="mailto:k.m.r.hunt@reading.ac.uk">Kieran Hunt</a>.</p>
       <p class="views">
         <a href="https://vbr.nathanchung.dev/info/kieranmrhunt-india-radar" target="_blank" rel="noopener" aria-label="Open public page-view summary">
@@ -154,6 +151,6 @@
 
   <noscript><div class="noscript">This animated radar requires JavaScript.</div></noscript>
   <script src="./vendor/leaflet/leaflet.js?v=1.9.4"></script>
-  <script src="./app.js?v=5" defer></script>
+  <script src="./app.js?v=6" defer></script>
 </body>
 </html>

@@ -15,7 +15,10 @@
     { seconds: 1800, colour: [232, 93, 26] },
     { seconds: 3600, colour: [123, 65, 99] },
   ];
-  const SCRUB_PREFETCH_STEPS = 12;
+  const SCRUB_PREFETCH_STEPS = 24;
+  const CONSTRAINED_PREFETCH_STEPS = 6;
+  const RADAR_LAYER_CACHE_SIZE = 6;
+  const RADAR_PRELOAD_CACHE_SIZE = 64;
   const IST_OFFSET_SECONDS = 5.5 * 3600;
   const DEFAULT_BOUNDS = { south: 0, west: 61.875, north: 40.979898, east: 106.875 };
   const timeFormatters = {
@@ -94,7 +97,8 @@
     frameByTime: new Map(),
     timeline: [],
     index: 0,
-    layers: [],
+    radarLayers: new Map(),
+    activeRadarUrls: new Set(),
     opacity: readOpacityPreference(),
     playing: false,
     playTimer: null,
@@ -102,12 +106,11 @@
     playEnd: 0,
     renderToken: 0,
     preloaded: new Map(),
+    lastPrefetchIndex: null,
     monthUrls: new Map(),
     loadedMonths: new Set(),
     loadingMonths: new Map(),
     refreshing: false,
-    scrubFrame: null,
-    scrubTarget: null,
     toastTimer: null,
     userMarker: null,
     lightningManifest: null,
@@ -282,7 +285,6 @@
   L.control.zoom({ position: 'topright' }).addTo(map);
 
   const controls = {
-    feedStatus: $('#feedStatus'),
     headerTime: $('#headerTime'),
     mapLoading: $('#mapLoading'),
     loadingText: $('#loadingText'),
@@ -441,6 +443,12 @@
     return Math.max(0, Math.min(state.timeline.length - 1, raw));
   }
 
+  function epochAtIndex(index = state.index) {
+    if (!state.timeline.length) return 0;
+    const clamped = Math.max(0, Math.min(state.timeline.length - 1, Number(index) || 0));
+    return Math.round(state.timeline[0] + clamped * FIVE_MINUTES);
+  }
+
   function frameBracket(epoch) {
     let low = 0;
     let high = state.frames.length - 1;
@@ -568,7 +576,7 @@
         && Number.isFinite(strike.longitude)
         && strike.latitude >= -90 && strike.latitude <= 90
         && strike.longitude >= -180 && strike.longitude <= 180
-      ));
+      )).sort((a, b) => a.time - b.time);
       entry.data = strokes;
       return strokes;
     })();
@@ -602,7 +610,22 @@
 
   function showLightningChunks(epoch, chunks) {
     const start = epoch - LIGHTNING_WINDOW_SECONDS;
-    const strikes = chunks.flat().filter((strike) => strike.time > start && strike.time <= epoch);
+    const upperBound = (values, time) => {
+      let low = 0;
+      let high = values.length;
+      while (low < high) {
+        const middle = (low + high) >> 1;
+        if (values[middle].time <= time) low = middle + 1;
+        else high = middle;
+      }
+      return low;
+    };
+    const strikes = [];
+    for (const chunk of chunks) {
+      const first = upperBound(chunk, start);
+      const last = upperBound(chunk, epoch);
+      for (let index = first; index < last; index += 1) strikes.push(chunk[index]);
+    }
     lightningLayer.setStrikes(strikes, epoch);
     const count = strikes.length.toLocaleString('en-IN');
     updateLightningUi('live', `${count} ${strikes.length === 1 ? 'stroke' : 'strokes'}`);
@@ -663,7 +686,7 @@
         mergeLightningHours(payload.hours);
         state.lightningMonthUrls.clear();
         for (const month of payload.months) state.lightningMonthUrls.set(month.month, month.url);
-        const epoch = state.timeline[state.index];
+        const epoch = epochAtIndex();
         if (epoch) renderLightning(epoch);
         return true;
       } catch (error) {
@@ -671,7 +694,7 @@
       }
     }
     state.lightningManifest = null;
-    lightningLayer.setStrikes([], state.timeline[state.index] || 0);
+    lightningLayer.setStrikes([], epochAtIndex());
     updateLightningUi('error', 'Lightning unavailable');
     throw lastError || new Error('no lightning manifest configured');
   }
@@ -685,26 +708,53 @@
     controls.lightningButton.setAttribute('aria-label', state.lightningEnabled ? 'Hide lightning' : 'Show lightning');
     controls.lightningButton.title = state.lightningEnabled ? 'Hide lightning' : 'Show lightning';
     lightningLayer.setEnabled(state.lightningEnabled);
-    renderLightning(state.timeline[state.index] || 0);
+    renderLightning(epochAtIndex());
   }
 
   function preload(url, priority = 'auto') {
     if (!url) return Promise.resolve(false);
-    if (state.preloaded.has(url)) return state.preloaded.get(url);
-    const promise = new Promise((resolve) => {
-      const image = new Image();
+    const cached = state.preloaded.get(url);
+    if (cached) {
+      state.preloaded.delete(url);
+      state.preloaded.set(url, cached);
+      return cached.promise;
+    }
+    const image = new Image();
+    const entry = { image, loaded: false, promise: null };
+    entry.promise = new Promise((resolve) => {
+      const finish = (loaded) => {
+        entry.loaded = loaded;
+        entry.image = null;
+        if (!loaded && state.preloaded.get(url) === entry) state.preloaded.delete(url);
+        resolve(loaded);
+      };
       image.decoding = 'async';
       image.fetchPriority = priority;
-      image.onload = () => resolve(true);
-      image.onerror = () => resolve(false);
+      image.onload = () => {
+        if (typeof image.decode === 'function') image.decode().catch(() => false).then(() => finish(true));
+        else finish(true);
+      };
+      image.onerror = () => finish(false);
       image.src = url;
     });
-    state.preloaded.set(url, promise);
-    if (state.preloaded.size > 48) {
+    state.preloaded.set(url, entry);
+    while (state.preloaded.size > RADAR_PRELOAD_CACHE_SIZE) {
       const firstKey = state.preloaded.keys().next().value;
       state.preloaded.delete(firstKey);
     }
-    return promise;
+    return entry.promise;
+  }
+
+  function isPreloaded(url) {
+    const entry = state.preloaded.get(url);
+    return Boolean(entry && entry.loaded);
+  }
+
+  function isFrameReady(url) {
+    if (isPreloaded(url)) return true;
+    const entry = state.radarLayers.get(url);
+    const image = entry && entry.layer && entry.layer._image;
+    return Boolean(image && image.complete && image.naturalWidth);
   }
 
   function leafletBounds() {
@@ -712,11 +762,15 @@
     return [[bounds.south, bounds.west], [bounds.north, bounds.east]];
   }
 
-  function selectIndex(index, { invalidate = false } = {}) {
-    const clamped = Math.max(0, Math.min(state.timeline.length - 1, Number(index)));
+  function selectIndex(index) {
+    const numeric = Number(index);
+    const clamped = Math.max(0, Math.min(
+      state.timeline.length - 1,
+      Number.isFinite(numeric) ? numeric : 0,
+    ));
     state.index = clamped;
     controls.timeRange.value = String(clamped);
-    const epoch = state.timeline[clamped];
+    const epoch = epochAtIndex(clamped);
     const immediate = frameBracket(epoch);
     const available = usableBracket(immediate, epoch);
     updateTimeLabels(epoch, available ? immediate : { after: null });
@@ -724,8 +778,70 @@
       controls.frameKind.textContent = 'Loading frame';
       controls.frameKind.dataset.kind = 'blend';
     }
-    if (invalidate) state.renderToken += 1;
     return { clamped, epoch };
+  }
+
+  function radarLayer(url, frame) {
+    let entry = state.radarLayers.get(url);
+    if (entry) {
+      state.radarLayers.delete(url);
+      state.radarLayers.set(url, entry);
+      return entry.layer;
+    }
+    const layer = L.imageOverlay(url, leafletBounds(), {
+      pane: 'radarPane',
+      opacity: 0,
+      interactive: false,
+      alt: `Radar composite at ${formatUtc(frame.time)}`,
+    });
+    state.radarLayers.set(url, { layer });
+    return layer;
+  }
+
+  function clearRadarLayers() {
+    for (const url of state.activeRadarUrls) {
+      const entry = state.radarLayers.get(url);
+      if (entry && map.hasLayer(entry.layer)) map.removeLayer(entry.layer);
+    }
+    state.activeRadarUrls.clear();
+  }
+
+  function pruneRadarLayers() {
+    while (state.radarLayers.size > RADAR_LAYER_CACHE_SIZE) {
+      const discard = [...state.radarLayers.keys()].find((url) => !state.activeRadarUrls.has(url));
+      if (!discard) break;
+      const entry = state.radarLayers.get(discard);
+      if (entry && map.hasLayer(entry.layer)) map.removeLayer(entry.layer);
+      state.radarLayers.delete(discard);
+    }
+  }
+
+  function showRadarBracket(bracket, afterLoaded = true) {
+    const beforeUrl = frameUrl(bracket.before);
+    const useAfter = Boolean(bracket.after && afterLoaded);
+    const afterUrl = useAfter ? frameUrl(bracket.after) : '';
+    const desired = new Set([beforeUrl]);
+    if (afterUrl) desired.add(afterUrl);
+
+    const beforeLayer = radarLayer(beforeUrl, bracket.before);
+    if (!map.hasLayer(beforeLayer)) beforeLayer.addTo(map);
+    beforeLayer.setOpacity(useAfter ? state.opacity * (1 - bracket.ratio) : state.opacity);
+    beforeLayer.bringToFront();
+
+    if (useAfter) {
+      const afterLayer = radarLayer(afterUrl, bracket.after);
+      if (!map.hasLayer(afterLayer)) afterLayer.addTo(map);
+      afterLayer.setOpacity(state.opacity * bracket.ratio);
+      afterLayer.bringToFront();
+    }
+
+    for (const oldUrl of state.activeRadarUrls) {
+      if (desired.has(oldUrl)) continue;
+      const entry = state.radarLayers.get(oldUrl);
+      if (entry && map.hasLayer(entry.layer)) map.removeLayer(entry.layer);
+    }
+    state.activeRadarUrls = desired;
+    pruneRadarLayers();
   }
 
   async function renderIndex(index, options = {}) {
@@ -733,14 +849,26 @@
     const { clamped, epoch } = selectIndex(index);
     const token = ++state.renderToken;
     if (options.lightning !== false) renderLightning(epoch);
-    const bracket = await ensureFramesForEpoch(epoch);
+    const immediate = frameBracket(epoch);
+    let bracket = usableBracket(immediate, epoch) ? immediate : null;
+    if (bracket) {
+      const beforeUrl = frameUrl(bracket.before);
+      const afterUrl = bracket.after ? frameUrl(bracket.after) : '';
+      if (isFrameReady(beforeUrl) && (!afterUrl || isFrameReady(afterUrl))) {
+        updateTimeLabels(epoch, bracket);
+        showRadarBracket(bracket);
+        if (options.prefetch !== false) prefetchNeighbours(clamped);
+        return;
+      }
+    } else {
+      bracket = await ensureFramesForEpoch(epoch);
+    }
     if (token !== state.renderToken) return;
     if (!bracket) {
       updateTimeLabels(epoch, { after: null });
       controls.frameKind.textContent = 'No source frame';
       controls.frameKind.dataset.kind = 'blend';
-      state.layers.forEach((layer) => map.removeLayer(layer));
-      state.layers = [];
+      clearRadarLayers();
       return;
     }
 
@@ -757,43 +885,24 @@
       return;
     }
 
-    const newLayers = [];
-    const beforeOpacity = bracket.after ? state.opacity * (1 - bracket.ratio) : state.opacity;
-    const beforeLayer = L.imageOverlay(beforeUrl, leafletBounds(), {
-      pane: 'radarPane',
-      opacity: beforeOpacity,
-      interactive: false,
-      alt: `Radar composite at ${formatUtc(bracket.before.time)}`,
-    }).addTo(map);
-    newLayers.push(beforeLayer);
-
-    if (bracket.after && loaded[1]) {
-      const afterLayer = L.imageOverlay(afterUrl, leafletBounds(), {
-        pane: 'radarPane',
-        opacity: state.opacity * bracket.ratio,
-        interactive: false,
-        alt: `Radar composite at ${formatUtc(bracket.after.time)}`,
-      }).addTo(map);
-      newLayers.push(afterLayer);
-    }
-
-    const oldLayers = state.layers;
-    state.layers = newLayers;
-    requestAnimationFrame(() => oldLayers.forEach((layer) => map.removeLayer(layer)));
+    showRadarBracket(bracket, loaded[1]);
 
     if (options.prefetch !== false) prefetchNeighbours(clamped);
   }
 
   function prefetchNeighbours(index) {
     const urls = new Set();
+    const centre = Math.round(index);
+    state.lastPrefetchIndex = centre;
     const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
     const constrained = Boolean(connection && (connection.saveData || /(^|-)2g$/.test(connection.effectiveType || '')));
     if (!constrained && state.frames.length <= 48) {
       state.frames.forEach((frame) => urls.add(frameUrl(frame)));
     } else {
-      for (let distance = 1; distance <= SCRUB_PREFETCH_STEPS; distance += 1) {
+      const steps = constrained ? CONSTRAINED_PREFETCH_STEPS : SCRUB_PREFETCH_STEPS;
+      for (let distance = 1; distance <= steps; distance += 1) {
         for (const offset of [-distance, distance]) {
-          const epoch = state.timeline[index + offset];
+          const epoch = state.timeline[centre + offset];
           if (!epoch) continue;
           const bracket = frameBracket(epoch);
           if (!usableBracket(bracket, epoch)) continue;
@@ -827,26 +936,13 @@
     controls.selectedDate.textContent = `${parts.istDate} · ${parts.utc} UTC`;
     controls.headerTime.textContent = `${parts.ist} IST`;
     const isBlend = Boolean(bracket.after && bracket.ratio > 0 && bracket.ratio < 1);
-    controls.frameKind.textContent = isBlend ? '5-min blend' : 'Source frame';
+    controls.frameKind.textContent = isBlend ? 'Interpolated' : 'Source frame';
     controls.frameKind.dataset.kind = isBlend ? 'blend' : 'source';
-    const latest = state.index === state.timeline.length - 1;
+    const latest = state.index >= state.timeline.length - 1 - 0.001;
     controls.latestButton.classList.toggle('is-latest', latest);
-    controls.latestButton.textContent = latest ? 'Live' : 'Latest';
+    controls.latestButton.disabled = latest;
+    controls.latestButton.textContent = 'Latest';
     controls.dateButtonLabel.textContent = timeFormatters.istDayMonth.format(new Date(epoch * 1000));
-  }
-
-  function updateFeedStatus() {
-    if (!state.frames.length) return setFeedStatus('error', 'No data');
-    const latest = state.frames[state.frames.length - 1].time;
-    const ageMinutes = Math.max(0, (Date.now() / 1000 - latest) / 60);
-    if (ageMinutes <= 25) setFeedStatus('live', 'Live');
-    else if (ageMinutes <= 90) setFeedStatus('delayed', `${Math.round(ageMinutes)}m old`);
-    else setFeedStatus('error', 'Archive');
-  }
-
-  function setFeedStatus(kind, text) {
-    controls.feedStatus.dataset.state = kind;
-    controls.feedStatus.querySelector('span').textContent = text;
   }
 
   function updateArchiveSummary() {
@@ -863,7 +959,7 @@
   async function refreshManifest({ initial = false } = {}) {
     if (state.refreshing) return;
     state.refreshing = true;
-    const selectedEpoch = state.timeline[state.index] || null;
+    const selectedEpoch = epochAtIndex() || null;
     const wasLatest = !state.timeline.length || state.index >= state.timeline.length - 2;
     try {
       const result = await firstUsableManifest();
@@ -879,14 +975,12 @@
       controls.datePicker.max = dateInIst(Number(result.payload.latest_time));
       if (initial) controls.datePicker.value = controls.datePicker.max;
       rebuildTimeline(wasLatest ? null : selectedEpoch);
-      updateFeedStatus();
       await renderIndex(state.index);
       controls.mapLoading.classList.remove('is-error');
       controls.retryButton.hidden = true;
       controls.mapLoading.hidden = true;
       if (initial) fitIndia(false);
     } catch (error) {
-      setFeedStatus('error', 'Offline');
       if (initial) showFatal(`Radar data are temporarily unavailable. ${error.message || error}`);
     } finally {
       state.refreshing = false;
@@ -907,7 +1001,7 @@
     if (state.loadingMonths.has(month)) return state.loadingMonths.get(month);
     const relative = state.monthUrls.get(month);
     if (!relative) return false;
-    const preserveTime = state.timeline[state.index] || null;
+    const preserveTime = epochAtIndex() || null;
     const promise = (async () => {
       controls.loadingText.textContent = `Loading ${month}…`;
       controls.mapLoading.hidden = false;
@@ -947,31 +1041,22 @@
 
   function step(delta) {
     pausePlayback();
-    renderIndex(state.index + delta);
+    renderIndex(Math.round(state.index) + delta);
   }
 
   function queueScrub(index) {
-    const selection = selectIndex(index, { invalidate: true });
-    renderLightning(selection.epoch);
-    state.scrubTarget = selection.clamped;
-    if (state.scrubFrame) return;
-    state.scrubFrame = requestAnimationFrame(() => {
-      state.scrubFrame = null;
-      const target = state.scrubTarget;
-      state.scrubTarget = null;
-      renderIndex(target, { prefetch: false, lightning: false });
-    });
+    const shouldPrefetch = state.lastPrefetchIndex == null
+      || Math.abs(Math.round(index) - state.lastPrefetchIndex) >= 6;
+    renderIndex(index, { prefetch: shouldPrefetch });
   }
 
   function finishScrub(index) {
-    if (state.scrubFrame) cancelAnimationFrame(state.scrubFrame);
-    state.scrubFrame = null;
-    state.scrubTarget = null;
     renderIndex(index);
   }
 
   function startPlayback() {
     if (state.timeline.length < 2) return;
+    state.index = Math.round(state.index);
     const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const windowSteps = 24; // two hours at five-minute positions
     if (state.index >= state.timeline.length - 2) {
@@ -1097,6 +1182,5 @@
   });
 
   setInterval(() => refreshManifest(), FIVE_MINUTES * 1000);
-  setInterval(updateFeedStatus, 60000);
   refreshManifest({ initial: true });
 })();
