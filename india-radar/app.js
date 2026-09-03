@@ -18,6 +18,7 @@
   const SCRUB_PREFETCH_STEPS = 24;
   const CONSTRAINED_PREFETCH_STEPS = 6;
   const RADAR_LAYER_CACHE_SIZE = 6;
+  const RADAR_WARM_FRAME_COUNT = 4;
   const RADAR_PRELOAD_CACHE_SIZE = 64;
   const IST_OFFSET_SECONDS = 5.5 * 3600;
   const DEFAULT_BOUNDS = { south: 0, west: 61.875, north: 40.979898, east: 106.875 };
@@ -745,16 +746,9 @@
     return entry.promise;
   }
 
-  function isPreloaded(url) {
-    const entry = state.preloaded.get(url);
-    return Boolean(entry && entry.loaded);
-  }
-
   function isFrameReady(url) {
-    if (isPreloaded(url)) return true;
     const entry = state.radarLayers.get(url);
-    const image = entry && entry.layer && entry.layer._image;
-    return Boolean(image && image.complete && image.naturalWidth);
+    return Boolean(entry && entry.loaded);
   }
 
   function leafletBounds() {
@@ -781,12 +775,12 @@
     return { clamped, epoch };
   }
 
-  function radarLayer(url, frame) {
+  function radarLayerEntry(url, frame) {
     let entry = state.radarLayers.get(url);
     if (entry) {
       state.radarLayers.delete(url);
       state.radarLayers.set(url, entry);
-      return entry.layer;
+      return entry;
     }
     const layer = L.imageOverlay(url, leafletBounds(), {
       pane: 'radarPane',
@@ -794,8 +788,38 @@
       interactive: false,
       alt: `Radar composite at ${formatUtc(frame.time)}`,
     });
-    state.radarLayers.set(url, { layer });
-    return layer;
+    entry = {
+      layer, loaded: false, settled: false, resolve: null, settle: null, promise: null,
+    };
+    entry.promise = new Promise((resolve) => { entry.resolve = resolve; });
+    entry.settle = (loaded) => {
+      if (entry.settled) return;
+      entry.loaded = loaded;
+      entry.settled = true;
+      entry.resolve(loaded);
+    };
+    layer.once('load', () => {
+      const image = layer._image;
+      if (image && typeof image.decode === 'function') {
+        image.decode().catch(() => false).then(() => entry.settle(true));
+      } else {
+        entry.settle(true);
+      }
+    });
+    layer.once('error', () => {
+      entry.settle(false);
+      if (map.hasLayer(layer)) map.removeLayer(layer);
+      if (state.radarLayers.get(url) === entry) state.radarLayers.delete(url);
+    });
+    state.radarLayers.set(url, entry);
+    return entry;
+  }
+
+  function mountRadarLayer(url, frame, priority = 'auto') {
+    const entry = radarLayerEntry(url, frame);
+    if (!map.hasLayer(entry.layer)) entry.layer.addTo(map);
+    if (entry.layer._image) entry.layer._image.fetchPriority = priority;
+    return entry;
   }
 
   function clearRadarLayers() {
@@ -812,6 +836,7 @@
       if (!discard) break;
       const entry = state.radarLayers.get(discard);
       if (entry && map.hasLayer(entry.layer)) map.removeLayer(entry.layer);
+      if (entry && !entry.settled) entry.settle(false);
       state.radarLayers.delete(discard);
     }
   }
@@ -823,14 +848,12 @@
     const desired = new Set([beforeUrl]);
     if (afterUrl) desired.add(afterUrl);
 
-    const beforeLayer = radarLayer(beforeUrl, bracket.before);
-    if (!map.hasLayer(beforeLayer)) beforeLayer.addTo(map);
+    const beforeLayer = mountRadarLayer(beforeUrl, bracket.before, 'high').layer;
     beforeLayer.setOpacity(useAfter ? state.opacity * (1 - bracket.ratio) : state.opacity);
     beforeLayer.bringToFront();
 
     if (useAfter) {
-      const afterLayer = radarLayer(afterUrl, bracket.after);
-      if (!map.hasLayer(afterLayer)) afterLayer.addTo(map);
+      const afterLayer = mountRadarLayer(afterUrl, bracket.after, 'high').layer;
       afterLayer.setOpacity(state.opacity * bracket.ratio);
       afterLayer.bringToFront();
     }
@@ -838,7 +861,7 @@
     for (const oldUrl of state.activeRadarUrls) {
       if (desired.has(oldUrl)) continue;
       const entry = state.radarLayers.get(oldUrl);
-      if (entry && map.hasLayer(entry.layer)) map.removeLayer(entry.layer);
+      if (entry && map.hasLayer(entry.layer)) entry.layer.setOpacity(0);
     }
     state.activeRadarUrls = desired;
     pruneRadarLayers();
@@ -852,6 +875,12 @@
     const immediate = frameBracket(epoch);
     let bracket = usableBracket(immediate, epoch) ? immediate : null;
     if (bracket) {
+      if (options.scrubbing) {
+        updateTimeLabels(epoch, bracket);
+        showRadarBracket(bracket);
+        if (options.prefetch !== false) prefetchNeighbours(clamped);
+        return;
+      }
       const beforeUrl = frameUrl(bracket.before);
       const afterUrl = bracket.after ? frameUrl(bracket.after) : '';
       if (isFrameReady(beforeUrl) && (!afterUrl || isFrameReady(afterUrl))) {
@@ -875,9 +904,13 @@
     updateTimeLabels(epoch, bracket);
     const beforeUrl = frameUrl(bracket.before);
     const afterUrl = bracket.after ? frameUrl(bracket.after) : '';
+    const beforeEntry = mountRadarLayer(beforeUrl, bracket.before, 'high');
+    const afterEntry = bracket.after
+      ? mountRadarLayer(afterUrl, bracket.after, 'high')
+      : null;
     const loaded = await Promise.all([
-      preload(beforeUrl, 'high'),
-      afterUrl ? preload(afterUrl, 'high') : true,
+      beforeEntry.promise,
+      afterEntry ? afterEntry.promise : true,
     ]);
     if (token !== state.renderToken) return;
     if (!loaded[0]) {
@@ -912,6 +945,32 @@
       }
     }
     urls.forEach((url) => preload(url, 'low'));
+    warmRadarNeighbours(centre, constrained ? 2 : RADAR_WARM_FRAME_COUNT);
+  }
+
+  function warmRadarNeighbours(index, maximum) {
+    const candidates = new Map();
+    for (let distance = 0; candidates.size < maximum + 2 && distance <= 8; distance += 1) {
+      const offsets = distance === 0 ? [0] : [-distance, distance];
+      for (const offset of offsets) {
+        const epoch = state.timeline[index + offset];
+        if (!epoch) continue;
+        const bracket = frameBracket(epoch);
+        if (!usableBracket(bracket, epoch)) continue;
+        for (const frame of [bracket.before, bracket.after]) {
+          if (frame) candidates.set(frameUrl(frame), frame);
+        }
+      }
+    }
+    let warmed = 0;
+    for (const [url, frame] of candidates) {
+      if (state.activeRadarUrls.has(url)) continue;
+      const entry = mountRadarLayer(url, frame, 'low');
+      entry.layer.setOpacity(0);
+      warmed += 1;
+      if (warmed >= maximum) break;
+    }
+    pruneRadarLayers();
   }
 
   function formatParts(epoch) {
@@ -1047,7 +1106,7 @@
   function queueScrub(index) {
     const shouldPrefetch = state.lastPrefetchIndex == null
       || Math.abs(Math.round(index) - state.lastPrefetchIndex) >= 6;
-    renderIndex(index, { prefetch: shouldPrefetch });
+    renderIndex(index, { prefetch: shouldPrefetch, scrubbing: true });
   }
 
   function finishScrub(index) {
