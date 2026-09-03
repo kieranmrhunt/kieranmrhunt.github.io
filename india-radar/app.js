@@ -107,6 +107,8 @@
     playTimer: null,
     playStart: 0,
     playEnd: 0,
+    scrubRequest: null,
+    pendingScrubIndex: null,
     renderToken: 0,
     preloaded: new Map(),
     lastPrefetchIndex: null,
@@ -924,10 +926,13 @@
 
   async function renderIndex(index, options = {}) {
     if (!state.timeline.length) return;
+    if (!options.fromScrubQueue) cancelQueuedScrub();
     const { clamped, epoch } = selectIndex(index);
     const token = ++state.renderToken;
     if (options.lightning !== false) {
-      renderLightning(epoch, { immediate: Boolean(options.scrubbing) });
+      renderLightning(epoch, {
+        immediate: Boolean(options.scrubbing || options.lightningImmediate),
+      });
     }
     const immediate = frameBracket(epoch);
     let bracket = usableBracket(immediate, epoch) ? immediate : null;
@@ -1160,14 +1165,32 @@
     renderIndex(Math.round(state.index) + delta);
   }
 
+  function cancelQueuedScrub() {
+    if (state.scrubRequest != null) cancelAnimationFrame(state.scrubRequest);
+    state.scrubRequest = null;
+    state.pendingScrubIndex = null;
+  }
+
   function queueScrub(index) {
-    const shouldPrefetch = state.lastPrefetchIndex == null
-      || Math.abs(Math.round(index) - state.lastPrefetchIndex) >= 6;
-    renderIndex(index, { prefetch: shouldPrefetch, scrubbing: true });
+    state.pendingScrubIndex = index;
+    if (state.scrubRequest != null) return;
+    state.scrubRequest = requestAnimationFrame(() => {
+      const pendingIndex = state.pendingScrubIndex;
+      state.scrubRequest = null;
+      state.pendingScrubIndex = null;
+      const shouldPrefetch = state.lastPrefetchIndex == null
+        || Math.abs(Math.round(pendingIndex) - state.lastPrefetchIndex) >= 6;
+      renderIndex(pendingIndex, {
+        prefetch: shouldPrefetch,
+        scrubbing: true,
+        fromScrubQueue: true,
+      });
+    });
   }
 
   function finishScrub(index) {
-    renderIndex(index);
+    cancelQueuedScrub();
+    renderIndex(index, { lightningImmediate: true });
   }
 
   function startPlayback() {
@@ -1194,6 +1217,7 @@
   }
 
   function pausePlayback() {
+    if (!state.playing && state.playTimer == null) return;
     state.playing = false;
     clearInterval(state.playTimer);
     state.playTimer = null;
