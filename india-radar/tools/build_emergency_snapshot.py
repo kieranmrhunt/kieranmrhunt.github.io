@@ -59,7 +59,8 @@ def build_snapshot(archive: Path, output: Path, window_hours: float) -> tuple[in
         frames = all_frames[-2:]
 
     first = float(frames[0]["time"])
-    first_lightning_hour = int((first - 3600) // 3600 * 3600)
+    lightning_window = int(lightning.get("display_window_seconds", 7200))
+    first_lightning_hour = int((first - lightning_window) // 3600 * 3600)
     last_lightning_hour = int(latest // 3600 * 3600)
     hours = [
         summary
@@ -70,6 +71,8 @@ def build_snapshot(archive: Path, output: Path, window_hours: float) -> tuple[in
     copied_bytes = 0
     for frame in frames:
         copied_bytes += copy_referenced_file(archive, output, frame["url"])
+        if frame.get("preview_url"):
+            copied_bytes += copy_referenced_file(archive, output, frame["preview_url"])
     for summary in hours:
         copied_bytes += copy_referenced_file(archive, output, summary["url"])
         if summary.get("display_url"):

@@ -16,26 +16,28 @@
     emergencyManifestEndpoint,
   ].filter(Boolean))];
   const FIVE_MINUTES = 300;
-  const LIGHTNING_WINDOW_SECONDS = 3600;
+  const LIGHTNING_WINDOW_SECONDS = 7200;
   const LIGHTNING_AGE_STOPS = [
     { seconds: 0, colour: [255, 240, 90] },
     { seconds: 900, colour: [255, 174, 34] },
     { seconds: 1800, colour: [232, 93, 26] },
     { seconds: 3600, colour: [123, 65, 99] },
+    { seconds: 7200, colour: [57, 45, 85] },
   ];
   const LIGHTNING_CACHE_SIZE = 96;
   const LIGHTNING_PREFETCH_OFFSETS = [-2, 1, -3, 2];
   const SCRUB_PREFETCH_STEPS = 24;
   const CONSTRAINED_PREFETCH_STEPS = 6;
-  const SCRUB_RADAR_INTERVAL_MS = 48;
+  const SCRUB_RADAR_INTERVAL_MS = 16;
   const SCRUB_LIGHTNING_INTERVAL_MS = 48;
   const ARCHIVE_WARM_MAX_DESKTOP_BYTES = 32 * 1024 * 1024;
   const ARCHIVE_WARM_MAX_MOBILE_BYTES = 20 * 1024 * 1024;
   const ARCHIVE_WARM_IDLE_MS = 350;
   const LIGHTNING_WARM_IDLE_MS = 240;
-  const RADAR_LAYER_CACHE_SIZE = 6;
+  const RADAR_LAYER_CACHE_SIZE = 8;
   const RADAR_WARM_FRAME_COUNT = 4;
   const RADAR_PRELOAD_CACHE_SIZE = 64;
+  const EMPTY_IMAGE_DATA = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
   const IST_OFFSET_SECONDS = 5.5 * 3600;
   const DEFAULT_BOUNDS = { south: 0, west: 61.875, north: 40.979898, east: 106.875 };
   const timeFormatters = {
@@ -333,7 +335,10 @@
       for (let ageMinute = 0; ageMinute < ageBuckets.length; ageMinute += 1) {
         const points = ageBuckets[ageMinute];
         if (!points.length) continue;
-        const ageFraction = Math.min(1, ageMinute / 60);
+        const ageFraction = Math.min(
+          1,
+          ageMinute / (LIGHTNING_WINDOW_SECONDS / 60),
+        );
         const radius = baseRadius * (1 - ageFraction * 0.35);
         const alpha = 0.96 - ageFraction * 0.46;
         const colour = LIGHTNING_AGE_PALETTE[ageMinute];
@@ -658,9 +663,11 @@
     return usableBracket(bracket, epoch) ? bracket : null;
   }
 
-  function frameUrl(frame) {
-    const url = new URL(frame.url, state.manifestBase);
-    if (frame.sha256) url.searchParams.set('v', String(frame.sha256).slice(0, 12));
+  function frameUrl(frame, preview = false) {
+    const usePreview = Boolean(preview && frame.preview_url);
+    const url = new URL(usePreview ? frame.preview_url : frame.url, state.manifestBase);
+    const digest = usePreview ? frame.preview_sha256 : frame.sha256;
+    if (digest) url.searchParams.set('v', String(digest).slice(0, 12));
     return url.href;
   }
 
@@ -1051,13 +1058,24 @@
       return cached.promise;
     }
     const image = new Image();
-    const entry = { image, loaded: false, promise: null };
+    const entry = {
+      image, loaded: false, settled: false, promise: null, cancel: null,
+    };
     entry.promise = new Promise((resolve) => {
       const finish = (loaded) => {
+        if (entry.settled) return;
+        entry.settled = true;
         entry.loaded = loaded;
         entry.image = null;
         if (!loaded && state.preloaded.get(url) === entry) state.preloaded.delete(url);
         resolve(loaded);
+      };
+      entry.cancel = () => {
+        if (entry.settled) return;
+        image.onload = null;
+        image.onerror = null;
+        image.src = EMPTY_IMAGE_DATA;
+        finish(false);
       };
       image.decoding = 'async';
       image.fetchPriority = priority;
@@ -1083,12 +1101,14 @@
     ));
   }
 
-  function waitForArchiveWarmTurn() {
-    const elapsed = performance.now() - state.lastScrubInputAt;
-    if (elapsed >= ARCHIVE_WARM_IDLE_MS) return Promise.resolve();
-    return new Promise((resolve) => {
-      setTimeout(resolve, ARCHIVE_WARM_IDLE_MS - elapsed);
-    });
+  async function waitForArchiveWarmTurn() {
+    while (state.lastScrubInputAt > 0) {
+      const elapsed = performance.now() - state.lastScrubInputAt;
+      if (elapsed >= ARCHIVE_WARM_IDLE_MS) return;
+      await new Promise((resolve) => {
+        setTimeout(resolve, ARCHIVE_WARM_IDLE_MS - elapsed);
+      });
+    }
   }
 
   async function warmArchiveResponse(url) {
@@ -1113,8 +1133,11 @@
         const centre = epochAtIndex();
         const radarCandidates = state.frames
           .map((frame) => ({
-            url: frameUrl(frame),
-            bytes: Math.max(0, Number(frame.bytes) || 0),
+            url: frameUrl(frame, true),
+            bytes: Math.max(
+              0,
+              Number(frame.preview_url ? frame.preview_bytes : frame.bytes) || 0,
+            ),
             distance: Math.abs(frame.time - centre),
           }))
           .filter((item) => !state.httpWarmedUrls.has(item.url))
@@ -1285,21 +1308,41 @@
     state.activeRadarUrls.clear();
   }
 
+  function discardRadarEntry(url, entry) {
+    if (!entry) return;
+    const image = entry.layer && entry.layer._image;
+    if (map.hasLayer(entry.layer)) map.removeLayer(entry.layer);
+    if (!entry.settled) entry.settle(false);
+    if (image && !entry.loaded) {
+      image.removeAttribute('srcset');
+      image.src = EMPTY_IMAGE_DATA;
+    }
+    if (state.radarLayers.get(url) === entry) state.radarLayers.delete(url);
+  }
+
+  function cancelObsoleteRadarLoads(keepUrls) {
+    const keep = new Set([...keepUrls, ...state.activeRadarUrls]);
+    for (const [url, entry] of [...state.radarLayers]) {
+      if (!entry.loaded && !keep.has(url)) discardRadarEntry(url, entry);
+    }
+    for (const [url, entry] of [...state.preloaded]) {
+      if (!entry.loaded && !keep.has(url) && entry.cancel) entry.cancel();
+    }
+  }
+
   function pruneRadarLayers() {
     while (state.radarLayers.size > RADAR_LAYER_CACHE_SIZE) {
       const discard = [...state.radarLayers.keys()].find((url) => !state.activeRadarUrls.has(url));
       if (!discard) break;
       const entry = state.radarLayers.get(discard);
-      if (entry && map.hasLayer(entry.layer)) map.removeLayer(entry.layer);
-      if (entry && !entry.settled) entry.settle(false);
-      state.radarLayers.delete(discard);
+      discardRadarEntry(discard, entry);
     }
   }
 
-  function showRadarBracket(bracket, afterLoaded = true) {
-    const beforeUrl = frameUrl(bracket.before);
+  function showRadarBracket(bracket, afterLoaded = true, preview = false) {
+    const beforeUrl = frameUrl(bracket.before, preview);
     const useAfter = Boolean(bracket.after && afterLoaded);
-    const afterUrl = useAfter ? frameUrl(bracket.after) : '';
+    const afterUrl = useAfter ? frameUrl(bracket.after, preview) : '';
     const desired = new Set([beforeUrl]);
     if (afterUrl) desired.add(afterUrl);
 
@@ -1330,8 +1373,10 @@
 
   async function loadScrubRadar(pending) {
     const { bracket, epoch, token } = pending;
-    const beforeUrl = frameUrl(bracket.before);
-    const afterUrl = bracket.after ? frameUrl(bracket.after) : '';
+    if (token !== state.renderToken || epoch !== epochAtIndex()) return;
+    const beforeUrl = frameUrl(bracket.before, true);
+    const afterUrl = bracket.after ? frameUrl(bracket.after, true) : '';
+    cancelObsoleteRadarLoads([beforeUrl, afterUrl].filter(Boolean));
     const beforeEntry = mountRadarLayer(beforeUrl, bracket.before, 'high');
     const afterEntry = bracket.after
       ? mountRadarLayer(afterUrl, bracket.after, 'high')
@@ -1342,20 +1387,22 @@
     pruneRadarLayers();
 
     if (beforeEntry.loaded && (!afterEntry || afterEntry.loaded)) {
-      if (token === state.renderToken && epoch === epochAtIndex()) showRadarBracket(bracket);
+      if (token === state.renderToken && epoch === epochAtIndex()) {
+        showRadarBracket(bracket, true, true);
+      }
       return;
     }
     if (beforeEntry.loaded && token === state.renderToken && epoch === epochAtIndex()) {
-      showRadarBracket(bracket, false);
+      showRadarBracket(bracket, false, true);
     }
 
     const beforeLoaded = await beforeEntry.promise;
     if (!beforeLoaded || token !== state.renderToken || epoch !== epochAtIndex()) return;
-    showRadarBracket(bracket, !afterEntry || afterEntry.loaded);
+    showRadarBracket(bracket, !afterEntry || afterEntry.loaded, true);
     if (!afterEntry || afterEntry.loaded) return;
     const afterLoaded = await afterEntry.promise;
     if (afterLoaded && token === state.renderToken && epoch === epochAtIndex()) {
-      showRadarBracket(bracket);
+      showRadarBracket(bracket, true, true);
     }
   }
 
@@ -1400,10 +1447,11 @@
     if (bracket) {
       if (options.scrubbing) {
         updateTimeLabels(epoch, bracket);
-        const beforeUrl = frameUrl(bracket.before);
-        const afterUrl = bracket.after ? frameUrl(bracket.after) : '';
+        const beforeUrl = frameUrl(bracket.before, true);
+        const afterUrl = bracket.after ? frameUrl(bracket.after, true) : '';
+        cancelObsoleteRadarLoads([beforeUrl, afterUrl].filter(Boolean));
         if (isFrameReady(beforeUrl) && (!afterUrl || isFrameReady(afterUrl))) {
-          showRadarBracket(bracket);
+          showRadarBracket(bracket, true, true);
         } else {
           queueScrubRadar(bracket, epoch, token);
         }
@@ -1411,6 +1459,10 @@
       }
       const beforeUrl = frameUrl(bracket.before);
       const afterUrl = bracket.after ? frameUrl(bracket.after) : '';
+      if (
+        state.lastScrubInputAt > 0
+        && performance.now() - state.lastScrubInputAt < ARCHIVE_WARM_IDLE_MS
+      ) cancelObsoleteRadarLoads([beforeUrl, afterUrl].filter(Boolean));
       if (isFrameReady(beforeUrl) && (!afterUrl || isFrameReady(afterUrl))) {
         updateTimeLabels(epoch, bracket);
         showRadarBracket(bracket);
@@ -1432,6 +1484,10 @@
     updateTimeLabels(epoch, bracket);
     const beforeUrl = frameUrl(bracket.before);
     const afterUrl = bracket.after ? frameUrl(bracket.after) : '';
+    if (
+      state.lastScrubInputAt > 0
+      && performance.now() - state.lastScrubInputAt < ARCHIVE_WARM_IDLE_MS
+    ) cancelObsoleteRadarLoads([beforeUrl, afterUrl].filter(Boolean));
     const beforeEntry = mountRadarLayer(beforeUrl, bracket.before, 'high');
     const afterEntry = bracket.after
       ? mountRadarLayer(afterUrl, bracket.after, 'high')
@@ -1457,7 +1513,7 @@
     state.lastPrefetchIndex = centre;
     const constrained = constrainedConnection();
     if (!constrained && state.frames.length <= 48) {
-      state.frames.forEach((frame) => urls.add(frameUrl(frame)));
+      state.frames.forEach((frame) => urls.add(frameUrl(frame, true)));
     } else {
       const steps = constrained ? CONSTRAINED_PREFETCH_STEPS : SCRUB_PREFETCH_STEPS;
       for (let distance = 1; distance <= steps; distance += 1) {
@@ -1466,8 +1522,8 @@
           if (!epoch) continue;
           const bracket = frameBracket(epoch);
           if (!usableBracket(bracket, epoch)) continue;
-          if (bracket.before) urls.add(frameUrl(bracket.before));
-          if (bracket.after) urls.add(frameUrl(bracket.after));
+          if (bracket.before) urls.add(frameUrl(bracket.before, true));
+          if (bracket.after) urls.add(frameUrl(bracket.after, true));
         }
       }
     }

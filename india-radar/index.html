@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://www.met.reading.ac.uk">
   <link rel="preconnect" href="https://tile.openstreetmap.org">
   <link rel="stylesheet" href="./vendor/leaflet/leaflet.css?v=1.9.4">
-  <link rel="stylesheet" href="./app.css?v=5">
+  <link rel="stylesheet" href="./app.css?v=6">
 </head>
 <body>
   <a class="skip-link" href="#timeline">Skip to timeline controls</a>
@@ -58,10 +58,10 @@
     <span class="lightning-key-mark" aria-hidden="true">ϟ</span>
     <span class="lightning-key-copy">
       <strong id="lightningSummary">Lightning loading…</strong>
-      <small>Previous hour · ILDN</small>
-      <span class="lightning-age-scale" role="img" aria-label="Age key: larger yellow strokes are newest; smaller purple strokes are up to 60 minutes old.">
+      <small>Previous two hours · ILDN</small>
+      <span class="lightning-age-scale" role="img" aria-label="Age key: larger yellow strokes are newest; smaller dark-purple strokes are up to two hours old.">
         <span class="lightning-age-marks" aria-hidden="true"><i></i><i></i><i></i></span>
-        <span class="lightning-age-labels" aria-hidden="true"><span>Now</span><span>30m</span><span>60m</span></span>
+        <span class="lightning-age-labels" aria-hidden="true"><span>Now</span><span>1h</span><span>2h</span></span>
       </span>
     </span>
   </aside>
@@ -124,7 +124,7 @@
         <div><dt>Update check</dt><dd>Every five minutes</dd></div>
         <div><dt>Observed frames</dt><dd>Nominally every ten minutes</dd></div>
         <div><dt>Between observations</dt><dd>A continuous cross-fade between adjacent source frames</dd></div>
-        <div><dt>Lightning history</dt><dd>Previous-hour strokes at every timeline position, coloured and sized by age</dd></div>
+        <div><dt>Lightning history</dt><dd>Previous two hours of strokes at every timeline position, coloured and sized by age</dd></div>
         <div><dt>Map resolution</dt><dd>Web-Mercator zoom 6, approximately 2–3 km per pixel over India</dd></div>
         <div><dt>Radar cleaning</dt><dd>Persistent radial spokes are inpainted; clearly corrupt block frames are reconstructed from clean time neighbours</dd></div>
       </dl>
@@ -152,6 +152,6 @@
 
   <noscript><div class="noscript">This animated radar requires JavaScript.</div></noscript>
   <script src="./vendor/leaflet/leaflet.js?v=1.9.4"></script>
-  <script src="./app.js?v=12" defer></script>
+  <script src="./app.js?v=13" defer></script>
 </body>
 </html>

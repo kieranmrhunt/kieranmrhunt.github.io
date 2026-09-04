@@ -9,8 +9,10 @@ map usable during a hosting outage and is labelled clearly in the timeline.
 The upstream composite currently contains nominal ten-minute frames. The page
 checks for updates every five minutes and offers a continuous slider whose
 intermediate positions are visibly labelled cross-fades between observations.
+Dragging uses compact 448 x 512 radar previews, then releasing restores the full
+1792 x 2048 imagery.
 At every position, a single canvas layer renders ILDN strokes from the preceding
-hour, with colour, size, and opacity showing their age. Hour-sized chunks and
+two hours, with colour, size, and opacity showing their age. Hour-sized chunks and
 month indexes keep archive browsing light on phones.
 
 Public radar frames have persistent station-centred radial spokes conservatively
