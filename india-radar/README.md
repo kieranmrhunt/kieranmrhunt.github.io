@@ -9,11 +9,12 @@ map usable during a hosting outage and is labelled clearly in the timeline.
 The upstream composite currently contains nominal ten-minute frames. The page
 checks for updates every five minutes and offers a continuous slider whose
 intermediate positions are visibly labelled cross-fades between observations.
-Dragging uses compact 448 x 512 radar previews, then releasing restores the full
-1792 x 2048 imagery.
+The client preloads palette-indexed daily packs into a dedicated 224 x 256 canvas,
+so dragging needs no radar request or image decode; releasing restores the full
+1792 x 2048 imagery. Separate 448 x 512 previews remain as a compatibility fallback.
 At every position, a single canvas layer renders ILDN strokes from the preceding
 two hours, with colour, size, and opacity showing their age. Hour-sized chunks and
-month indexes keep archive browsing light on phones.
+compressed daily display packs keep archive browsing responsive on phones.
 
 Public radar frames have persistent station-centred radial spokes conservatively
 inpainted from adjacent pixels. Unmistakable solid block corruption triggers

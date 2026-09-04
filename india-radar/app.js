@@ -24,7 +24,7 @@
     { seconds: 3600, colour: [123, 65, 99] },
     { seconds: 7200, colour: [57, 45, 85] },
   ];
-  const LIGHTNING_CACHE_SIZE = 96;
+  const LIGHTNING_CACHE_SIZE = 192;
   const LIGHTNING_PREFETCH_OFFSETS = [-2, 1, -3, 2];
   const SCRUB_PREFETCH_STEPS = 24;
   const CONSTRAINED_PREFETCH_STEPS = 6;
@@ -34,7 +34,7 @@
   const ARCHIVE_WARM_MAX_MOBILE_BYTES = 20 * 1024 * 1024;
   const ARCHIVE_WARM_IDLE_MS = 350;
   const LIGHTNING_WARM_IDLE_MS = 240;
-  const RADAR_LAYER_CACHE_SIZE = 8;
+  const RADAR_LAYER_CACHE_SIZE = 4;
   const RADAR_WARM_FRAME_COUNT = 4;
   const RADAR_PRELOAD_CACHE_SIZE = 64;
   const EMPTY_IMAGE_DATA = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
@@ -131,6 +131,10 @@
     index: 0,
     radarLayers: new Map(),
     activeRadarUrls: new Set(),
+    radarScrubPacks: new Map(),
+    radarScrubFrames: new Map(),
+    radarScrubReady: false,
+    radarScrubLoadToken: 0,
     opacity: readOpacityPreference(),
     playing: false,
     playTimer: null,
@@ -164,6 +168,8 @@
     lightningLoadedMonths: new Set(),
     lightningLoadingMonths: new Map(),
     lightningCache: new Map(),
+    lightningDisplayPacks: new Map(),
+    lightningPackedReady: false,
     lightningRenderToken: 0,
     lastLightningPrefetchHour: null,
     scrubLightningTimer: null,
@@ -204,6 +210,110 @@
   map.getPane('lightningPane').style.zIndex = 450;
   map.getPane('lightningPane').style.pointerEvents = 'none';
 
+  function compileLightningShader(gl, type, source) {
+    const shader = gl.createShader(type);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      const message = gl.getShaderInfoLog(shader) || 'unknown shader error';
+      gl.deleteShader(shader);
+      throw new Error(message);
+    }
+    return shader;
+  }
+
+  function createLightningWebGl(canvas) {
+    const gl = canvas.getContext('webgl', {
+      alpha: true,
+      antialias: false,
+      depth: false,
+      stencil: false,
+      premultipliedAlpha: true,
+      preserveDrawingBuffer: false,
+      powerPreference: 'high-performance',
+    });
+    if (!gl) return null;
+    const vertex = compileLightningShader(gl, gl.VERTEX_SHADER, `
+      attribute vec2 a_world;
+      attribute float a_time;
+      uniform vec2 u_viewport;
+      uniform vec2 u_top_left;
+      uniform float u_world_size;
+      uniform float u_epoch;
+      uniform float u_pixel_ratio;
+      uniform float u_diameter;
+      varying vec4 v_colour;
+      vec3 age_colour(float age) {
+        vec3 newest = vec3(1.0, 0.9412, 0.3529);
+        vec3 orange = vec3(1.0, 0.6824, 0.1333);
+        vec3 red = vec3(0.9098, 0.3647, 0.1020);
+        vec3 purple = vec3(0.4824, 0.2549, 0.3882);
+        vec3 old = vec3(0.2235, 0.1765, 0.3333);
+        if (age <= 0.125) return mix(newest, orange, age / 0.125);
+        if (age <= 0.25) return mix(orange, red, (age - 0.125) / 0.125);
+        if (age <= 0.5) return mix(red, purple, (age - 0.25) / 0.25);
+        return mix(purple, old, (age - 0.5) / 0.5);
+      }
+      void main() {
+        float age_seconds = u_epoch - a_time;
+        if (age_seconds < 0.0 || age_seconds > 7200.0) {
+          v_colour = vec4(0.0);
+          gl_Position = vec4(-2.0, -2.0, 0.0, 1.0);
+          gl_PointSize = 0.0;
+          return;
+        }
+        vec2 position = a_world * u_world_size - u_top_left;
+        vec2 clip = vec2(
+          position.x / u_viewport.x * 2.0 - 1.0,
+          1.0 - position.y / u_viewport.y * 2.0
+        );
+        float age = clamp(age_seconds / 7200.0, 0.0, 1.0);
+        v_colour = vec4(age_colour(age), 0.96 - age * 0.46);
+        gl_Position = vec4(clip, 0.0, 1.0);
+        gl_PointSize = u_diameter * (1.0 - age * 0.35) * u_pixel_ratio;
+      }
+    `);
+    const fragment = compileLightningShader(gl, gl.FRAGMENT_SHADER, `
+      precision mediump float;
+      varying vec4 v_colour;
+      void main() {
+        vec2 centred = abs(gl_PointCoord - vec2(0.5));
+        float distance = centred.x + centred.y;
+        if (distance > 0.5) discard;
+        gl_FragColor = v_colour;
+      }
+    `);
+    const program = gl.createProgram();
+    gl.attachShader(program, vertex);
+    gl.attachShader(program, fragment);
+    gl.linkProgram(program);
+    gl.deleteShader(vertex);
+    gl.deleteShader(fragment);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      throw new Error(gl.getProgramInfoLog(program) || 'lightning shader link failed');
+    }
+    const renderer = {
+      gl,
+      program,
+      buffer: gl.createBuffer(),
+      position: gl.getAttribLocation(program, 'a_world'),
+      time: gl.getAttribLocation(program, 'a_time'),
+      viewport: gl.getUniformLocation(program, 'u_viewport'),
+      topLeft: gl.getUniformLocation(program, 'u_top_left'),
+      worldSize: gl.getUniformLocation(program, 'u_world_size'),
+      epoch: gl.getUniformLocation(program, 'u_epoch'),
+      pixelRatio: gl.getUniformLocation(program, 'u_pixel_ratio'),
+      diameter: gl.getUniformLocation(program, 'u_diameter'),
+      vertices: new Float32Array(3 * 8192),
+      archives: [],
+    };
+    gl.useProgram(program);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.disable(gl.DEPTH_TEST);
+    return renderer;
+  }
+
   const LightningCanvasLayer = L.Layer.extend({
     initialize() {
       this._chunks = [];
@@ -219,6 +329,13 @@
     onAdd(activeMap) {
       this._map = activeMap;
       this._canvas = L.DomUtil.create('canvas', 'leaflet-layer lightning-canvas');
+      try {
+        this._webgl = createLightningWebGl(this._canvas);
+      } catch (error) {
+        console.warn('WebGL lightning renderer unavailable', error);
+        this._canvas = L.DomUtil.create('canvas', 'leaflet-layer lightning-canvas');
+        this._webgl = null;
+      }
       if (activeMap._zoomAnimated) L.DomUtil.addClass(this._canvas, 'leaflet-zoom-animated');
       activeMap.getPane('lightningPane').appendChild(this._canvas);
       activeMap.on('move zoom moveend zoomend resize viewreset', this._scheduleViewSync, this);
@@ -232,6 +349,7 @@
       if (this._viewRequest) cancelAnimationFrame(this._viewRequest);
       this._canvas.remove();
       this._canvas = null;
+      this._webgl = null;
       this._map = null;
     },
     setChunks(chunks, epoch, immediate = false) {
@@ -246,6 +364,35 @@
       } else {
         this._scheduleDraw();
       }
+    },
+    setArchiveChunks(chunks) {
+      if (!this._webgl) return;
+      const renderer = this._webgl;
+      const gl = renderer.gl;
+      for (const archive of renderer.archives) gl.deleteBuffer(archive.buffer);
+      renderer.archives = (chunks || [])
+        .filter((chunk) => chunk && chunk.count)
+        .sort((a, b) => a.hour - b.hour)
+        .map((chunk) => {
+          const vertices = new Float32Array(chunk.count * 3);
+          for (let index = 0; index < chunk.count; index += 1) {
+            const cursor = index * 3;
+            vertices[cursor] = chunk.worldX[index];
+            vertices[cursor + 1] = chunk.worldY[index];
+            vertices[cursor + 2] = chunk.timeOffsets[index] / 1000;
+          }
+          const buffer = gl.createBuffer();
+          gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+          gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+          return {
+            buffer,
+            count: chunk.count,
+            timeBase: chunk.hour,
+            firstTime: chunk.hour,
+            lastTime: chunk.hour + 3600,
+          };
+        });
+      this._scheduleDraw();
     },
     setEnabled(enabled) {
       this._enabled = Boolean(enabled);
@@ -262,7 +409,8 @@
     _syncView() {
       if (!this._map || !this._canvas) return;
       const size = this._map.getSize();
-      const ratio = Math.min(2, window.devicePixelRatio || 1);
+      const mobile = matchMedia('(max-width: 768px), (pointer: coarse)').matches;
+      const ratio = mobile ? 1 : Math.min(1.5, window.devicePixelRatio || 1);
       const width = Math.max(1, Math.round(size.x * ratio));
       const height = Math.max(1, Math.round(size.y * ratio));
       if (this._canvas.width !== width || this._canvas.height !== height) {
@@ -294,24 +442,85 @@
         this._draw();
       });
     },
+    _drawWebGl(size, ratio, baseRadius, start, worldSize, topLeftWorld) {
+      const renderer = this._webgl;
+      const gl = renderer.gl;
+      gl.viewport(0, 0, this._canvas.width, this._canvas.height);
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      if (!this._enabled) return;
+      gl.useProgram(renderer.program);
+      gl.uniform2f(renderer.viewport, size.x, size.y);
+      gl.uniform2f(renderer.topLeft, topLeftWorld.x, topLeftWorld.y);
+      gl.uniform1f(renderer.worldSize, worldSize);
+      gl.uniform1f(renderer.pixelRatio, ratio);
+      gl.uniform1f(renderer.diameter, baseRadius * 2);
+      gl.enableVertexAttribArray(renderer.position);
+      gl.enableVertexAttribArray(renderer.time);
+
+      const drawBuffer = (buffer, count, timeBase) => {
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.vertexAttribPointer(renderer.position, 2, gl.FLOAT, false, 12, 0);
+        gl.vertexAttribPointer(renderer.time, 1, gl.FLOAT, false, 12, 8);
+        gl.uniform1f(renderer.epoch, this._epoch - timeBase);
+        gl.drawArrays(gl.POINTS, 0, count);
+      };
+      if (renderer.archives.length) {
+        for (const archive of renderer.archives) {
+          if (archive.lastTime < start || archive.firstTime > this._epoch) continue;
+          drawBuffer(archive.buffer, archive.count, archive.timeBase);
+        }
+        return;
+      }
+
+      let vertices = renderer.vertices;
+      let count = 0;
+      const timeBase = Math.floor(start / 3600) * 3600;
+      for (const chunk of this._chunks) {
+        const first = lightningUpperBound(chunk, start);
+        const last = lightningUpperBound(chunk, this._epoch);
+        for (let index = first; index < last; index += 1) {
+          if ((count + 1) * 3 > vertices.length) {
+            const expanded = new Float32Array(vertices.length * 2);
+            expanded.set(vertices);
+            vertices = expanded;
+            renderer.vertices = expanded;
+          }
+          const offset = count * 3;
+          vertices[offset] = chunk.worldX[index];
+          vertices[offset + 1] = chunk.worldY[index];
+          vertices[offset + 2] = chunk.hour + chunk.timeOffsets[index] / 1000 - timeBase;
+          count += 1;
+        }
+      }
+      if (!count) return;
+      gl.bindBuffer(gl.ARRAY_BUFFER, renderer.buffer);
+      gl.bufferData(gl.ARRAY_BUFFER, vertices.subarray(0, count * 3), gl.DYNAMIC_DRAW);
+      drawBuffer(renderer.buffer, count, timeBase);
+    },
     _draw() {
       if (!this._map || !this._canvas) return;
-      const context = this._canvas.getContext('2d');
       const ratio = this._ratio || 1;
       const size = this._map.getSize();
-      context.setTransform(ratio, 0, 0, ratio, 0, 0);
-      context.clearRect(0, 0, size.x, size.y);
-      if (!this._enabled) return;
       const baseRadius = Math.min(4.5, 2.9 + Math.max(0, this._map.getZoom() - 4) * 0.28);
-      const ageBuckets = this._ageBuckets;
-      for (const bucket of ageBuckets) bucket.length = 0;
-      const newestPoints = this._newestPoints;
-      newestPoints.length = 0;
       const start = this._epoch - LIGHTNING_WINDOW_SECONDS;
       const drawZoom = this._drawZoom == null ? this._map.getZoom() : this._drawZoom;
       const worldSize = 256 * (2 ** drawZoom);
       const topLeft = this._drawTopLeft || this._map.containerPointToLatLng([0, 0]);
       const topLeftWorld = this._map.project(topLeft, drawZoom);
+      this._canvas.dataset.epoch = String(this._epoch);
+      if (this._webgl) {
+        this._drawWebGl(size, ratio, baseRadius, start, worldSize, topLeftWorld);
+        return;
+      }
+      const context = this._canvas.getContext('2d');
+      context.setTransform(ratio, 0, 0, ratio, 0, 0);
+      context.clearRect(0, 0, size.x, size.y);
+      if (!this._enabled) return;
+      const ageBuckets = this._ageBuckets;
+      for (const bucket of ageBuckets) bucket.length = 0;
+      const newestPoints = this._newestPoints;
+      newestPoints.length = 0;
       for (const chunk of this._chunks) {
         const first = lightningUpperBound(chunk, start);
         const last = lightningUpperBound(chunk, this._epoch);
@@ -370,10 +579,107 @@
     },
   });
 
+  const RadarScrubCanvasLayer = L.Layer.extend({
+    initialize(bounds) {
+      this._bounds = L.latLngBounds(bounds);
+      this._visible = false;
+    },
+    onAdd(activeMap) {
+      this._map = activeMap;
+      this._container = L.DomUtil.create('div', 'leaflet-layer radar-scrub-canvas');
+      this._beforeCanvas = L.DomUtil.create('canvas', 'radar-scrub-frame', this._container);
+      this._afterCanvas = L.DomUtil.create('canvas', 'radar-scrub-frame', this._container);
+      if (activeMap._zoomAnimated) L.DomUtil.addClass(this._container, 'leaflet-zoom-animated');
+      activeMap.getPane('radarPane').appendChild(this._container);
+      activeMap.on('zoom viewreset resize', this._reset, this);
+      if (activeMap._zoomAnimated) activeMap.on('zoomanim', this._animateZoom, this);
+      this._container.hidden = true;
+      this._reset();
+    },
+    onRemove(activeMap) {
+      activeMap.off('zoom viewreset resize', this._reset, this);
+      if (activeMap._zoomAnimated) activeMap.off('zoomanim', this._animateZoom, this);
+      this._container.remove();
+      this._container = null;
+      this._beforeCanvas = null;
+      this._afterCanvas = null;
+      this._map = null;
+    },
+    setBounds(bounds) {
+      this._bounds = L.latLngBounds(bounds);
+      this._reset();
+    },
+    show(before, after, ratio, opacity) {
+      if (!this._container || !before) return false;
+      this._drawRecord(this._beforeCanvas, before);
+      const useAfter = Boolean(after && ratio > 0);
+      if (useAfter) this._drawRecord(this._afterCanvas, after);
+      this._beforeCanvas.hidden = false;
+      this._beforeCanvas.style.opacity = String(opacity * (useAfter ? 1 - ratio : 1));
+      this._afterCanvas.hidden = !useAfter;
+      if (useAfter) this._afterCanvas.style.opacity = String(opacity * ratio);
+      this._container.hidden = false;
+      this._visible = true;
+      this._map.getPane('radarPane').appendChild(this._container);
+      return true;
+    },
+    hide() {
+      this._visible = false;
+      if (this._container) this._container.hidden = true;
+    },
+    _drawRecord(canvas, record) {
+      if (canvas._radarRecord === record) return;
+      if (canvas.width !== record.width || canvas.height !== record.height) {
+        canvas.width = record.width;
+        canvas.height = record.height;
+        canvas._radarImageData = null;
+      }
+      const context = canvas.getContext('2d');
+      let imageData = canvas._radarImageData;
+      if (!imageData) {
+        imageData = context.createImageData(record.width, record.height);
+        canvas._radarImageData = imageData;
+      }
+      const output = new Uint32Array(imageData.data.buffer);
+      const pixels = record.pixels;
+      const palette = record.palette;
+      for (let index = 0; index < pixels.length; index += 1) {
+        output[index] = palette[pixels[index]];
+      }
+      context.putImageData(imageData, 0, 0);
+      canvas._radarRecord = record;
+    },
+    _reset() {
+      if (!this._map || !this._container) return;
+      const topLeft = this._map.latLngToLayerPoint(this._bounds.getNorthWest());
+      const bottomRight = this._map.latLngToLayerPoint(this._bounds.getSouthEast());
+      const size = bottomRight.subtract(topLeft);
+      L.DomUtil.setPosition(this._container, topLeft);
+      this._container.style.width = `${size.x}px`;
+      this._container.style.height = `${size.y}px`;
+    },
+    _animateZoom(event) {
+      if (!this._map || !this._container) return;
+      const bounds = this._map._latLngBoundsToNewLayerBounds(
+        this._bounds, event.zoom, event.center,
+      );
+      L.DomUtil.setTransform(
+        this._container,
+        bounds.min,
+        this._map.getZoomScale(event.zoom),
+      );
+    },
+  });
+
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
   }).addTo(map);
+  const radarScrubLayer = new RadarScrubCanvasLayer([
+    [DEFAULT_BOUNDS.south, DEFAULT_BOUNDS.west],
+    [DEFAULT_BOUNDS.north, DEFAULT_BOUNDS.east],
+  ]);
+  radarScrubLayer.addTo(map);
   const lightningLayer = new LightningCanvasLayer();
   lightningLayer.addTo(map);
   L.control.zoom({ position: 'topright' }).addTo(map);
@@ -480,6 +786,30 @@
     return endpoint.href;
   }
 
+  function radarScrubPackUrl(summary, radarEndpoint = state.manifestUrl) {
+    const endpoint = new URL(radarEndpoint);
+    if (endpoint.pathname.endsWith('.php')) {
+      endpoint.search = '';
+      endpoint.searchParams.set('radar_pack', summary.day);
+    } else {
+      endpoint.href = new URL(summary.url, baseFromManifestUrl(radarEndpoint)).href;
+    }
+    if (summary.sha256) endpoint.searchParams.set('v', String(summary.sha256).slice(0, 12));
+    return endpoint.href;
+  }
+
+  function lightningDisplayPackUrl(summary, radarEndpoint) {
+    const endpoint = new URL(radarEndpoint);
+    if (endpoint.pathname.endsWith('.php')) {
+      endpoint.search = '';
+      endpoint.searchParams.set('lightning_pack', summary.day);
+    } else {
+      endpoint.href = new URL(summary.url, baseFromManifestUrl(radarEndpoint)).href;
+    }
+    if (summary.sha256) endpoint.searchParams.set('v', String(summary.sha256).slice(0, 12));
+    return endpoint.href;
+  }
+
   function updateLightningUi(kind, text) {
     if (controls.lightningKey.dataset.state !== kind) controls.lightningKey.dataset.state = kind;
     if (controls.lightningSummary.textContent !== text) controls.lightningSummary.textContent = text;
@@ -528,6 +858,165 @@
     } finally {
       if (timer) clearTimeout(timer);
     }
+  }
+
+  async function decompressGzip(buffer) {
+    const signature = new Uint8Array(buffer, 0, Math.min(2, buffer.byteLength));
+    // Some hosts (including JASMIN GWS) advertise .rgp/.ldp as x-gzip, so
+    // fetch has already decoded the response before it reaches JavaScript.
+    if (signature.length < 2 || signature[0] !== 0x1f || signature[1] !== 0x8b) return buffer;
+    if (typeof DecompressionStream !== 'function') {
+      throw new Error('this browser does not support compressed timeline packs');
+    }
+    const stream = new Blob([buffer]).stream().pipeThrough(new DecompressionStream('gzip'));
+    return await new Response(stream).arrayBuffer();
+  }
+
+  function binaryMagic(view, length = 6) {
+    return String.fromCharCode(...new Uint8Array(view.buffer, view.byteOffset, length));
+  }
+
+  function parseRadarScrubPack(buffer, summary) {
+    const view = new DataView(buffer);
+    if (view.byteLength < 16 || binaryMagic(view) !== 'IRSPK1') {
+      throw new Error('radar scrub pack header is invalid');
+    }
+    const width = view.getUint16(8, true);
+    const height = view.getUint16(10, true);
+    const frameCount = view.getUint32(12, true);
+    if (
+      width < 32 || height < 32 || width > 512 || height > 512
+      || frameCount !== Number(summary.frame_count)
+      || view.byteLength < 16 + frameCount * 12
+    ) throw new Error('radar scrub pack dimensions are invalid');
+    const pixelCount = width * height;
+    const records = new Map();
+    for (let index = 0; index < frameCount; index += 1) {
+      const entryOffset = 16 + index * 12;
+      const epoch = view.getUint32(entryOffset, true);
+      const paletteCount = view.getUint16(entryOffset + 4, true);
+      const dataOffset = view.getUint32(entryOffset + 8, true);
+      const pixelOffset = dataOffset + paletteCount * 4;
+      if (
+        paletteCount < 1 || paletteCount > 256
+        || dataOffset < 16 + frameCount * 12
+        || pixelOffset + pixelCount > view.byteLength
+      ) throw new Error('radar scrub pack record is invalid');
+      const paletteBytes = new Uint8Array(paletteCount * 4);
+      paletteBytes.set(new Uint8Array(buffer, dataOffset, paletteCount * 4));
+      records.set(epoch, {
+        time: epoch,
+        width,
+        height,
+        palette: new Uint32Array(paletteBytes.buffer),
+        pixels: new Uint8Array(buffer, pixelOffset, pixelCount),
+      });
+    }
+    return { summary, buffer, records };
+  }
+
+  async function refreshRadarScrubPacks(manifest, radarEndpoint) {
+    const summaries = Array.isArray(manifest.scrub_packs) ? manifest.scrub_packs : [];
+    if (!summaries.length) {
+      state.radarScrubReady = false;
+      return false;
+    }
+    const token = ++state.radarScrubLoadToken;
+    const pending = summaries.map(async (summary) => {
+      const old = state.radarScrubPacks.get(summary.day);
+      if (old && old.summary.sha256 === summary.sha256) return old;
+      const compressed = await fetchArrayBuffer(
+        radarScrubPackUrl(summary, radarEndpoint), 30000, 'high',
+      );
+      return parseRadarScrubPack(await decompressGzip(compressed), summary);
+    });
+    const results = await Promise.allSettled(pending);
+    if (token !== state.radarScrubLoadToken) return state.radarScrubReady;
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        state.radarScrubPacks.set(summaries[index].day, result.value);
+      } else {
+        console.warn('Radar scrub pack unavailable', summaries[index].day, result.reason);
+      }
+    });
+    state.radarScrubFrames.clear();
+    for (const pack of state.radarScrubPacks.values()) {
+      for (const [epoch, record] of pack.records) state.radarScrubFrames.set(epoch, record);
+    }
+    state.radarScrubReady = manifest.frames.every((frame) => (
+      state.radarScrubFrames.has(Number(frame.time))
+    ));
+    return state.radarScrubReady;
+  }
+
+  function parseLightningDisplayPack(buffer, summary) {
+    const view = new DataView(buffer);
+    if (view.byteLength < 16 || binaryMagic(view) !== 'ILDPK1') {
+      throw new Error('lightning display pack header is invalid');
+    }
+    const hourCount = view.getUint16(12, true);
+    if (hourCount !== Number(summary.hour_count) || view.byteLength < 16 + hourCount * 12) {
+      throw new Error('lightning display pack length is invalid');
+    }
+    const chunks = new Map();
+    for (let index = 0; index < hourCount; index += 1) {
+      const entryOffset = 16 + index * 12;
+      const hour = view.getUint32(entryOffset, true);
+      const dataOffset = view.getUint32(entryOffset + 4, true);
+      const dataLength = view.getUint32(entryOffset + 8, true);
+      if (dataOffset < 16 + hourCount * 12 || dataOffset + dataLength > view.byteLength) {
+        throw new Error('lightning display pack record is invalid');
+      }
+      const hourSummary = state.lightningHours.get(hour);
+      if (!hourSummary) continue;
+      chunks.set(
+        hour,
+        decodeLightningBinary(buffer.slice(dataOffset, dataOffset + dataLength), hourSummary),
+      );
+    }
+    return { summary, chunks };
+  }
+
+  async function refreshLightningDisplayPacks(payload, radarEndpoint) {
+    const summaries = Array.isArray(payload.display_packs) ? payload.display_packs : [];
+    if (!summaries.length) {
+      state.lightningPackedReady = false;
+      return false;
+    }
+    const pending = summaries.map(async (summary) => {
+      const old = state.lightningDisplayPacks.get(summary.day);
+      if (old && old.summary.sha256 === summary.sha256) return old;
+      const compressed = await fetchArrayBuffer(
+        lightningDisplayPackUrl(summary, radarEndpoint), 30000, 'high',
+      );
+      return parseLightningDisplayPack(await decompressGzip(compressed), summary);
+    });
+    const results = await Promise.allSettled(pending);
+    results.forEach((result, index) => {
+      if (result.status !== 'fulfilled') {
+        console.warn('Lightning display pack unavailable', summaries[index].day, result.reason);
+        return;
+      }
+      const pack = result.value;
+      state.lightningDisplayPacks.set(summaries[index].day, pack);
+      for (const [hour, chunk] of pack.chunks) {
+        const old = state.lightningCache.get(hour);
+        if (old && old.controller) old.controller.abort();
+        const entry = { data: chunk, promise: Promise.resolve(chunk), controller: null, priority: 'pack' };
+        state.lightningCache.set(hour, entry);
+      }
+    });
+    state.lightningPackedReady = payload.hours.every((summary) => (
+      Number(summary.count) === 0 || Boolean(state.lightningCache.get(Number(summary.time))?.data)
+    ));
+    if (state.lightningPackedReady) {
+      const chunks = [...state.lightningCache.values()]
+        .map((entry) => entry.data)
+        .filter(Boolean)
+        .sort((a, b) => a.hour - b.hour);
+      lightningLayer.setArchiveChunks(chunks);
+    }
+    return state.lightningPackedReady;
   }
 
   async function loadManifest(endpoint, timeoutMs, emergency = false) {
@@ -690,6 +1179,7 @@
         const payload = await fetchJson(lightningMonthManifestUrl(month, relative));
         if (!payload || !Array.isArray(payload.hours)) throw new Error('invalid lightning month');
         mergeLightningHours(payload.hours);
+        await refreshLightningDisplayPacks(payload, state.lightningRadarEndpoint).catch(() => false);
         state.lightningLoadedMonths.add(month);
         return true;
       } catch (_) {
@@ -910,10 +1400,9 @@
     for (const chunk of chunks) {
       strikeCount += lightningUpperBound(chunk, epoch) - lightningUpperBound(chunk, start);
     }
-    // Canvas drawing is RAF-coalesced even during scrubbing. This makes input
-    // handlers constant-time while still drawing the newest slider position on
-    // the very next display frame.
-    lightningLayer.setChunks(chunks, epoch, false);
+    // The slider itself is already RAF-coalesced, so draw lightning in that same
+    // frame while scrubbing instead of leaving it one visual frame behind radar.
+    lightningLayer.setChunks(chunks, epoch, immediate);
     const count = strikeCount.toLocaleString('en-IN');
     updateLightningUi('live', `${count} ${strikeCount === 1 ? 'stroke' : 'strokes'}`);
   }
@@ -1021,10 +1510,10 @@
         mergeLightningHours(payload.hours);
         state.lightningMonthUrls.clear();
         for (const month of payload.months) state.lightningMonthUrls.set(month.month, month.url);
+        const packed = await refreshLightningDisplayPacks(payload, candidate).catch(() => false);
         const epoch = epochAtIndex();
         if (epoch) renderLightning(epoch);
-        scheduleArchiveWarm();
-        scheduleLightningWarm();
+        if (!packed) scheduleLightningWarm();
         return true;
       } catch (error) {
         lastError = error;
@@ -1171,7 +1660,7 @@
   }
 
   function scheduleArchiveWarm() {
-    if (constrainedConnection()) return;
+    if (constrainedConnection() || state.radarScrubReady) return;
     state.archiveWarmRequested = true;
     clearTimeout(state.archiveWarmTimer);
     state.archiveWarmTimer = setTimeout(() => {
@@ -1215,7 +1704,7 @@
   }
 
   function scheduleLightningWarm() {
-    if (constrainedConnection()) return;
+    if (constrainedConnection() || state.lightningPackedReady) return;
     state.lightningWarmRequested = true;
     clearTimeout(state.lightningWarmTimer);
     state.lightningWarmTimer = setTimeout(() => {
@@ -1232,6 +1721,20 @@
   function leafletBounds() {
     const bounds = (state.manifest && state.manifest.bounds) || DEFAULT_BOUNDS;
     return [[bounds.south, bounds.west], [bounds.north, bounds.east]];
+  }
+
+  function showPackedRadarBracket(bracket) {
+    if (!bracket || !bracket.before) return false;
+    const before = state.radarScrubFrames.get(Number(bracket.before.time));
+    const after = bracket.after
+      ? state.radarScrubFrames.get(Number(bracket.after.time))
+      : null;
+    if (!before || (bracket.after && !after)) return false;
+    for (const url of state.activeRadarUrls) {
+      const entry = state.radarLayers.get(url);
+      if (entry && map.hasLayer(entry.layer)) entry.layer.setOpacity(0);
+    }
+    return radarScrubLayer.show(before, after, bracket.ratio || 0, state.opacity);
   }
 
   function selectIndex(index) {
@@ -1306,6 +1809,7 @@
       if (entry && map.hasLayer(entry.layer)) map.removeLayer(entry.layer);
     }
     state.activeRadarUrls.clear();
+    radarScrubLayer.hide();
   }
 
   function discardRadarEntry(url, entry) {
@@ -1362,6 +1866,7 @@
       if (entry && map.hasLayer(entry.layer)) entry.layer.setOpacity(0);
     }
     state.activeRadarUrls = desired;
+    radarScrubLayer.hide();
     pruneRadarLayers();
   }
 
@@ -1447,6 +1952,10 @@
     if (bracket) {
       if (options.scrubbing) {
         updateTimeLabels(epoch, bracket);
+        if (showPackedRadarBracket(bracket)) {
+          cancelObsoleteRadarLoads([]);
+          return;
+        }
         const beforeUrl = frameUrl(bracket.before, true);
         const afterUrl = bracket.after ? frameUrl(bracket.after, true) : '';
         cancelObsoleteRadarLoads([beforeUrl, afterUrl].filter(Boolean));
@@ -1469,6 +1978,14 @@
         if (options.prefetch !== false) prefetchNeighbours(clamped);
         return;
       }
+    } else if (options.scrubbing) {
+      // Never turn a thumb movement into an archive request. Missing source
+      // intervals are shown honestly and can be resolved after release.
+      updateTimeLabels(epoch, { after: null });
+      controls.frameKind.textContent = 'No source frame';
+      controls.frameKind.dataset.kind = 'blend';
+      clearRadarLayers();
+      return;
     } else {
       bracket = await ensureFramesForEpoch(epoch);
     }
@@ -1508,6 +2025,7 @@
   }
 
   function prefetchNeighbours(index) {
+    if (state.radarScrubReady) return;
     const urls = new Set();
     const centre = Math.round(index);
     state.lastPrefetchIndex = centre;
@@ -1611,8 +2129,8 @@
       state.manifestUrl = result.endpoint;
       state.manifestBase = baseFromManifestUrl(result.endpoint);
       state.usingEmergencySnapshot = Boolean(result.emergency);
-      refreshLightningManifest(result.endpoint).catch(() => false);
       mergeFrames(result.payload.frames);
+      radarScrubLayer.setBounds(leafletBounds());
       state.monthUrls.clear();
       for (const month of result.payload.months || []) state.monthUrls.set(month.month, month.url);
       if (!state.frames.length) throw new Error('the radar archive contains no frames yet');
@@ -1620,8 +2138,14 @@
       controls.datePicker.max = dateInIst(Number(result.payload.latest_time));
       if (initial) controls.datePicker.value = controls.datePicker.max;
       rebuildTimeline(wasLatest ? null : selectedEpoch);
-      await renderIndex(state.index);
-      scheduleArchiveWarm();
+      if (initial) controls.timeRange.disabled = true;
+      const radarPacked = refreshRadarScrubPacks(result.payload, result.endpoint).catch(() => false);
+      const lightningPacked = refreshLightningManifest(result.endpoint).catch(() => false);
+      await renderIndex(state.index, { prefetch: false });
+      if (initial) controls.loadingText.textContent = 'Preparing smooth timeline…';
+      const [radarReady] = await Promise.all([radarPacked, lightningPacked]);
+      controls.timeRange.disabled = false;
+      if (!radarReady) scheduleArchiveWarm();
       controls.mapLoading.classList.remove('is-error');
       controls.retryButton.hidden = true;
       controls.mapLoading.hidden = true;
@@ -1632,6 +2156,7 @@
         showToast('Live radar data restored.');
       }
     } catch (error) {
+      controls.timeRange.disabled = false;
       if (initial) showFatal(`Radar data are temporarily unavailable. ${error.message || error}`);
     } finally {
       state.refreshing = false;
@@ -1660,6 +2185,8 @@
         const payload = await fetchJson(monthManifestUrl(month, relative));
         if (!payload || !Array.isArray(payload.frames)) throw new Error('invalid month manifest');
         mergeFrames(payload.frames);
+        controls.loadingText.textContent = `Preparing ${month}…`;
+        await refreshRadarScrubPacks(payload, state.manifestUrl).catch(() => false);
         state.loadedMonths.add(month);
         rebuildTimeline(preserveTime);
         return true;

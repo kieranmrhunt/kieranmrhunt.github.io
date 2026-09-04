@@ -67,16 +67,36 @@ def build_snapshot(archive: Path, output: Path, window_hours: float) -> tuple[in
         for summary in sorted(lightning.get("hours", []), key=lambda item: float(item["time"]))
         if first_lightning_hour <= float(summary["time"]) <= last_lightning_hour
     ]
+    radar_days = {
+        datetime.fromtimestamp(float(frame["time"]), timezone.utc).strftime("%Y-%m-%d")
+        for frame in frames
+    }
+    radar_packs = [
+        pack for pack in radar.get("scrub_packs", []) if pack.get("day") in radar_days
+    ]
+    lightning_days = {
+        datetime.fromtimestamp(float(hour["time"]), timezone.utc).strftime("%Y-%m-%d")
+        for hour in hours
+    }
+    lightning_packs = [
+        pack
+        for pack in lightning.get("display_packs", [])
+        if pack.get("day") in lightning_days
+    ]
 
     copied_bytes = 0
     for frame in frames:
         copied_bytes += copy_referenced_file(archive, output, frame["url"])
         if frame.get("preview_url"):
             copied_bytes += copy_referenced_file(archive, output, frame["preview_url"])
+    for pack in radar_packs:
+        copied_bytes += copy_referenced_file(archive, output, pack["url"])
     for summary in hours:
         copied_bytes += copy_referenced_file(archive, output, summary["url"])
         if summary.get("display_url"):
             copied_bytes += copy_referenced_file(archive, output, summary["display_url"])
+    for pack in lightning_packs:
+        copied_bytes += copy_referenced_file(archive, output, pack["url"])
 
     built_at = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
     snapshot_note = {
@@ -93,6 +113,7 @@ def build_snapshot(archive: Path, output: Path, window_hours: float) -> tuple[in
             "first_time": frames[0]["time"],
             "latest_time": frames[-1]["time"],
             "frames": frames,
+            "scrub_packs": radar_packs,
             "months": [],
         }
     )
@@ -107,6 +128,7 @@ def build_snapshot(archive: Path, output: Path, window_hours: float) -> tuple[in
             "first_time": min((summary.get("first_time") for summary in hours), default=None),
             "latest_time": max((summary.get("last_time") for summary in hours), default=None),
             "hours": hours,
+            "display_packs": lightning_packs,
             "months": [],
         }
     )

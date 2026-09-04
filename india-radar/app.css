@@ -22,7 +22,8 @@ a{color:inherit}
 .skip-link:focus{top:12px}
 
 #map{position:fixed;inset:0;z-index:0;background:#e7eaed}
-.lightning-canvas{pointer-events:none}
+.lightning-canvas,.radar-scrub-canvas{pointer-events:none}
+.radar-scrub-canvas{position:absolute;overflow:hidden}.radar-scrub-frame{position:absolute;inset:0;width:100%;height:100%}
 .leaflet-image-layer{will-change:opacity}
 .leaflet-container{font-family:var(--sans)}
 .leaflet-control-attribution{margin-bottom:calc(166px + env(safe-area-inset-bottom))!important;background:rgba(255,255,255,.86)!important;color:var(--muted)!important;font-size:9px!important}
