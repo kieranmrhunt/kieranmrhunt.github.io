@@ -15,6 +15,12 @@ so dragging needs no radar request or image decode; releasing restores the full
 At every position, a single canvas layer renders ILDN strokes from the preceding
 two hours, with colour, size, and opacity showing their age. Hour-sized chunks and
 compressed daily display packs keep archive browsing responsive on phones.
+Rain and lightning can be switched independently from the map or About panel.
+The lightning readout reports both strokes whose centres are inside the visible
+map and strokes over Indian land in the same two-hour interval. The India count
+uses a compact 0.02-degree raster of Natural Earth's 1:10m India-viewpoint
+Admin-0 boundary; its cumulative count is built once as each hour is decoded, so
+it adds no work to timeline dragging.
 
 Public radar frames have persistent station-centred radial spokes conservatively
 inpainted from adjacent pixels. Unmistakable solid block corruption triggers
@@ -26,6 +32,13 @@ Refresh the emergency snapshot from the ILDN workspace before publishing with:
 
 ```bash
 python3 github-pages/india-radar/tools/build_emergency_snapshot.py
+```
+
+Regenerate the browser's India land mask after updating the Natural Earth
+boundary with:
+
+```bash
+python3 github-pages/india-radar/tools/build_india_land_mask.py
 ```
 
 Data attribution and operational caveats are deliberately visible in the page.

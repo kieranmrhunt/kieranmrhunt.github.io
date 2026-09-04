@@ -38,6 +38,7 @@
   const RADAR_WARM_FRAME_COUNT = 4;
   const RADAR_PRELOAD_CACHE_SIZE = 64;
   const EMPTY_IMAGE_DATA = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
+  const INDIA_LAND_MASK_URL = absoluteUrl('./india-land-mask.bin?v=1');
   const IST_OFFSET_SECONDS = 5.5 * 3600;
   const DEFAULT_BOUNDS = { south: 0, west: 61.875, north: 40.979898, east: 106.875 };
   const timeFormatters = {
@@ -104,6 +105,22 @@
     }
   }
 
+  function readRainPreference() {
+    try {
+      return window.localStorage.getItem('indiaRadarRain') !== 'off';
+    } catch (_) {
+      return true;
+    }
+  }
+
+  function saveRainPreference(enabled) {
+    try {
+      window.localStorage.setItem('indiaRadarRain', enabled ? 'on' : 'off');
+    } catch (_) {
+      // Storage can be unavailable in private or embedded browser contexts.
+    }
+  }
+
   function readLightningPreference() {
     try {
       return window.localStorage.getItem('indiaRadarLightning') !== 'off';
@@ -136,6 +153,7 @@
     radarScrubReady: false,
     radarScrubLoadToken: 0,
     opacity: readOpacityPreference(),
+    rainEnabled: readRainPreference(),
     playing: false,
     playTimer: null,
     playStart: 0,
@@ -178,6 +196,11 @@
     lightningWarmTimer: null,
     lightningWarmRunning: false,
     lightningWarmRequested: false,
+    indiaLandMask: null,
+    indiaLandMaskPromise: null,
+    currentLightningEpoch: 0,
+    currentLightningChunks: [],
+    lightningCountRequest: null,
   };
 
   if (!window.L) {
@@ -685,7 +708,6 @@
   L.control.zoom({ position: 'topright' }).addTo(map);
 
   const controls = {
-    headerTime: $('#headerTime'),
     mapLoading: $('#mapLoading'),
     loadingText: $('#loadingText'),
     retryButton: $('#retryButton'),
@@ -709,6 +731,9 @@
     aboutDialog: $('#aboutDialog'),
     opacityRange: $('#opacityRange'),
     opacityOutput: $('#opacityOutput'),
+    rainButton: $('#rainButton'),
+    rainToggle: $('#rainToggle'),
+    radarKey: $('#radarKey'),
     lightningButton: $('#lightningButton'),
     lightningToggle: $('#lightningToggle'),
     lightningKey: $('#lightningKey'),
@@ -718,6 +743,11 @@
 
   controls.opacityRange.value = String(Math.round(state.opacity * 100));
   controls.opacityOutput.value = `${Math.round(state.opacity * 100)}%`;
+  state.indiaLandMaskPromise = loadIndiaLandMask().catch((error) => {
+    console.warn('India land mask unavailable', error);
+    return null;
+  });
+  setRainEnabled(state.rainEnabled);
   setLightningEnabled(state.lightningEnabled);
 
   function validManifest(payload) {
@@ -874,6 +904,45 @@
 
   function binaryMagic(view, length = 6) {
     return String.fromCharCode(...new Uint8Array(view.buffer, view.byteOffset, length));
+  }
+
+  async function loadIndiaLandMask() {
+    const buffer = await fetchArrayBuffer(INDIA_LAND_MASK_URL, 15000, 'high');
+    const view = new DataView(buffer);
+    if (view.byteLength < 40 || binaryMagic(view, 7) !== 'INDMSK1') {
+      throw new Error('India land-mask header is invalid');
+    }
+    const width = view.getUint32(8, true);
+    const height = view.getUint32(12, true);
+    const west = view.getFloat64(16, true);
+    const north = view.getFloat64(24, true);
+    const resolution = view.getFloat64(32, true);
+    const expectedBytes = Math.ceil(width * height / 8);
+    if (
+      width < 100 || height < 100 || width > 10000 || height > 10000
+      || !Number.isFinite(west) || !Number.isFinite(north)
+      || !Number.isFinite(resolution) || resolution <= 0 || resolution > 0.1
+      || view.byteLength !== 40 + expectedBytes
+    ) throw new Error('India land-mask dimensions are invalid');
+    state.indiaLandMask = {
+      width,
+      height,
+      west,
+      north,
+      resolution,
+      bits: new Uint8Array(buffer, 40),
+    };
+    return state.indiaLandMask;
+  }
+
+  function indiaLandContains(latitude, longitude) {
+    const mask = state.indiaLandMask;
+    if (!mask) return false;
+    const x = Math.round((longitude - mask.west) / mask.resolution);
+    const y = Math.round((mask.north - latitude) / mask.resolution);
+    if (x < 0 || x >= mask.width || y < 0 || y >= mask.height) return false;
+    const index = y * mask.width + x;
+    return Boolean((mask.bits[index >> 3] >> (index & 7)) & 1);
   }
 
   function parseRadarScrubPack(buffer, summary) {
@@ -1221,6 +1290,7 @@
       timeOffsets: new Uint32Array(0),
       worldX: new Float32Array(0),
       worldY: new Float32Array(0),
+      indiaPrefix: state.indiaLandMask ? new Uint32Array(1) : null,
     };
   }
 
@@ -1228,12 +1298,16 @@
     const count = timeOffsets.length;
     const worldX = new Float32Array(count);
     const worldY = new Float32Array(count);
+    const indiaPrefix = state.indiaLandMask ? new Uint32Array(count + 1) : null;
     for (let index = 0; index < count; index += 1) {
       const longitude = longitudes[index] / 100000;
       const latitude = Math.max(-85.05112878, Math.min(85.05112878, latitudes[index] / 100000));
       const sinLatitude = Math.sin(latitude * Math.PI / 180);
       worldX[index] = (longitude + 180) / 360;
       worldY[index] = 0.5 - Math.log((1 + sinLatitude) / (1 - sinLatitude)) / (4 * Math.PI);
+      if (indiaPrefix) {
+        indiaPrefix[index + 1] = indiaPrefix[index] + Number(indiaLandContains(latitude, longitude));
+      }
     }
     return {
       hour,
@@ -1241,6 +1315,7 @@
       timeOffsets,
       worldX,
       worldY,
+      indiaPrefix,
     };
   }
 
@@ -1394,17 +1469,70 @@
     }
   }
 
-  function showLightningChunks(epoch, chunks, immediate = false) {
+  function lightningWindowCounts(epoch, chunks) {
     const start = epoch - LIGHTNING_WINDOW_SECONDS;
-    let strikeCount = 0;
+    const zoom = map.getZoom();
+    const pixelBounds = map.getPixelBounds();
+    const worldSize = 256 * (2 ** zoom);
+    let viewCount = 0;
+    let indiaCount = 0;
+    let indiaReady = Boolean(state.indiaLandMask);
     for (const chunk of chunks) {
-      strikeCount += lightningUpperBound(chunk, epoch) - lightningUpperBound(chunk, start);
+      const first = lightningUpperBound(chunk, start);
+      const last = lightningUpperBound(chunk, epoch);
+      if (chunk.indiaPrefix) {
+        indiaCount += chunk.indiaPrefix[last] - chunk.indiaPrefix[first];
+      } else if (last > first) {
+        indiaReady = false;
+      }
+      for (let index = first; index < last; index += 1) {
+        const x = chunk.worldX[index] * worldSize;
+        const y = chunk.worldY[index] * worldSize;
+        if (
+          x >= pixelBounds.min.x && x <= pixelBounds.max.x
+          && y >= pixelBounds.min.y && y <= pixelBounds.max.y
+        ) viewCount += 1;
+      }
     }
+    return { viewCount, indiaCount, indiaReady };
+  }
+
+  function scheduleLightningCountUpdate() {
+    if (state.lightningCountRequest != null) return;
+    const run = () => {
+      state.lightningCountRequest = null;
+      if (!state.lightningEnabled) {
+        updateLightningUi('off', 'Lightning hidden');
+        return;
+      }
+      if (!state.currentLightningEpoch || !state.currentLightningChunks.length) return;
+      const counts = lightningWindowCounts(
+        state.currentLightningEpoch,
+        state.currentLightningChunks,
+      );
+      const view = counts.viewCount.toLocaleString('en-IN');
+      const india = counts.indiaCount.toLocaleString('en-IN');
+      updateLightningUi(
+        'live',
+        counts.indiaReady
+          ? `${view} in view · ${india} over India`
+          : `${view} in view · India count unavailable`,
+      );
+    };
+    if (typeof window.requestIdleCallback === 'function') {
+      state.lightningCountRequest = window.requestIdleCallback(run, { timeout: 120 });
+    } else {
+      state.lightningCountRequest = window.setTimeout(run, 0);
+    }
+  }
+
+  function showLightningChunks(epoch, chunks, immediate = false) {
     // The slider itself is already RAF-coalesced, so draw lightning in that same
     // frame while scrubbing instead of leaving it one visual frame behind radar.
+    state.currentLightningEpoch = epoch;
+    state.currentLightningChunks = chunks;
     lightningLayer.setChunks(chunks, epoch, immediate);
-    const count = strikeCount.toLocaleString('en-IN');
-    updateLightningUi('live', `${count} ${strikeCount === 1 ? 'stroke' : 'strokes'}`);
+    scheduleLightningCountUpdate();
   }
 
   function prefetchLightningNeighbours(epoch) {
@@ -1510,6 +1638,9 @@
         mergeLightningHours(payload.hours);
         state.lightningMonthUrls.clear();
         for (const month of payload.months) state.lightningMonthUrls.set(month.month, month.url);
+        // Decode after the compact land mask is ready so every hourly chunk can
+        // carry an O(1) cumulative India count without work on slider events.
+        await state.indiaLandMaskPromise;
         const packed = await refreshLightningDisplayPacks(payload, candidate).catch(() => false);
         const epoch = epochAtIndex();
         if (epoch) renderLightning(epoch);
@@ -1523,6 +1654,23 @@
     lightningLayer.setChunks([], epochAtIndex());
     updateLightningUi('error', 'Lightning unavailable');
     throw lastError || new Error('no lightning manifest configured');
+  }
+
+  function setRainEnabled(enabled) {
+    state.rainEnabled = Boolean(enabled);
+    saveRainPreference(state.rainEnabled);
+    controls.rainToggle.checked = state.rainEnabled;
+    controls.rainButton.classList.toggle('is-active', state.rainEnabled);
+    controls.rainButton.setAttribute('aria-pressed', String(state.rainEnabled));
+    controls.rainButton.setAttribute('aria-label', state.rainEnabled ? 'Hide rain' : 'Show rain');
+    controls.rainButton.title = state.rainEnabled ? 'Hide rain' : 'Show rain';
+    controls.radarKey.dataset.state = state.rainEnabled ? 'on' : 'off';
+    if (!state.rainEnabled) {
+      cancelQueuedScrubRadar();
+      state.renderToken += 1;
+      clearRadarLayers();
+    }
+    if (state.timeline.length) renderIndex(state.index, { prefetch: false, lightning: false });
   }
 
   function setLightningEnabled(enabled) {
@@ -1724,7 +1872,7 @@
   }
 
   function showPackedRadarBracket(bracket) {
-    if (!bracket || !bracket.before) return false;
+    if (!state.rainEnabled || !bracket || !bracket.before) return false;
     const before = state.radarScrubFrames.get(Number(bracket.before.time));
     const after = bracket.after
       ? state.radarScrubFrames.get(Number(bracket.after.time))
@@ -1844,6 +1992,10 @@
   }
 
   function showRadarBracket(bracket, afterLoaded = true, preview = false) {
+    if (!state.rainEnabled) {
+      clearRadarLayers();
+      return false;
+    }
     const beforeUrl = frameUrl(bracket.before, preview);
     const useAfter = Boolean(bracket.after && afterLoaded);
     const afterUrl = useAfter ? frameUrl(bracket.after, preview) : '';
@@ -1868,6 +2020,7 @@
     state.activeRadarUrls = desired;
     radarScrubLayer.hide();
     pruneRadarLayers();
+    return true;
   }
 
   function cancelQueuedScrubRadar() {
@@ -1878,7 +2031,7 @@
 
   async function loadScrubRadar(pending) {
     const { bracket, epoch, token } = pending;
-    if (token !== state.renderToken || epoch !== epochAtIndex()) return;
+    if (!state.rainEnabled || token !== state.renderToken || epoch !== epochAtIndex()) return;
     const beforeUrl = frameUrl(bracket.before, true);
     const afterUrl = bracket.after ? frameUrl(bracket.after, true) : '';
     cancelObsoleteRadarLoads([beforeUrl, afterUrl].filter(Boolean));
@@ -1949,6 +2102,15 @@
     }
     const immediate = frameBracket(epoch);
     let bracket = usableBracket(immediate, epoch) ? immediate : null;
+    if (!state.rainEnabled) {
+      updateTimeLabels(epoch, bracket || { after: null });
+      if (!bracket) {
+        controls.frameKind.textContent = 'No source frame';
+        controls.frameKind.dataset.kind = 'blend';
+      }
+      clearRadarLayers();
+      return;
+    }
     if (bracket) {
       if (options.scrubbing) {
         updateTimeLabels(epoch, bracket);
@@ -2094,7 +2256,6 @@
     const parts = formatParts(epoch);
     controls.selectedTime.textContent = `${parts.ist} IST`;
     controls.selectedDate.textContent = `${parts.istDate} · ${parts.utc} UTC`;
-    controls.headerTime.textContent = `${parts.ist} IST`;
     const isBlend = Boolean(bracket.after && bracket.ratio > 0 && bracket.ratio < 1);
     controls.frameKind.textContent = isBlend ? 'Interpolated' : 'Source frame';
     controls.frameKind.dataset.kind = isBlend ? 'blend' : 'source';
@@ -2356,6 +2517,8 @@
     controls.opacityOutput.value = `${controls.opacityRange.value}%`;
     renderIndex(state.index, { prefetch: false });
   });
+  controls.rainButton.addEventListener('click', () => setRainEnabled(!state.rainEnabled));
+  controls.rainToggle.addEventListener('change', () => setRainEnabled(controls.rainToggle.checked));
   controls.lightningButton.addEventListener('click', () => setLightningEnabled(!state.lightningEnabled));
   controls.lightningToggle.addEventListener('change', () => setLightningEnabled(controls.lightningToggle.checked));
   controls.dateButton.addEventListener('click', () => {
@@ -2380,6 +2543,7 @@
     if (document.hidden) pausePlayback();
     else refreshManifest();
   });
+  map.on('moveend zoomend resize', scheduleLightningCountUpdate);
 
   setInterval(() => refreshManifest(), FIVE_MINUTES * 1000);
   refreshManifest({ initial: true });

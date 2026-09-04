@@ -15,32 +15,22 @@
   <link rel="preconnect" href="https://www.met.reading.ac.uk">
   <link rel="preconnect" href="https://tile.openstreetmap.org">
   <link rel="stylesheet" href="./vendor/leaflet/leaflet.css?v=1.9.4">
-  <link rel="stylesheet" href="./app.css?v=7">
+  <link rel="preload" href="./india-land-mask.bin?v=1" as="fetch" crossorigin>
+  <link rel="stylesheet" href="./app.css?v=8">
 </head>
 <body>
   <a class="skip-link" href="#timeline">Skip to timeline controls</a>
 
-  <header class="app-header">
-    <a class="brand" href="../" aria-label="Kieran Hunt projects home">
-      <span class="brand-mark" aria-hidden="true">ϟ</span>
-      <span>
-        <strong><span class="brand-wide">India Rain + Lightning</span><span class="brand-compact">India Weather</span></strong>
-      </span>
-    </a>
-    <div class="header-status">
-      <span class="header-time" id="headerTime">—</span>
-    </div>
-    <div class="header-actions">
-      <button class="icon-button" id="locateButton" type="button" aria-label="Show my location" title="Show my location">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path></svg>
-      </button>
-      <button class="icon-button" id="aboutButton" type="button" aria-label="About this radar" title="About this radar">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v6M12 7.5v.1"></path></svg>
-      </button>
-    </div>
-  </header>
-
   <main id="map" aria-label="Animated rain-radar and lightning map of India"></main>
+
+  <div class="map-actions" aria-label="Map tools">
+    <button class="icon-button" id="locateButton" type="button" aria-label="Show my location" title="Show my location">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path></svg>
+    </button>
+    <button class="icon-button" id="aboutButton" type="button" aria-label="About this map" title="About this map">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v6M12 7.5v.1"></path></svg>
+    </button>
+  </div>
 
   <div class="map-loading" id="mapLoading" role="status">
     <span class="loader" aria-hidden="true"></span>
@@ -48,7 +38,7 @@
     <button class="retry-button" id="retryButton" type="button" hidden>Retry</button>
   </div>
 
-  <aside class="radar-key" aria-label="Radar intensity key">
+  <aside class="radar-key" id="radarKey" data-state="on" aria-label="Radar intensity key">
     <span class="key-title">Relative intensity</span>
     <span class="key-gradient" aria-hidden="true"></span>
     <span class="key-labels"><span>Light</span><span>Heavy</span></span>
@@ -58,7 +48,7 @@
     <span class="lightning-key-mark" aria-hidden="true">ϟ</span>
     <span class="lightning-key-copy">
       <strong id="lightningSummary">Lightning loading…</strong>
-      <small>Previous two hours · ILDN</small>
+      <small>Strokes in previous two hours · ILDN</small>
       <span class="lightning-age-scale" role="img" aria-label="Age key: larger yellow strokes are newest; smaller dark-purple strokes are up to two hours old.">
         <span class="lightning-age-marks" aria-hidden="true"><i></i><i></i><i></i></span>
         <span class="lightning-age-labels" aria-hidden="true"><span>Now</span><span>1h</span><span>2h</span></span>
@@ -68,6 +58,10 @@
 
   <button class="map-button fit-button" id="fitButton" type="button" aria-label="Fit India in view" title="Fit India in view">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path></svg>
+  </button>
+
+  <button class="map-button rain-button is-active" id="rainButton" type="button" aria-label="Hide rain" aria-pressed="true" title="Hide rain">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 15.5h10.7a3.8 3.8 0 0 0 .5-7.6A5.6 5.6 0 0 0 7.3 9.6a3 3 0 0 0-.8 5.9Z"></path><path d="m8 18-1 2M13 18l-1 2M18 18l-1 2"></path></svg>
   </button>
 
   <button class="map-button lightning-button is-active" id="lightningButton" type="button" aria-label="Hide lightning" aria-pressed="true" title="Hide lightning">
@@ -118,19 +112,23 @@
   <dialog class="about-dialog" id="aboutDialog">
     <form method="dialog">
       <button class="dialog-close" value="close" aria-label="Close">×</button>
-      <h2>India Rain + Lightning</h2>
+      <h2>About this map</h2>
       <p>This experimental map combines the public RainViewer radar composite for India with time-matched strokes from the Indian Lightning Detection Network.</p>
       <dl>
         <div><dt>Update check</dt><dd>Every five minutes</dd></div>
         <div><dt>Observed frames</dt><dd>Nominally every ten minutes</dd></div>
         <div><dt>Between observations</dt><dd>A continuous cross-fade between adjacent source frames</dd></div>
-        <div><dt>Lightning history</dt><dd>Previous two hours of strokes at every timeline position, coloured and sized by age</dd></div>
+        <div><dt>Lightning history</dt><dd>Previous two hours, with separate visible-map and India-land counts; colour and size show age</dd></div>
         <div><dt>Map resolution</dt><dd>Web-Mercator zoom 6, approximately 2–3 km per pixel over India</dd></div>
         <div><dt>Radar cleaning</dt><dd>Persistent radial spokes are inpainted; clearly corrupt block frames are reconstructed from clean time neighbours</dd></div>
       </dl>
       <label class="opacity-control" for="opacityRange">
         <span>Radar opacity <output id="opacityOutput">82%</output></span>
         <input id="opacityRange" type="range" min="35" max="100" value="82" step="1">
+      </label>
+      <label class="layer-toggle" for="rainToggle">
+        <span><strong>Show rain</strong><small>Quality-controlled RainViewer / IMD composite</small></span>
+        <input id="rainToggle" type="checkbox" checked>
       </label>
       <label class="layer-toggle" for="lightningToggle">
         <span><strong>Show lightning</strong><small>Original ILDN stroke locations and times</small></span>
@@ -152,6 +150,6 @@
 
   <noscript><div class="noscript">This animated radar requires JavaScript.</div></noscript>
   <script src="./vendor/leaflet/leaflet.js?v=1.9.4"></script>
-  <script src="./app.js?v=14" defer></script>
+  <script src="./app.js?v=15" defer></script>
 </body>
 </html>
