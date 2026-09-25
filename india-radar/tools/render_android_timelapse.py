@@ -17,6 +17,7 @@ import tempfile
 import time
 import urllib.parse
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 
 import websocket
@@ -270,6 +271,7 @@ def dashboard_snapshot(cdp: Cdp) -> dict:
       height: window.innerHeight,
       devicePixelRatio: window.devicePixelRatio,
     },
+    captureWindow: window.__indiaRadarCapture.windowInfo(),
     timeline: {
       min: Number(range.min),
       max: Number(range.max),
@@ -444,6 +446,22 @@ def render_frames(
             print(f"Captured {frame_number + 1}/{frame_count} frames", flush=True)
 
 
+def utc_epoch(value: str) -> int:
+    normalised = value.strip()
+    if normalised.endswith("Z"):
+        normalised = normalised[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(normalised)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(f"invalid ISO-8601 time: {value}") from error
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    epoch = int(parsed.timestamp())
+    if epoch % 300:
+        raise argparse.ArgumentTypeError("end time must fall on a five-minute boundary")
+    return epoch
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--url", default="http://127.0.0.1:8765/india-radar/")
@@ -451,6 +469,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--preview", type=Path)
     parser.add_argument("--qa-json", type=Path)
     parser.add_argument("--qa-only", action="store_true")
+    parser.add_argument(
+        "--end-time-utc",
+        type=utc_epoch,
+        help="pin the 72-hour window to an ISO-8601 end time",
+    )
     parser.add_argument("--width", type=int, default=390)
     parser.add_argument("--height", type=int, default=633)
     parser.add_argument("--device-scale-factor", type=float, default=2)
@@ -478,8 +501,14 @@ def main() -> int:
 
         parsed_url = urllib.parse.urlsplit(args.url)
         query = urllib.parse.parse_qsl(parsed_url.query, keep_blank_values=True)
-        query = [(key, value) for key, value in query if key != "capture"]
+        query = [
+            (key, value)
+            for key, value in query
+            if key not in {"capture", "captureEndEpoch"}
+        ]
         query.append(("capture", "1"))
+        if args.end_time_utc is not None:
+            query.append(("captureEndEpoch", str(args.end_time_utc)))
         capture_url = urllib.parse.urlunsplit(parsed_url._replace(
             query=urllib.parse.urlencode(query),
         ))
@@ -572,11 +601,20 @@ def main() -> int:
                 },
                 "browserErrors": cdp.errors,
                 "highResolutionRadar": high_resolution_radar,
+                "requestedEndEpoch": args.end_time_utc,
             })
 
             span = qa["timeline"]["spanSeconds"]
             if not (71.9 * 3600 <= span <= 72.01 * 3600):
                 raise RuntimeError(f"Unexpected timeline span: {span} seconds")
+            if (
+                args.end_time_utc is not None
+                and qa["captureWindow"]["last"] != args.end_time_utc
+            ):
+                raise RuntimeError(
+                    f"Unexpected timeline end: {qa['captureWindow']['last']}"
+                )
+
             if len(qa["packs"]["radarDays"]) > 5 or len(qa["packs"]["lightningDays"]) > 5:
                 raise RuntimeError(f"Too many daily packs loaded: {qa['packs']}")
             if qa["toggles"] != {

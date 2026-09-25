@@ -19,6 +19,13 @@
   const DAY_SECONDS = 86400;
   const TIMELINE_WINDOW_SECONDS = 72 * 3600;
   const LIGHTNING_WINDOW_SECONDS = 7200;
+  const pageParameters = new URLSearchParams(window.location.search);
+  const requestedCaptureEnd = Number(pageParameters.get('captureEndEpoch'));
+  const CAPTURE_END_EPOCH = pageParameters.has('capture')
+    && pageParameters.has('captureEndEpoch')
+    && Number.isFinite(requestedCaptureEnd)
+    ? Math.floor(requestedCaptureEnd / FIVE_MINUTES) * FIVE_MINUTES
+    : null;
   const LIGHTNING_AGE_STOPS = [
     { seconds: 0, colour: [255, 240, 90] },
     { seconds: 900, colour: [255, 174, 34] },
@@ -1211,7 +1218,12 @@
     const archiveFirst = Number(state.manifest.first_time != null
       ? state.manifest.first_time
       : state.frames[0].time);
-    const last = Number(state.manifest.latest_time != null ? state.manifest.latest_time : state.frames[state.frames.length - 1].time);
+    const archiveLast = Number(state.manifest.latest_time != null
+      ? state.manifest.latest_time
+      : state.frames[state.frames.length - 1].time);
+    const last = CAPTURE_END_EPOCH == null
+      ? archiveLast
+      : Math.min(archiveLast, CAPTURE_END_EPOCH);
     const first = Math.ceil(Math.max(
       archiveFirst,
       state.frames[0].time,
@@ -2621,6 +2633,14 @@
 
   if (new URLSearchParams(window.location.search).has('capture')) {
     window.__indiaRadarCapture = {
+      windowInfo() {
+        const archiveLatest = Number(state.manifest && state.manifest.latest_time);
+        return {
+          archiveLatest: Number.isFinite(archiveLatest) ? archiveLatest : null,
+          first: state.timeline.length ? state.timeline[0] : null,
+          last: state.timeline.length ? state.timeline[state.timeline.length - 1] : null,
+        };
+      },
       renderHighResolution(index) {
         cancelQueuedScrub();
         cancelQueuedScrubRadar();

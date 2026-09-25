@@ -44,7 +44,8 @@ python3 github-pages/india-radar/tools/render_android_timelapse.py \
 The renderer also writes machine-readable timeline, cache, interaction, and
 viewport QA with `--qa-json`. It waits for the full 1792 x 2048 radar layers at
 every captured position and encodes the 72-hour sweep at 60 frames per second,
-producing a video of roughly 14.4 seconds.
+producing a video of roughly 14.4 seconds. Add an ISO-8601 end time such as
+`--end-time-utc 2026-09-24T08:00:00Z` to reproduce a historical 72-hour window.
 
 Refresh the emergency snapshot from the ILDN workspace before publishing with:
 
