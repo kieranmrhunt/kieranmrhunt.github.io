@@ -7,11 +7,14 @@ and JASMIN GWS mirrors, then falls back within a fraction of a second to a
 map usable during a hosting outage and is labelled clearly in the timeline.
 
 The upstream composite currently contains nominal ten-minute frames. The page
-checks for updates every five minutes and offers a continuous slider whose
+checks for updates every five minutes and offers a continuous rolling 72-hour
+slider whose
 intermediate positions are visibly labelled cross-fades between observations.
 The client preloads palette-indexed daily packs into a dedicated 224 x 256 canvas,
-so dragging needs no radar request or image decode; releasing restores the full
-1792 x 2048 imagery. Separate 448 x 512 previews remain as a compatibility fallback.
+limited to the visible period, so dragging needs no radar request or image decode;
+releasing restores the full 1792 x 2048 imagery. Separate 448 x 512 previews remain
+as a compatibility fallback. Older observations remain in the server archive but
+are deliberately excluded from the phone slider to preserve fine time control.
 At every position, a single canvas layer renders ILDN strokes from the preceding
 two hours, with colour, size, and opacity showing their age. Hour-sized chunks and
 compressed daily display packs keep archive browsing responsive on phones.
@@ -27,6 +30,19 @@ inpainted from adjacent pixels. Unmistakable solid block corruption triggers
 whole-frame temporal reconstruction between clean neighbours. The original
 source frames are retained in the private archive, and the public manifest
 exposes filter diagnostics.
+
+Render a reproducible 780 x 1688 Android-view timelapse after starting a local
+server for the GitHub Pages checkout. Chrome, FFmpeg, and the Python
+`websocket-client` package are required:
+
+```bash
+python3 github-pages/india-radar/tools/render_android_timelapse.py \
+  --url http://127.0.0.1:8765/india-radar/ \
+  --output videos/india-radar-72h-android.mp4
+```
+
+The renderer also writes machine-readable timeline, cache, interaction, and
+viewport QA with `--qa-json`.
 
 Refresh the emergency snapshot from the ILDN workspace before publishing with:
 

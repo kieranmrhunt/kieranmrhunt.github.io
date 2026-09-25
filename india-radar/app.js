@@ -16,6 +16,8 @@
     emergencyManifestEndpoint,
   ].filter(Boolean))];
   const FIVE_MINUTES = 300;
+  const DAY_SECONDS = 86400;
+  const TIMELINE_WINDOW_SECONDS = 72 * 3600;
   const LIGHTNING_WINDOW_SECONDS = 7200;
   const LIGHTNING_AGE_STOPS = [
     { seconds: 0, colour: [255, 240, 90] },
@@ -985,10 +987,20 @@
   }
 
   async function refreshRadarScrubPacks(manifest, radarEndpoint) {
-    const summaries = Array.isArray(manifest.scrub_packs) ? manifest.scrub_packs : [];
+    const available = Array.isArray(manifest.scrub_packs) ? manifest.scrub_packs : [];
+    const sourceInterval = Number(manifest.source_interval_seconds || 600);
+    const summaries = packSummariesForTimeline(
+      available,
+      sourceInterval,
+      sourceInterval,
+    );
     if (!summaries.length) {
       state.radarScrubReady = false;
       return false;
+    }
+    const selectedDays = new Set(summaries.map((summary) => summary.day));
+    for (const day of state.radarScrubPacks.keys()) {
+      if (!selectedDays.has(day)) state.radarScrubPacks.delete(day);
     }
     const token = ++state.radarScrubLoadToken;
     const pending = summaries.map(async (summary) => {
@@ -1012,7 +1024,11 @@
     for (const pack of state.radarScrubPacks.values()) {
       for (const [epoch, record] of pack.records) state.radarScrubFrames.set(epoch, record);
     }
-    state.radarScrubReady = manifest.frames.every((frame) => (
+    const bounds = timelineBounds(sourceInterval, sourceInterval);
+    const visibleFrames = manifest.frames.filter((frame) => (
+      bounds && Number(frame.time) >= bounds.first && Number(frame.time) <= bounds.last
+    ));
+    state.radarScrubReady = visibleFrames.length > 0 && visibleFrames.every((frame) => (
       state.radarScrubFrames.has(Number(frame.time))
     ));
     return state.radarScrubReady;
@@ -1047,10 +1063,25 @@
   }
 
   async function refreshLightningDisplayPacks(payload, radarEndpoint) {
-    const summaries = Array.isArray(payload.display_packs) ? payload.display_packs : [];
+    const available = Array.isArray(payload.display_packs) ? payload.display_packs : [];
+    const summaries = packSummariesForTimeline(
+      available,
+      LIGHTNING_WINDOW_SECONDS,
+      0,
+    );
     if (!summaries.length) {
       state.lightningPackedReady = false;
       return false;
+    }
+    const selectedDays = new Set(summaries.map((summary) => summary.day));
+    for (const day of state.lightningDisplayPacks.keys()) {
+      if (!selectedDays.has(day)) state.lightningDisplayPacks.delete(day);
+    }
+    const bounds = timelineBounds(LIGHTNING_WINDOW_SECONDS, 0);
+    for (const [hour, entry] of state.lightningCache) {
+      if (bounds && hour <= bounds.last && hour + 3600 > bounds.first) continue;
+      if (entry.controller) entry.controller.abort();
+      state.lightningCache.delete(hour);
     }
     const pending = summaries.map(async (summary) => {
       const old = state.lightningDisplayPacks.get(summary.day);
@@ -1075,7 +1106,12 @@
         state.lightningCache.set(hour, entry);
       }
     });
-    state.lightningPackedReady = payload.hours.every((summary) => (
+    const visibleHours = payload.hours.filter((summary) => (
+      bounds
+      && Number(summary.time) <= bounds.last
+      && Number(summary.time) + 3600 > bounds.first
+    ));
+    state.lightningPackedReady = visibleHours.length > 0 && visibleHours.every((summary) => (
       Number(summary.count) === 0 || Boolean(state.lightningCache.get(Number(summary.time))?.data)
     ));
     if (state.lightningPackedReady) {
@@ -1151,10 +1187,36 @@
     state.frames = [...state.frameByTime.values()].sort((a, b) => a.time - b.time);
   }
 
+  function timelineBounds(beforeSeconds = 0, afterSeconds = 0) {
+    if (!state.timeline.length) return null;
+    return {
+      first: state.timeline[0] - beforeSeconds,
+      last: state.timeline[state.timeline.length - 1] + afterSeconds,
+    };
+  }
+
+  function packSummariesForTimeline(summaries, beforeSeconds = 0, afterSeconds = 0) {
+    const bounds = timelineBounds(beforeSeconds, afterSeconds);
+    if (!bounds) return [];
+    return summaries.filter((summary) => {
+      const start = Date.parse(`${summary.day}T00:00:00Z`) / 1000;
+      return Number.isFinite(start)
+        && start <= bounds.last
+        && start + DAY_SECONDS > bounds.first;
+    });
+  }
+
   function rebuildTimeline(preserveTime = null) {
     if (!state.frames.length || !state.manifest) return;
-    const first = Number(state.manifest.first_time != null ? state.manifest.first_time : state.frames[0].time);
+    const archiveFirst = Number(state.manifest.first_time != null
+      ? state.manifest.first_time
+      : state.frames[0].time);
     const last = Number(state.manifest.latest_time != null ? state.manifest.latest_time : state.frames[state.frames.length - 1].time);
+    const first = Math.ceil(Math.max(
+      archiveFirst,
+      state.frames[0].time,
+      last - TIMELINE_WINDOW_SECONDS,
+    ) / FIVE_MINUTES) * FIVE_MINUTES;
     state.timeline = [];
     for (let time = first; time <= last; time += FIVE_MINUTES) state.timeline.push(time);
 
@@ -1164,6 +1226,14 @@
     controls.timeRange.value = String(state.index);
     controls.rangeStart.textContent = shortRangeLabel(first);
     controls.rangeEnd.textContent = shortRangeLabel(last);
+    controls.datePicker.min = dateInIst(first);
+    controls.datePicker.max = dateInIst(last);
+    if (!controls.datePicker.value || controls.datePicker.value < controls.datePicker.min) {
+      controls.datePicker.value = controls.datePicker.min;
+    }
+    if (controls.datePicker.value > controls.datePicker.max) {
+      controls.datePicker.value = controls.datePicker.max;
+    }
     updateArchiveSummary();
   }
 
@@ -1768,7 +1838,11 @@
       do {
         state.archiveWarmRequested = false;
         const centre = epochAtIndex();
+        const bounds = timelineBounds(FIVE_MINUTES, FIVE_MINUTES);
         const radarCandidates = state.frames
+          .filter((frame) => (
+            bounds && frame.time >= bounds.first && frame.time <= bounds.last
+          ))
           .map((frame) => ({
             url: frameUrl(frame, true),
             bytes: Math.max(
@@ -1829,8 +1903,15 @@
       do {
         state.lightningWarmRequested = false;
         const centre = epochAtIndex();
+        const bounds = timelineBounds(LIGHTNING_WINDOW_SECONDS, 0);
         const summaries = [...state.lightningHours.values()]
-          .filter((summary) => Number(summary.count) > 0 && !state.lightningCache.has(summary.time))
+          .filter((summary) => (
+            bounds
+            && summary.time <= bounds.last
+            && summary.time + 3600 > bounds.first
+            && Number(summary.count) > 0
+            && !state.lightningCache.has(summary.time)
+          ))
           .sort((a, b) => Math.abs(a.time - centre) - Math.abs(b.time - centre))
           .slice(0, LIGHTNING_CACHE_SIZE);
         let cursor = 0;
@@ -2268,14 +2349,14 @@
 
   function updateArchiveSummary() {
     if (!state.frames.length || !state.manifest) return;
-    const first = Number(state.manifest.first_time != null ? state.manifest.first_time : state.frames[0].time);
-    const last = Number(state.manifest.latest_time != null ? state.manifest.latest_time : state.frames[state.frames.length - 1].time);
+    const first = state.timeline[0];
+    const last = state.timeline[state.timeline.length - 1];
     const hours = Math.max(0, (last - first) / 3600);
-    const sourceFrames = Number(state.manifest.frame_count != null ? state.manifest.frame_count : state.frames.length).toLocaleString('en-GB');
+    const sourceFrames = state.frames.filter((frame) => (
+      frame.time >= first && frame.time <= last
+    )).length.toLocaleString('en-GB');
     const prefix = state.usingEmergencySnapshot ? 'Saved copy · ' : '';
-    controls.archiveSummary.textContent = prefix + (hours < 48
-      ? `${sourceFrames} source frames · ${hours.toFixed(hours < 10 ? 1 : 0)} h archived`
-      : `${sourceFrames} source frames · ${Math.round(hours / 24)} days archived`);
+    controls.archiveSummary.textContent = `${prefix}${sourceFrames} source frames · last ${Math.round(hours)} h`;
   }
 
   async function refreshManifest({ initial = false } = {}) {
@@ -2295,10 +2376,8 @@
       state.monthUrls.clear();
       for (const month of result.payload.months || []) state.monthUrls.set(month.month, month.url);
       if (!state.frames.length) throw new Error('the radar archive contains no frames yet');
-      controls.datePicker.min = dateInIst(Number(result.payload.first_time));
-      controls.datePicker.max = dateInIst(Number(result.payload.latest_time));
-      if (initial) controls.datePicker.value = controls.datePicker.max;
       rebuildTimeline(wasLatest ? null : selectedEpoch);
+      if (initial) controls.datePicker.value = controls.datePicker.max;
       if (initial) controls.timeRange.disabled = true;
       const radarPacked = refreshRadarScrubPacks(result.payload, result.endpoint).catch(() => false);
       const lightningPacked = refreshLightningManifest(result.endpoint).catch(() => false);
