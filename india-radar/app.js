@@ -2356,7 +2356,7 @@
       frame.time >= first && frame.time <= last
     )).length.toLocaleString('en-GB');
     const prefix = state.usingEmergencySnapshot ? 'Saved copy · ' : '';
-    controls.archiveSummary.textContent = `${prefix}${sourceFrames} source frames · last ${Math.round(hours)} h`;
+    controls.archiveSummary.textContent = `${prefix}${sourceFrames} observations · last ${Math.round(hours)} h`;
   }
 
   async function refreshManifest({ initial = false } = {}) {
@@ -2618,6 +2618,21 @@
     if (event.key === 'ArrowRight') { event.preventDefault(); step(1); }
     if (event.key === ' ') { event.preventDefault(); togglePlayback(); }
   });
+
+  if (new URLSearchParams(window.location.search).has('capture')) {
+    window.__indiaRadarCapture = {
+      renderHighResolution(index) {
+        cancelQueuedScrub();
+        cancelQueuedScrubRadar();
+        cancelQueuedScrubLightning();
+        return renderIndex(index, {
+          prefetch: false,
+          lightningImmediate: true,
+        });
+      },
+    };
+  }
+
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) pausePlayback();
     else refreshManifest();

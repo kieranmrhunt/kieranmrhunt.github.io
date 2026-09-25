@@ -31,7 +31,7 @@ whole-frame temporal reconstruction between clean neighbours. The original
 source frames are retained in the private archive, and the public manifest
 exposes filter diagnostics.
 
-Render a reproducible 780 x 1688 Android-view timelapse after starting a local
+Render a reproducible 780 x 1266 Android-view timelapse after starting a local
 server for the GitHub Pages checkout. Chrome, FFmpeg, and the Python
 `websocket-client` package are required:
 
@@ -42,7 +42,9 @@ python3 github-pages/india-radar/tools/render_android_timelapse.py \
 ```
 
 The renderer also writes machine-readable timeline, cache, interaction, and
-viewport QA with `--qa-json`.
+viewport QA with `--qa-json`. It waits for the full 1792 x 2048 radar layers at
+every captured position and encodes the 72-hour sweep at 60 frames per second,
+producing a video of roughly 14.4 seconds.
 
 Refresh the emergency snapshot from the ILDN workspace before publishing with:
 

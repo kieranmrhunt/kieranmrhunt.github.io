@@ -39,7 +39,7 @@
   </div>
 
   <aside class="radar-key" id="radarKey" data-state="on" aria-label="Radar intensity key">
-    <span class="key-title">Relative intensity</span>
+    <span class="key-title">Relative rainfall intensity</span>
     <span class="key-gradient" aria-hidden="true"></span>
     <span class="key-labels"><span>Light</span><span>Heavy</span></span>
   </aside>
@@ -76,7 +76,7 @@
         <span class="selected-date" id="selectedDate">Waiting for data</span>
       </div>
       <div class="frame-badges">
-        <span class="frame-kind" id="frameKind">Source frame</span>
+        <span id="frameKind" hidden></span>
         <button class="latest-button" id="latestButton" type="button">Latest</button>
       </div>
     </div>
@@ -94,7 +94,7 @@
       </button>
       <div class="range-wrap">
         <input id="timeRange" type="range" min="0" max="0" value="0" step="any" aria-label="Radar time">
-        <div class="range-labels"><span id="rangeStart">—</span><span>Continuous interpolation</span><span id="rangeEnd">—</span></div>
+        <div class="range-labels"><span id="rangeStart">—</span><span id="rangeEnd">—</span></div>
       </div>
     </div>
 
@@ -117,7 +117,7 @@
       <dl>
         <div><dt>Update check</dt><dd>Every five minutes</dd></div>
         <div><dt>Observed frames</dt><dd>Nominally every ten minutes</dd></div>
-        <div><dt>Between observations</dt><dd>A continuous cross-fade between adjacent source frames</dd></div>
+        <div><dt>Between observations</dt><dd>A cross-fade between adjacent radar observations</dd></div>
         <div><dt>Lightning history</dt><dd>Previous two hours, with separate visible-map and India-land counts; colour and size show age</dd></div>
         <div><dt>Map resolution</dt><dd>Web-Mercator zoom 6, approximately 2–3 km per pixel over India</dd></div>
         <div><dt>Radar cleaning</dt><dd>Persistent radial spokes are inpainted; clearly corrupt block frames are reconstructed from clean time neighbours</dd></div>
@@ -150,6 +150,6 @@
 
   <noscript><div class="noscript">This animated radar requires JavaScript.</div></noscript>
   <script src="./vendor/leaflet/leaflet.js?v=1.9.4"></script>
-  <script src="./app.js?v=16" defer></script>
+  <script src="./app.js?v=17" defer></script>
 </body>
 </html>

@@ -6,9 +6,11 @@ from __future__ import annotations
 import argparse
 import base64
 import json
-import re
 import math
+import os
+import re
 import shutil
+import signal
 import statistics
 import subprocess
 import tempfile
@@ -158,6 +160,7 @@ def wait_for_dashboard(cdp: Cdp, timeout: float = 120) -> None:
       && range && !range.disabled
       && Number(range.max) > 0
       && window.__indiaRadarCaptureMap
+      && window.__indiaRadarCapture
     ),
     loading: loading ? loading.hidden : null,
     disabled: range ? range.disabled : null,
@@ -233,6 +236,26 @@ new Promise((resolve) => {{
 }})
 """
     cdp.evaluate(expression, await_promise=True)
+
+
+def render_high_resolution(cdp: Cdp, index: float, delay_ms: int) -> list[dict]:
+    expression = f"""
+(async () => {{
+  await window.__indiaRadarCapture.renderHighResolution({index:.9f});
+  await new Promise((resolve) => requestAnimationFrame(
+    () => setTimeout(resolve, {delay_ms})
+  ));
+  return [...document.querySelectorAll('.leaflet-radar-pane img.leaflet-image-layer')]
+    .filter((image) => image.src.includes('/frames/'))
+    .map((image) => ({{
+      width: image.naturalWidth,
+      height: image.naturalHeight,
+      complete: image.complete,
+      opacity: Number(image.style.opacity || 0),
+    }}));
+}})()
+"""
+    return cdp.evaluate(expression, await_promise=True)
 
 
 def dashboard_snapshot(cdp: Cdp) -> dict:
@@ -406,7 +429,12 @@ def render_frames(
     ))
     for frame_number in range(frame_count):
         ratio = frame_number / max(1, frame_count - 1)
-        set_slider(cdp, maximum * ratio, delay_ms)
+        layers = render_high_resolution(cdp, maximum * ratio, delay_ms)
+        if not any(
+            layer["complete"] and layer["width"] >= 1000 and layer["height"] >= 1000
+            for layer in layers
+        ):
+            raise RuntimeError(f"Full-resolution radar was not ready at frame {frame_number}")
         capture_screenshot(
             cdp,
             frames_dir / f"frame_{frame_number:04d}.jpg",
@@ -424,15 +452,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--qa-json", type=Path)
     parser.add_argument("--qa-only", action="store_true")
     parser.add_argument("--width", type=int, default=390)
-    parser.add_argument("--height", type=int, default=844)
+    parser.add_argument("--height", type=int, default=633)
     parser.add_argument("--device-scale-factor", type=float, default=2)
     parser.add_argument("--south", type=float, default=4.0)
     parser.add_argument("--west", type=float, default=73.0)
     parser.add_argument("--north", type=float, default=31.5)
     parser.add_argument("--east", type=float, default=90.0)
     parser.add_argument("--frames", type=int, default=865)
-    parser.add_argument("--fps", type=int, default=30)
-    parser.add_argument("--settle-ms", type=int, default=54)
+    parser.add_argument("--fps", type=int, default=60)
+    parser.add_argument("--settle-ms", type=int, default=24)
     parser.add_argument("--jpeg-quality", type=int, default=88)
     return parser.parse_args()
 
@@ -447,6 +475,14 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory(prefix="india-radar-chrome-") as profile_name:
         profile = Path(profile_name)
+
+        parsed_url = urllib.parse.urlsplit(args.url)
+        query = urllib.parse.parse_qsl(parsed_url.query, keep_blank_values=True)
+        query = [(key, value) for key, value in query if key != "capture"]
+        query.append(("capture", "1"))
+        capture_url = urllib.parse.urlunsplit(parsed_url._replace(
+            query=urllib.parse.urlencode(query),
+        ))
         chrome_command = [
             chrome,
             "--headless=new",
@@ -458,17 +494,18 @@ def main() -> int:
             "--remote-debugging-port=0",
             f"--user-data-dir={profile}",
             f"--window-size={args.width},{args.height}",
-            args.url,
+            capture_url,
         ]
         process = subprocess.Popen(
             chrome_command,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            start_new_session=True,
         )
         cdp = None
         try:
             port = wait_for_devtools(profile, process)
-            websocket_url = wait_for_page(port, urllib.parse.urlparse(args.url).path)
+            websocket_url = wait_for_page(port, urllib.parse.urlparse(capture_url).path)
             cdp = Cdp(websocket_url)
             for domain in ("Page", "Runtime", "Network", "Log"):
                 cdp.call(f"{domain}.enable")
@@ -514,7 +551,7 @@ def main() -> int:
             maximum = float(cdp.evaluate(
                 "Number(document.querySelector('#timeRange').max)"
             ))
-            set_slider(cdp, maximum, 80)
+            high_resolution_radar = render_high_resolution(cdp, maximum, args.settle_ms)
             qa = dashboard_snapshot(cdp)
             qa.update({
                 "requestedBounds": {
@@ -534,6 +571,7 @@ def main() -> int:
                     "lightningDays": pack_days(cdp.requests, "lightning_pack"),
                 },
                 "browserErrors": cdp.errors,
+                "highResolutionRadar": high_resolution_radar,
             })
 
             span = qa["timeline"]["spanSeconds"]
@@ -548,6 +586,12 @@ def main() -> int:
                 "lightningOn": "true",
             }:
                 raise RuntimeError(f"Layer toggles failed: {qa['toggles']}")
+
+            if not any(
+                layer["complete"] and layer["width"] >= 1000 and layer["height"] >= 1000
+                for layer in qa["highResolutionRadar"]
+            ):
+                raise RuntimeError("High-resolution radar validation failed")
 
             rendered_qa = json.dumps(qa, indent=2, sort_keys=True)
             print(rendered_qa, flush=True)
@@ -572,12 +616,19 @@ def main() -> int:
         finally:
             if cdp is not None:
                 cdp.close()
-            process.terminate()
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
             try:
                 process.wait(timeout=8)
             except subprocess.TimeoutExpired:
-                process.kill()
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
                 process.wait()
+            time.sleep(0.25)
     return 0
 
 
